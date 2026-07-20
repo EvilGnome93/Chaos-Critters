@@ -37,8 +37,28 @@ def _matcht(naam: str, soort: PetSoort) -> bool:
     return naam == soort.naam.lower() or naam == _primaire_naam(soort.naam).lower()
 
 
-async def _kies_random_soort(session) -> tuple[PetSoort, Tier]:
-    tiers = (await session.execute(select(Tier))).scalars().all()
+async def _kies_random_soort(
+    session, *, tier_id: int | None = None, naam: str | None = None
+) -> tuple[PetSoort, Tier]:
+    if naam:
+        soort = await session.scalar(select(PetSoort).where(PetSoort.naam.ilike(naam.strip())))
+        if soort is None:
+            alle = (await session.execute(select(PetSoort))).scalars().all()
+            soort = next(
+                (s for s in alle if _primaire_naam(s.naam).lower() == naam.strip().lower()), None
+            )
+        if soort is None:
+            raise ValueError(f"Onbekende pet-soort: '{naam}'.")
+        tier = await session.get(Tier, soort.tier_id)
+        return soort, tier
+
+    tiers_query = select(Tier)
+    if tier_id is not None:
+        tiers_query = tiers_query.where(Tier.id == tier_id)
+    tiers = (await session.execute(tiers_query)).scalars().all()
+    if not tiers:
+        raise ValueError(f"Onbekend tier: {tier_id}.")
+
     tier = random.choices(tiers, weights=[float(t.spawnkans) for t in tiers], k=1)[0]
     soorten = (
         (await session.execute(select(PetSoort).where(PetSoort.tier_id == tier.id))).scalars().all()
@@ -126,9 +146,14 @@ class VangenCog(commands.Cog):
         except asyncio.CancelledError:
             pass
 
-    async def _spawn(self, channel: discord.abc.Messageable) -> None:
+    async def _spawn(
+        self, channel: discord.abc.Messageable, *, tier_id: int | None = None, naam: str | None = None
+    ) -> None:
         async with async_session() as session:
-            soort, tier = await _kies_random_soort(session)
+            soort, tier = await _kies_random_soort(session, tier_id=tier_id, naam=naam)
+        await self._stuur_spawn_embed(channel, soort, tier)
+
+    async def _stuur_spawn_embed(self, channel: discord.abc.Messageable, soort: PetSoort, tier: Tier) -> None:
         self.actieve_spawns[channel.id] = soort
 
         embed = discord.Embed(
@@ -232,11 +257,47 @@ class VangenCog(commands.Cog):
             f"{kanaal.mention} is geen spawn-kanaal meer.", ephemeral=True
         )
 
+    async def _naam_autocomplete(
+        self, interaction: discord.Interaction, huidig: str
+    ) -> list[app_commands.Choice[str]]:
+        async with async_session() as session:
+            namen = (await session.execute(select(PetSoort.naam))).scalars().all()
+        huidig = huidig.lower()
+        return [
+            app_commands.Choice(name=naam, value=naam) for naam in namen if huidig in naam.lower()
+        ][:25]
+
     @app_commands.command(name="spawn", description="Forceer direct een spawn in dit kanaal (admin/test)")
+    @app_commands.describe(
+        tier="Beperk de spawn tot dit tier (optioneel, genegeerd als naam is ingevuld)",
+        naam="Forceer een specifieke pet-soort (optioneel)",
+    )
+    @app_commands.choices(
+        tier=[
+            app_commands.Choice(name="Common", value=1),
+            app_commands.Choice(name="Rare", value=3),
+            app_commands.Choice(name="Legendary", value=5),
+        ]
+    )
+    @app_commands.autocomplete(naam=_naam_autocomplete)
     @app_commands.default_permissions(administrator=True)
-    async def spawn(self, interaction: discord.Interaction) -> None:
+    async def spawn(
+        self,
+        interaction: discord.Interaction,
+        tier: app_commands.Choice[int] | None = None,
+        naam: str | None = None,
+    ) -> None:
+        try:
+            async with async_session() as session:
+                soort, gekozen_tier = await _kies_random_soort(
+                    session, tier_id=tier.value if tier else None, naam=naam
+                )
+        except ValueError as e:
+            await interaction.response.send_message(str(e), ephemeral=True)
+            return
+
         await interaction.response.send_message("Spawn geforceerd.", ephemeral=True)
-        await self._spawn(interaction.channel)
+        await self._stuur_spawn_embed(interaction.channel, soort, gekozen_tier)
         await send_log(
             self.bot,
             interaction.guild_id,
@@ -244,7 +305,7 @@ class VangenCog(commands.Cog):
             fmt_log(
                 "🟡",
                 "spawn",
-                f"{interaction.user.mention} forceerde handmatig een spawn in {interaction.channel.mention}",
+                f"{interaction.user.mention} forceerde handmatig een spawn ({soort.naam}) in {interaction.channel.mention}",
             ),
         )
 
