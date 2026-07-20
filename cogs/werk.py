@@ -9,6 +9,7 @@ from discord.ext import commands
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+import config
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
@@ -16,22 +17,52 @@ from utils.discord_log import fmt_log, send_log
 log = logging.getLogger("gamename")
 
 CURRENCY_PER_GRONDSTOF = 2  # placeholder balans-waarde, later bij te stellen
-NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 120
+NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120
 
 
 @dataclass(frozen=True)
 class Cyclus:
     label: str
-    duur_uren: float
+    duur_uren: float  # werkelijke wachttijd (kort in dev, om te testen)
+    reward_duur_uren: float  # altijd de echte brief-waarde, voor de opbrengst-berekening
     energie_kost: int
     output_multiplier: float
 
 
+# In dev duurt elke shift 1 testminuut i.p.v. uren, maar de opbrengst blijft
+# hetzelfde alsof de volledige (echte) cyclus is verstreken.
+_ECHTE_DUUR_UREN = {"korte": 2, "lange": 6, "overnacht": 10}
+_TEST_DUUR_UREN = 1 / 60
+
 WERK_CYCLI = {
-    "korte": Cyclus("Korte shift", 2, 20, 1.0),
-    "lange": Cyclus("Lange shift", 6, 50, 2.8),
-    "overnacht": Cyclus("Overnacht", 10, 70, 4.5),
+    "korte": Cyclus(
+        "Korte shift",
+        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["korte"],
+        _ECHTE_DUUR_UREN["korte"],
+        20,
+        1.0,
+    ),
+    "lange": Cyclus(
+        "Lange shift",
+        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["lange"],
+        _ECHTE_DUUR_UREN["lange"],
+        50,
+        2.8,
+    ),
+    "overnacht": Cyclus(
+        "Overnacht",
+        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["overnacht"],
+        _ECHTE_DUUR_UREN["overnacht"],
+        70,
+        4.5,
+    ),
 }
+
+
+def _format_duur(uren: float) -> str:
+    if uren < 1:
+        return f"{round(uren * 60)} minuten"
+    return f"{uren:g} uur"
 
 
 def _nu() -> datetime:
@@ -183,7 +214,7 @@ class WerkCog(commands.Cog):
 
             await interaction.response.send_message(
                 f"👷 **{huisdier.naam}** is aan het werk gezet in **{werkplek_obj.type}** "
-                f"({cyclus_info.label}, klaar over {cyclus_info.duur_uren:g} uur).",
+                f"({cyclus_info.label}, klaar over {_format_duur(cyclus_info.duur_uren)}).",
                 ephemeral=True,
             )
             await send_log(
@@ -204,9 +235,8 @@ class WerkCog(commands.Cog):
         resterend = timedelta(hours=cyclus_info.duur_uren) - verstreken
 
         if resterend > timedelta(0):
-            uren = resterend.total_seconds() / 3600
             await interaction.response.send_message(
-                f"**{huisdier.naam}** is nog aan het werk. Nog ongeveer {uren:.1f} uur te gaan.",
+                f"**{huisdier.naam}** is nog aan het werk. Nog ongeveer {_format_duur(resterend.total_seconds() / 3600)} te gaan.",
                 ephemeral=True,
             )
             return
@@ -214,7 +244,7 @@ class WerkCog(commands.Cog):
         werkplek_obj = await session.get(Werkplek, huisdier.werkplek_type_id)
         item = await session.get(Item, werkplek_obj.opbrengst_item_id)
 
-        effectieve_uren = cyclus_info.duur_uren * cyclus_info.output_multiplier
+        effectieve_uren = cyclus_info.reward_duur_uren * cyclus_info.output_multiplier
         grondstof_aantal = max(
             1, round(float(werkplek_obj.output_per_uur) * effectieve_uren * (float(huisdier.werk_genen) / 100))
         )

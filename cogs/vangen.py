@@ -8,6 +8,7 @@ from discord.ext import commands
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
+import config
 from db.engine import async_session
 from db.models import Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
 from utils.discord_log import fmt_log, send_log
@@ -15,8 +16,12 @@ from utils.discord_log import fmt_log, send_log
 log = logging.getLogger("gamename")
 
 GENEN_VARIANTIE = 0.10  # +/- 10% rond de soort-basiswaarde
-TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
-TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
+
+if config.ENVIRONMENT == "dev":
+    TIJD_TRIGGER_MIN_SECONDEN = TIJD_TRIGGER_MAX_SECONDEN = 30 * 60
+else:
+    TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
+    TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
 
 TIER_KLEUREN = {1: 0x95A5A6, 3: 0x3498DB, 5: 0xF1C40F}  # Common grijs, Rare blauw, Legendary goud
 PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff/png?text=%3F"  # tot er echte pet-art is

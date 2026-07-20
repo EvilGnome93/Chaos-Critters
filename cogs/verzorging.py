@@ -6,7 +6,7 @@ from discord.ext import commands
 from sqlalchemy import select
 
 from cogs.vangen import TIER_KLEUREN
-from cogs.werk import WERK_CYCLI, _nu
+from cogs.werk import WERK_CYCLI, _format_duur, _nu
 from db.engine import async_session
 from db.models import Huisdier, PetStatus
 
@@ -54,8 +54,7 @@ def _werk_status(pet: Huisdier) -> str:
     resterend = timedelta(hours=cyclus_info.duur_uren) - (_nu() - pet.werk_gestart_op)
     if resterend <= timedelta(0):
         return "👷 Klaar! Gebruik `/werk` om op te halen"
-    uren = resterend.total_seconds() / 3600
-    return f"👷 Aan het werk, nog {uren:.1f} uur"
+    return f"👷 Aan het werk, nog {_format_duur(resterend.total_seconds() / 3600)}"
 
 
 class PetLijstView(discord.ui.View):
