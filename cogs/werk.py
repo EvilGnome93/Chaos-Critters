@@ -263,7 +263,8 @@ class WerkCog(commands.Cog):
 
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
-            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} currency."
+            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} currency.",
+            ephemeral=True,
         )
         await send_log(
             self.bot,
