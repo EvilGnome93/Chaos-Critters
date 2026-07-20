@@ -63,6 +63,7 @@ class PetSoort(Base):
     werk_basis: Mapped[float] = mapped_column(Numeric(6, 2))
     werkplek_voorkeur_id: Mapped[int | None] = mapped_column(ForeignKey("werkplekken.id"), nullable=True)
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    afbeelding_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     tier: Mapped["Tier"] = relationship(back_populates="pet_soorten")
     werkplek_voorkeur: Mapped["Werkplek | None"] = relationship(back_populates="pet_soorten")

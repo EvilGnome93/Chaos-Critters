@@ -18,6 +18,9 @@ GENEN_VARIANTIE = 0.10  # +/- 10% rond de soort-basiswaarde
 TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
 TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
 
+TIER_KLEUREN = {1: 0x95A5A6, 3: 0x3498DB, 5: 0xF1C40F}  # Common grijs, Rare blauw, Legendary goud
+PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff?text=%3F"  # tot er echte pet-art is
+
 
 def _met_variantie(basis: float) -> float:
     factor = 1 + random.uniform(-GENEN_VARIANTIE, GENEN_VARIANTIE)
@@ -34,13 +37,13 @@ def _matcht(naam: str, soort: PetSoort) -> bool:
     return naam == soort.naam.lower() or naam == _primaire_naam(soort.naam).lower()
 
 
-async def _kies_random_soort(session) -> PetSoort:
+async def _kies_random_soort(session) -> tuple[PetSoort, Tier]:
     tiers = (await session.execute(select(Tier))).scalars().all()
     tier = random.choices(tiers, weights=[float(t.spawnkans) for t in tiers], k=1)[0]
     soorten = (
         (await session.execute(select(PetSoort).where(PetSoort.tier_id == tier.id))).scalars().all()
     )
-    return random.choice(soorten)
+    return random.choice(soorten), tier
 
 
 async def _nieuwe_drempel() -> int:
@@ -125,9 +128,17 @@ class VangenCog(commands.Cog):
 
     async def _spawn(self, channel: discord.abc.Messageable) -> None:
         async with async_session() as session:
-            soort = await _kies_random_soort(session)
+            soort, tier = await _kies_random_soort(session)
         self.actieve_spawns[channel.id] = soort
-        await channel.send(f"🐾 Een wilde **{soort.naam}** verschijnt! Typ `/vang {soort.naam}` om 'm te vangen.")
+
+        embed = discord.Embed(
+            title=f"🐾 Een wilde {soort.naam} verschijnt!",
+            description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
+            color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
+        )
+        embed.set_footer(text=f"Tier: {tier.naam}")
+        embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
+        await channel.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
