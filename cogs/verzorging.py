@@ -26,6 +26,13 @@ SORTEER_OPTIES = {
     "werk": "Werkstatus",
 }
 
+SORTEER_LABELS = {
+    "sorteer_id": "ID",
+    "sorteer_level": "Level",
+    "sorteer_naam": "Naam",
+    "sorteer_werk": "Werkstatus",
+}
+
 
 def _sorteer(pets: list[Huisdier], sortering: str) -> list[Huisdier]:
     if sortering == "level":
@@ -70,9 +77,8 @@ class PetLijstView(discord.ui.View):
         self.volgende.disabled = self.pagina >= self.max_pagina
         for knop in (self.sorteer_id, self.sorteer_level, self.sorteer_naam, self.sorteer_werk):
             waarde = knop.custom_id.removeprefix("sorteer_")
-            knop.style = (
-                discord.ButtonStyle.primary if waarde == self.sortering else discord.ButtonStyle.secondary
-            )
+            basis = SORTEER_LABELS[knop.custom_id]
+            knop.label = f"✅ {basis}" if waarde == self.sortering else basis
 
     def huidige_embed(self) -> discord.Embed:
         start = self.pagina * PETS_PER_PAGINA
@@ -106,13 +112,13 @@ class PetLijstView(discord.ui.View):
         except discord.HTTPException:
             pass
 
-    @discord.ui.button(label="◀ Vorige", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="◀ Vorige", style=discord.ButtonStyle.primary, row=0)
     async def vorige(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         self.pagina -= 1
         self._update_knoppen()
         await interaction.response.edit_message(embed=self.huidige_embed(), view=self)
 
-    @discord.ui.button(label="Volgende ▶", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="Volgende ▶", style=discord.ButtonStyle.primary, row=0)
     async def volgende(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         self.pagina += 1
         self._update_knoppen()
@@ -129,7 +135,7 @@ class PetLijstView(discord.ui.View):
     async def sorteer_id(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "id")
 
-    @discord.ui.button(label="Level", style=discord.ButtonStyle.secondary, row=1, custom_id="sorteer_level")
+    @discord.ui.button(label="Level", style=discord.ButtonStyle.success, row=1, custom_id="sorteer_level")
     async def sorteer_level(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "level")
 
@@ -137,7 +143,7 @@ class PetLijstView(discord.ui.View):
     async def sorteer_naam(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "naam")
 
-    @discord.ui.button(label="Werkstatus", style=discord.ButtonStyle.secondary, row=1, custom_id="sorteer_werk")
+    @discord.ui.button(label="Werkstatus", style=discord.ButtonStyle.danger, row=1, custom_id="sorteer_werk")
     async def sorteer_werk(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "werk")
 
