@@ -24,8 +24,14 @@ def _met_variantie(basis: float) -> float:
     return round(max(1.0, float(basis) * factor), 2)
 
 
+def _primaire_naam(naam: str) -> str:
+    """'Hond (Zwerfhond)' -> 'Hond'; namen zonder haakjes blijven ongewijzigd."""
+    return naam.split(" (")[0]
+
+
 def _matcht(naam: str, soort: PetSoort) -> bool:
-    return naam.strip().lower() == soort.naam.lower()
+    naam = naam.strip().lower()
+    return naam == soort.naam.lower() or naam == _primaire_naam(soort.naam).lower()
 
 
 async def _kies_random_soort(session) -> PetSoort:
