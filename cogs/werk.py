@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +13,10 @@ from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
 
+log = logging.getLogger("gamename")
+
 CURRENCY_PER_GRONDSTOF = 2  # placeholder balans-waarde, later bij te stellen
+NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 120
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,50 @@ class WerkCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        self.notificatie_taak: asyncio.Task | None = None
+
+    async def cog_load(self) -> None:
+        self.notificatie_taak = asyncio.create_task(self._notificatie_loop())
+
+    async def cog_unload(self) -> None:
+        if self.notificatie_taak:
+            self.notificatie_taak.cancel()
+
+    async def _notificatie_loop(self) -> None:
+        try:
+            while True:
+                await asyncio.sleep(NOTIFICATIE_CHECK_INTERVAL_SECONDEN)
+                await self._stuur_klaar_notificaties()
+        except asyncio.CancelledError:
+            pass
+
+    async def _stuur_klaar_notificaties(self) -> None:
+        async with async_session() as session:
+            kandidaten = (
+                await session.execute(
+                    select(Huisdier).where(
+                        Huisdier.status == PetStatus.werkplek,
+                        Huisdier.werk_notificatie_verstuurd.is_(False),
+                    )
+                )
+            ).scalars().all()
+
+            for huisdier in kandidaten:
+                cyclus_info = WERK_CYCLI[huisdier.werk_cyclus]
+                if _nu() - huisdier.werk_gestart_op < timedelta(hours=cyclus_info.duur_uren):
+                    continue
+
+                huisdier.werk_notificatie_verstuurd = True
+                try:
+                    gebruiker = await self.bot.fetch_user(huisdier.eigenaar_id)
+                    await gebruiker.send(
+                        f"🧺 **{huisdier.naam}** is klaar met werken! "
+                        f"Gebruik `/werk pet_id:{huisdier.id}` om de opbrengst op te halen."
+                    )
+                except discord.HTTPException as e:
+                    log.warning("Kon werk-notificatie niet DM'en naar %s: %s", huisdier.eigenaar_id, e)
+
+            await session.commit()
 
     @app_commands.command(
         name="werk", description="Zet een pet aan het werk, of haal de opbrengst op als de shift klaar is"
@@ -121,6 +170,7 @@ class WerkCog(commands.Cog):
             huisdier.werkplek_type_id = werkplek_obj.id
             huisdier.werk_cyclus = cyclus.value
             huisdier.werk_gestart_op = _nu()
+            huisdier.werk_notificatie_verstuurd = False
             huisdier.energie = max(0, huisdier.energie - cyclus_info.energie_kost)
             await session.commit()
 

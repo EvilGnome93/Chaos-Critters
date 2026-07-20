@@ -112,6 +112,7 @@ class Huisdier(Base):
     werkplek_type_id: Mapped[int | None] = mapped_column(ForeignKey("werkplekken.id"), nullable=True)
     werk_cyclus: Mapped[str | None] = mapped_column(String(16), nullable=True)
     werk_gestart_op: Mapped[datetime | None] = mapped_column(nullable=True)
+    werk_notificatie_verstuurd: Mapped[bool] = mapped_column(default=False)
 
     level: Mapped[int] = mapped_column(default=1)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
