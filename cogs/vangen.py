@@ -106,7 +106,7 @@ class VangenCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.actieve_spawns: dict[int, PetSoort] = {}
+        self.actieve_spawns: dict[int, tuple[PetSoort, discord.Message]] = {}
         self.berichten_tellers: dict[int, int] = {}
         self.drempels: dict[int, int] = {}
         self.spawn_kanaal_ids: set[int] = set()
@@ -154,8 +154,6 @@ class VangenCog(commands.Cog):
         await self._stuur_spawn_embed(channel, soort, tier)
 
     async def _stuur_spawn_embed(self, channel: discord.abc.Messageable, soort: PetSoort, tier: Tier) -> None:
-        self.actieve_spawns[channel.id] = soort
-
         embed = discord.Embed(
             title=f"🐾 Een wilde {soort.naam} verschijnt!",
             description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
@@ -163,7 +161,19 @@ class VangenCog(commands.Cog):
         )
         embed.set_footer(text=f"Tier: {tier.naam}")
         embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
-        await channel.send(embed=embed)
+        bericht = await channel.send(embed=embed)
+        self.actieve_spawns[channel.id] = (soort, bericht)
+
+    async def _markeer_gevangen(
+        self, bericht: discord.Message, soort: PetSoort, vanger: discord.abc.User, pet_id: int
+    ) -> None:
+        embed = bericht.embeds[0] if bericht.embeds else discord.Embed(title=soort.naam)
+        embed.title = f"✅ {soort.naam} gevangen!"
+        embed.description = f"Gevangen door {vanger.mention} (pet #{pet_id})"
+        try:
+            await bericht.edit(embed=embed)
+        except discord.HTTPException as e:
+            log.warning("Kon spawn-bericht niet bijwerken na vangst: %s", e)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -186,15 +196,16 @@ class VangenCog(commands.Cog):
     @app_commands.command(name="vang", description="Vang de pet die nu gespawnd is in dit kanaal")
     @app_commands.describe(naam="De naam van de gespawnde pet-soort")
     async def vang(self, interaction: discord.Interaction, naam: str) -> None:
-        soort = self.actieve_spawns.pop(interaction.channel_id, None)
-        if soort is None:
+        actief = self.actieve_spawns.pop(interaction.channel_id, None)
+        if actief is None:
             await interaction.response.send_message(
                 "Er is nu niets te vangen in dit kanaal.", ephemeral=True
             )
             return
+        soort, bericht = actief
 
         if not _matcht(naam, soort):
-            self.actieve_spawns[interaction.channel_id] = soort
+            self.actieve_spawns[interaction.channel_id] = actief
             await interaction.response.send_message(
                 "Dat is niet de juiste naam voor de huidige spawn in dit kanaal.", ephemeral=True
             )
@@ -218,8 +229,9 @@ class VangenCog(commands.Cog):
             await session.commit()
             await session.refresh(huisdier)
 
+        await self._markeer_gevangen(bericht, soort, interaction.user, huisdier.id)
         await interaction.response.send_message(
-            f"{interaction.user.mention} heeft **{soort.naam}** gevangen! (pet #{huisdier.id})"
+            f"🎉 Je hebt **{soort.naam}** gevangen! (pet #{huisdier.id})", ephemeral=True
         )
         await send_log(
             self.bot,
