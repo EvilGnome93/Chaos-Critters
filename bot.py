@@ -2,12 +2,14 @@ import asyncio
 import logging
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 import config
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("gamename")
+log.setLevel(logging.DEBUG if config.ENVIRONMENT == "dev" else logging.INFO)
 
 COGS = (
     "cogs.algemeen",
@@ -24,9 +26,25 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 
+class LoggingCommandTree(app_commands.CommandTree):
+    """Logt elke command-fout met volledige traceback. Alleen bedoeld voor
+    dev-debugging; productie-events (catches, mijlpalen, ...) krijgen later
+    een eigen, curated logsysteem zoals beschreven in sectie 15 van de brief."""
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ) -> None:
+        naam = interaction.command.qualified_name if interaction.command else "onbekend"
+        log.exception("Fout bij /%s door %s", naam, interaction.user, exc_info=error)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "Er ging iets mis bij het uitvoeren van dit commando.", ephemeral=True
+            )
+
+
 class GameNameBot(commands.Bot):
     def __init__(self) -> None:
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="!", intents=intents, tree_cls=LoggingCommandTree)
 
     async def setup_hook(self) -> None:
         for cog in COGS:
@@ -44,6 +62,15 @@ class GameNameBot(commands.Bot):
 
     async def on_ready(self) -> None:
         log.info("Ingelogd als %s (id: %s)", self.user, self.user.id)
+
+    async def on_app_command_completion(
+        self, interaction: discord.Interaction, command: app_commands.Command
+    ) -> None:
+        if config.ENVIRONMENT != "dev":
+            return
+        guild = interaction.guild.name if interaction.guild else "DM"
+        kanaal = getattr(interaction.channel, "name", interaction.channel_id)
+        log.info("/%s uitgevoerd door %s in %s/#%s", command.qualified_name, interaction.user, guild, kanaal)
 
 
 async def main() -> None:
