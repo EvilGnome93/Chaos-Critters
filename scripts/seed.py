@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from db.engine import async_session
@@ -125,7 +125,22 @@ ITEMS = [
     ),
     ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet"),
     ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen"),
+    # Grondstoffen, verkregen via de werk-laag (sectie 6), niet los kopen in de shop.
+    ("Moestuin-oogst", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Moestuin"),
+    ("Vijver-extract", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Vijver"),
+    ("Werkbank-materiaal", ItemType.materiaal, 0, "Upgrade-materiaal, verkregen via werken op de Werkbank"),
+    ("Bos-oogst", ItemType.grondstof, 0, "Grondstof, verkregen via werken in het Bos"),
+    ("Nachtwacht-extract", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Nachtwacht"),
 ]
+
+# Koppelt elke werkplek aan het grondstof-item dat hij oplevert.
+WERKPLEK_OPBRENGSTEN = {
+    "Moestuin": "Moestuin-oogst",
+    "Vijver": "Vijver-extract",
+    "Werkbank": "Werkbank-materiaal",
+    "Bos": "Bos-oogst",
+    "Nachtwacht": "Nachtwacht-extract",
+}
 
 INSTELLINGEN = [
     ("vang_cooldown_seconden", "30", "Cooldown per speler na een succesvolle vangst"),
@@ -172,6 +187,15 @@ async def seed() -> None:
             for naam, type_, prijs, beschrijving in ITEMS
         ]
         await session.execute(insert(Item).on_conflict_do_nothing(index_elements=["naam"]), item_rows)
+        await session.flush()
+
+        item_ids = {naam: id_ for naam, id_ in (await session.execute(select(Item.naam, Item.id))).all()}
+        for werkplek_naam, item_naam in WERKPLEK_OPBRENGSTEN.items():
+            await session.execute(
+                update(Werkplek)
+                .where(Werkplek.type == werkplek_naam)
+                .values(opbrengst_item_id=item_ids[item_naam])
+            )
 
         instelling_rows = [
             {"sleutel": sleutel, "waarde": waarde, "beschrijving": beschrijving}

@@ -46,8 +46,12 @@ class Werkplek(Base):
     vereiste_werk_genen: Mapped[str] = mapped_column(String(32))
     output_per_uur: Mapped[float] = mapped_column(Numeric(6, 2))
     capaciteit: Mapped[int] = mapped_column(default=1)
+    # Nog niet afgedwongen: hoeveel pets tegelijk hier mogen werken. Relevant
+    # zodra werkplekken gedeeld worden (bijv. gilde-feature, sectie 16).
+    opbrengst_item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"), nullable=True)
 
     pet_soorten: Mapped[list["PetSoort"]] = relationship(back_populates="werkplek_voorkeur")
+    opbrengst_item: Mapped["Item | None"] = relationship()
 
 
 class PetSoort(Base):
@@ -106,6 +110,8 @@ class Huisdier(Base):
 
     status: Mapped[PetStatus] = mapped_column(Enum(PetStatus, name="pet_status"), default=PetStatus.rust)
     werkplek_type_id: Mapped[int | None] = mapped_column(ForeignKey("werkplekken.id"), nullable=True)
+    werk_cyclus: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    werk_gestart_op: Mapped[datetime | None] = mapped_column(nullable=True)
 
     level: Mapped[int] = mapped_column(default=1)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
