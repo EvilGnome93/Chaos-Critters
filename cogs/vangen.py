@@ -111,6 +111,7 @@ class VangenCog(commands.Cog):
         self.drempels: dict[int, int] = {}
         self.spawn_kanaal_ids: set[int] = set()
         self.tijd_taken: dict[int, asyncio.Task] = {}
+        self.spawn_locks: dict[int, asyncio.Lock] = {}
 
     async def cog_load(self) -> None:
         for channel_id in await _laad_spawn_kanaal_ids():
@@ -153,21 +154,29 @@ class VangenCog(commands.Cog):
             soort, tier = await _kies_random_soort(session, tier_id=tier_id, naam=naam)
         await self._stuur_spawn_embed(channel, soort, tier)
 
-    async def _stuur_spawn_embed(self, channel: discord.abc.Messageable, soort: PetSoort, tier: Tier) -> None:
-        vorige = self.actieve_spawns.get(channel.id)
-        if vorige is not None:
-            oude_soort, oud_bericht = vorige
-            await self._markeer_verlopen(oud_bericht, oude_soort)
+    def _lock_voor(self, channel_id: int) -> asyncio.Lock:
+        lock = self.spawn_locks.get(channel_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self.spawn_locks[channel_id] = lock
+        return lock
 
-        embed = discord.Embed(
-            title=f"🐾 Een wilde {soort.naam} verschijnt!",
-            description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
-            color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
-        )
-        embed.set_footer(text=f"Tier: {tier.naam}")
-        embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
-        bericht = await channel.send(embed=embed)
-        self.actieve_spawns[channel.id] = (soort, bericht)
+    async def _stuur_spawn_embed(self, channel: discord.abc.Messageable, soort: PetSoort, tier: Tier) -> None:
+        async with self._lock_voor(channel.id):
+            vorige = self.actieve_spawns.get(channel.id)
+            if vorige is not None:
+                oude_soort, oud_bericht = vorige
+                await self._markeer_verlopen(oud_bericht, oude_soort)
+
+            embed = discord.Embed(
+                title=f"🐾 Een wilde {soort.naam} verschijnt!",
+                description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
+                color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
+            )
+            embed.set_footer(text=f"Tier: {tier.naam}")
+            embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
+            bericht = await channel.send(embed=embed)
+            self.actieve_spawns[channel.id] = (soort, bericht)
 
     async def _markeer_verlopen(self, bericht: discord.Message, soort: PetSoort) -> None:
         embed = bericht.embeds[0] if bericht.embeds else discord.Embed(title=soort.naam)
@@ -244,9 +253,8 @@ class VangenCog(commands.Cog):
             await session.refresh(huisdier)
 
         await self._markeer_gevangen(bericht, soort, interaction.user, huisdier.id)
-        await interaction.response.send_message(
-            f"🎉 Je hebt **{soort.naam}** gevangen! (pet #{huisdier.id})", ephemeral=True
-        )
+        await interaction.response.defer(ephemeral=True)
+        await interaction.delete_original_response()
         await send_log(
             self.bot,
             interaction.guild_id,
