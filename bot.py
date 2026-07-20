@@ -10,6 +10,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("gamename")
 
 COGS = (
+    "cogs.algemeen",
     "cogs.vangen",
     "cogs.verzorging",
     "cogs.werk",
