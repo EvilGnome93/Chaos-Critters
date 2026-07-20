@@ -83,7 +83,7 @@ PET_SOORTEN = [
         "Verhoogt zeldzame spawn kans in zijn kanaal",
     ),
     (
-        "Chaos Eenhoorn-Ratrace-hybride",
+        "Chaos Eenhoorn",
         5,
         HOOGSTE,
         HOOGSTE,

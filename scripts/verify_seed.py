@@ -17,7 +17,7 @@ async def verify() -> None:
             status = "OK" if aantal == verwacht else "MISMATCH"
             print(f"{model.__tablename__}: {aantal} (verwacht {verwacht}) [{status}]")
 
-        print("\nPet soorten zonder werkplek_voorkeur (verwacht: Egel, Chaos Kip, Wolf, Steenarend, Chaos Eenhoorn-Ratrace-hybride):")
+        print("\nPet soorten zonder werkplek_voorkeur (verwacht: Egel, Chaos Kip, Wolf, Steenarend, Chaos Eenhoorn):")
         rows = (
             await session.execute(
                 select(PetSoort.naam).where(PetSoort.werkplek_voorkeur_id.is_(None))

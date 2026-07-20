@@ -51,7 +51,7 @@ class Werkplek(Base):
 
 
 class PetSoort(Base):
-    """Statische soort-definitie (Hond, Vos, Chaos Eenhoorn-Ratrace-hybride, ...).
+    """Statische soort-definitie (Hond, Vos, Chaos Eenhoorn, ...).
     Huisdier is de individuele instantie die een speler vangt."""
 
     __tablename__ = "pet_soorten"

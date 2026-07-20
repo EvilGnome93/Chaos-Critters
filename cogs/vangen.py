@@ -154,6 +154,11 @@ class VangenCog(commands.Cog):
         await self._stuur_spawn_embed(channel, soort, tier)
 
     async def _stuur_spawn_embed(self, channel: discord.abc.Messageable, soort: PetSoort, tier: Tier) -> None:
+        vorige = self.actieve_spawns.get(channel.id)
+        if vorige is not None:
+            oude_soort, oud_bericht = vorige
+            await self._markeer_verlopen(oud_bericht, oude_soort)
+
         embed = discord.Embed(
             title=f"🐾 Een wilde {soort.naam} verschijnt!",
             description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
@@ -163,6 +168,15 @@ class VangenCog(commands.Cog):
         embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
         bericht = await channel.send(embed=embed)
         self.actieve_spawns[channel.id] = (soort, bericht)
+
+    async def _markeer_verlopen(self, bericht: discord.Message, soort: PetSoort) -> None:
+        embed = bericht.embeds[0] if bericht.embeds else discord.Embed(title=soort.naam)
+        embed.title = f"💨 {soort.naam} is ontsnapt!"
+        embed.description = "Niemand ving deze op tijd, er is een nieuwe spawn verschenen."
+        try:
+            await bericht.edit(embed=embed)
+        except discord.HTTPException as e:
+            log.warning("Kon oud spawn-bericht niet als verlopen markeren: %s", e)
 
     async def _markeer_gevangen(
         self, bericht: discord.Message, soort: PetSoort, vanger: discord.abc.User, pet_id: int

@@ -37,7 +37,7 @@ SOORT_SLUGS = {
     "Chaos Kip": "chaos_kip",
     "Wolf": "wolf",
     "Steenarend": "steenarend",
-    "Chaos Eenhoorn-Ratrace-hybride": "chaos_eenhoorn",
+    "Chaos Eenhoorn": "chaos_eenhoorn",
 }
 
 
