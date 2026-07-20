@@ -107,7 +107,7 @@ ITEMS = [
         "Slimme voerbak",
         ItemType.overig,
         250,
-        "Beter passief herstel, vereist grondstoffen + currency",
+        "Beter passief herstel, vereist grondstoffen + Chaos Coins",
     ),
     (
         "Zelfreinigend systeem",

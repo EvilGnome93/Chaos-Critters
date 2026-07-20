@@ -263,7 +263,7 @@ class WerkCog(commands.Cog):
 
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
-            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} currency.",
+            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins.",
             ephemeral=True,
         )
         await send_log(
@@ -274,7 +274,7 @@ class WerkCog(commands.Cog):
                 "🟢",
                 "werk",
                 f"{interaction.user.mention} haalde opbrengst op van **{huisdier.naam}** "
-                f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} currency",
+                f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins",
             ),
         )
 
