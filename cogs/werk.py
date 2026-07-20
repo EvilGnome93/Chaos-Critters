@@ -91,14 +91,20 @@ class WerkCog(commands.Cog):
                     continue
 
                 huisdier.werk_notificatie_verstuurd = True
+                if huisdier.werk_kanaal_id is None:
+                    continue
                 try:
-                    gebruiker = await self.bot.fetch_user(huisdier.eigenaar_id)
-                    await gebruiker.send(
-                        f"🧺 **{huisdier.naam}** is klaar met werken! "
+                    kanaal = self.bot.get_channel(huisdier.werk_kanaal_id) or await self.bot.fetch_channel(
+                        huisdier.werk_kanaal_id
+                    )
+                    await kanaal.send(
+                        f"🧺 <@{huisdier.eigenaar_id}> **{huisdier.naam}** is klaar met werken! "
                         f"Gebruik `/werk pet_id:{huisdier.id}` om de opbrengst op te halen."
                     )
                 except discord.HTTPException as e:
-                    log.warning("Kon werk-notificatie niet DM'en naar %s: %s", huisdier.eigenaar_id, e)
+                    log.warning(
+                        "Kon werk-notificatie niet sturen naar kanaal %s: %s", huisdier.werk_kanaal_id, e
+                    )
 
             await session.commit()
 
@@ -171,6 +177,7 @@ class WerkCog(commands.Cog):
             huisdier.werk_cyclus = cyclus.value
             huisdier.werk_gestart_op = _nu()
             huisdier.werk_notificatie_verstuurd = False
+            huisdier.werk_kanaal_id = interaction.channel_id
             huisdier.energie = max(0, huisdier.energie - cyclus_info.energie_kost)
             await session.commit()
 
@@ -221,6 +228,7 @@ class WerkCog(commands.Cog):
         huisdier.werkplek_type_id = None
         huisdier.werk_cyclus = None
         huisdier.werk_gestart_op = None
+        huisdier.werk_kanaal_id = None
         await session.commit()
 
         await interaction.response.send_message(
