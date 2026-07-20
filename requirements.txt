@@ -1,0 +1,5 @@
+discord.py>=2.4,<3
+SQLAlchemy>=2.0,<3
+asyncpg>=0.29
+alembic>=1.13
+python-dotenv>=1.0
