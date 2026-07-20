@@ -148,3 +148,18 @@ class Instelling(Base):
     sleutel: Mapped[str] = mapped_column(String(64), primary_key=True)
     waarde: Mapped[str] = mapped_column(String(256))
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+
+class LogChannel(Base):
+    """Koppelt per server en categorie een Discord-kanaal waar logberichten
+    naartoe gestuurd worden. Categorieën zijn vrije tekst (bijv. 'main',
+    'vangst'), ingesteld via /setlog, zodat nieuwe categorieën later zonder
+    schemawijziging toegevoegd kunnen worden."""
+
+    __tablename__ = "log_channels"
+    __table_args__ = (UniqueConstraint("guild_id", "categorie", name="uq_log_channels_guild_categorie"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    guild_id: Mapped[int] = mapped_column(BigInteger)
+    categorie: Mapped[str] = mapped_column(String(32))
+    channel_id: Mapped[int] = mapped_column(BigInteger)

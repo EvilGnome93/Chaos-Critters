@@ -6,6 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import config
+from utils.discord_log import fmt_log, send_log
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("gamename")
@@ -40,6 +41,12 @@ class LoggingCommandTree(app_commands.CommandTree):
             await interaction.response.send_message(
                 "Er ging iets mis bij het uitvoeren van dit commando.", ephemeral=True
             )
+        await send_log(
+            self.client,
+            interaction.guild_id,
+            "main",
+            fmt_log("🔴", "error", f"/{naam} door {interaction.user.mention} gaf een fout: `{error}`"),
+        )
 
 
 class GameNameBot(commands.Bot):
@@ -62,6 +69,8 @@ class GameNameBot(commands.Bot):
 
     async def on_ready(self) -> None:
         log.info("Ingelogd als %s (id: %s)", self.user, self.user.id)
+        for guild in self.guilds:
+            await send_log(self, guild.id, "main", fmt_log("🟢", "bot", f"{self.user} is online ({config.ENVIRONMENT})"))
 
     async def on_app_command_completion(
         self, interaction: discord.Interaction, command: app_commands.Command
