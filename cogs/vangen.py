@@ -19,7 +19,7 @@ TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
 TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
 
 TIER_KLEUREN = {1: 0x95A5A6, 3: 0x3498DB, 5: 0xF1C40F}  # Common grijs, Rare blauw, Legendary goud
-PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff?text=%3F"  # tot er echte pet-art is
+PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff/png?text=%3F"  # tot er echte pet-art is
 
 
 def _met_variantie(basis: float) -> float:
