@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy import select
 
+from cogs.vangen import TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _nu
 from db.engine import async_session
 from db.models import Huisdier, PetStatus
@@ -15,6 +16,8 @@ STATUS_LABELS = {
     PetStatus.rust: "😴 Rust",
     PetStatus.team: "⚔️ In team",
 }
+
+TIER_EMOJI = {1: "⚪", 3: "🔵", 5: "🟡"}
 
 SORTEER_OPTIES = {
     "id": "ID",
@@ -75,10 +78,12 @@ class PetLijstView(discord.ui.View):
         start = self.pagina * PETS_PER_PAGINA
         subset = self.pets[start : start + PETS_PER_PAGINA]
 
-        embed = discord.Embed(title="Jouw pets", color=discord.Color.blurple())
+        hoogste_tier = max((pet.tier_id for pet in subset), default=1)
+        embed = discord.Embed(title="🐾 Jouw pets", color=TIER_KLEUREN.get(hoogste_tier, discord.Color.blurple()))
         for pet in subset:
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
-            embed.add_field(name=f"#{pet.id} {pet.naam} (lvl {pet.level})", value=status, inline=False)
+            emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
+            embed.add_field(name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})", value=status, inline=False)
         embed.set_footer(
             text=f"Pagina {self.pagina + 1}/{self.max_pagina + 1} — {len(self.pets)} pets totaal "
             f"— sortering: {SORTEER_OPTIES[self.sortering]}"
