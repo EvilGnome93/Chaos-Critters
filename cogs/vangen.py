@@ -25,8 +25,7 @@ def _met_variantie(basis: float) -> float:
 
 
 def _matcht(naam: str, soort: PetSoort) -> bool:
-    naam = naam.strip().lower()
-    return naam == soort.naam.lower() or naam in soort.naam.lower()
+    return naam.strip().lower() == soort.naam.lower()
 
 
 async def _kies_random_soort(session) -> PetSoort:
