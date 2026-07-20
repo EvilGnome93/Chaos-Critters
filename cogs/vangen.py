@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from db.engine import async_session
 from db.models import Huisdier, PetSoort, Speler
+from utils.discord_log import fmt_log, send_log
 
 GENEN_VARIANTIE = 0.10  # +/- 10% rond de soort-basiswaarde
 
@@ -62,7 +63,13 @@ class VangenCog(commands.Cog):
             await session.refresh(huisdier)
 
         await interaction.response.send_message(
-            f"Je hebt **{soort.naam}** gevangen! (pet #{huisdier.id})", ephemeral=True
+            f"{interaction.user.mention} heeft **{soort.naam}** gevangen! (pet #{huisdier.id})"
+        )
+        await send_log(
+            self.bot,
+            interaction.guild_id,
+            "vangst",
+            fmt_log("🟢", "vangst", f"{interaction.user.mention} ving **{soort.naam}** (pet #{huisdier.id})"),
         )
 
     @staticmethod
