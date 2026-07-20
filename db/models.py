@@ -163,3 +163,15 @@ class LogChannel(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger)
     categorie: Mapped[str] = mapped_column(String(32))
     channel_id: Mapped[int] = mapped_column(BigInteger)
+
+
+class SpawnKanaal(Base):
+    """Kanalen waar pets automatisch kunnen spawnen. Meerdere kanalen per
+    server zijn toegestaan. Zie projectbrief sectie 8."""
+
+    __tablename__ = "spawn_kanalen"
+    __table_args__ = (UniqueConstraint("guild_id", "channel_id", name="uq_spawn_kanalen_guild_channel"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    guild_id: Mapped[int] = mapped_column(BigInteger)
+    channel_id: Mapped[int] = mapped_column(BigInteger)
