@@ -216,6 +216,22 @@ class VangenCog(commands.Cog):
             f"{kanaal.mention} is geen spawn-kanaal meer.", ephemeral=True
         )
 
+    @app_commands.command(name="spawn", description="Forceer direct een spawn in dit kanaal (admin/test)")
+    @app_commands.default_permissions(administrator=True)
+    async def spawn(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Spawn geforceerd.", ephemeral=True)
+        await self._spawn(interaction.channel)
+        await send_log(
+            self.bot,
+            interaction.guild_id,
+            "vangst",
+            fmt_log(
+                "🟡",
+                "spawn",
+                f"{interaction.user.mention} forceerde handmatig een spawn in {interaction.channel.mention}",
+            ),
+        )
+
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(VangenCog(bot))
