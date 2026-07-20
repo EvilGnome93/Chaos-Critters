@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from db.engine import async_session
 from db.models import LogChannel
 
-log = logging.getLogger("gamename")
+log = logging.getLogger("chaos_critters")
 
 KLEUR_SUCCES = 0x57F287
 KLEUR_FOUT = 0xED4245

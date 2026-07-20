@@ -13,7 +13,7 @@ from db.engine import async_session
 from db.models import Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
 from utils.discord_log import fmt_log, send_log
 
-log = logging.getLogger("gamename")
+log = logging.getLogger("chaos_critters")
 
 GENEN_VARIANTIE = 0.10  # +/- 10% rond de soort-basiswaarde
 

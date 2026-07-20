@@ -14,7 +14,7 @@ from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
 
-log = logging.getLogger("gamename")
+log = logging.getLogger("chaos_critters")
 
 CURRENCY_PER_GRONDSTOF = 2  # placeholder balans-waarde, later bij te stellen
 NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120

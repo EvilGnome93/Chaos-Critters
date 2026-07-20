@@ -9,7 +9,7 @@ import config
 from utils.discord_log import fmt_log, send_log
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-log = logging.getLogger("gamename")
+log = logging.getLogger("chaos_critters")
 log.setLevel(logging.DEBUG if config.ENVIRONMENT == "dev" else logging.INFO)
 
 COGS = (
