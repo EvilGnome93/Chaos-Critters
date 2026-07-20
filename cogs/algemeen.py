@@ -12,7 +12,7 @@ class AlgemeenCog(commands.Cog):
     @app_commands.command(name="ping", description="Check of de bot online is en meet de latency")
     async def ping(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_message(
-            f"Pong! Latency: {round(self.bot.latency * 1000)}ms", ephemeral=True
+            f"Pong! Latency: {round(self.bot.latency * 1000)}ms", ephemeral=False
         )
 
 
