@@ -29,6 +29,7 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **`/shop`** — zonder `item` toont het een ephemeral overzicht van de 11 koopbare items (gegroepeerd: Voeding/Boosts/Overig, grondstoffen/materialen niet-koopbaar want die komen alleen uit werken). Met `item` + optioneel `aantal` koopt het tegen Chaos Coins (autocomplete over koopbare items). De 3 "overig"-automatiseringsitems (voerbakken, zelfreinigend systeem) zijn nu wel koopbaar, maar hun passieve herstel-effect is **bewust nog niet geïmplementeerd** — ze belanden alleen in de inventaris, met opzet buiten scope van deze stap gehouden.
 - **`/items`** — ephemeral overzicht van je inventaris, gegroepeerd per itemtype (Voeding/Grondstoffen/Materialen/Boosts/Overig) met aantallen.
 - **`/give`** (admin) — geeft een speler N stuks van een item (autocomplete over alle geseede items). Was bedoeld als tijdelijk testcommando zolang er geen `/shop` was; nu die er is, heroverwegen of dit blijft staan (handig voor toekomstige features testen) of weg mag.
+- **`/tests`** (admin) — stuurt een `@everyone`-oproep (embed) met een korte uitleg per speler-commando (`/vang`, `/lijst`, `/werk`, `/verzorg`, `/shop`, `/items`), om een testronde aan te kondigen. Lijst met commando's staat hardcoded in `TEST_COMMANDOS` in `cogs/admin.py` — bijwerken als er een nieuw speler-commando bijkomt. Vereist dat de bot-rol de "Mention @everyone"-permissie heeft, anders pingt het niet.
 
 ## Nog niet gebouwd (uit de brief, ruwweg in logische volgorde)
 

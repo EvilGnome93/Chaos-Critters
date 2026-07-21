@@ -8,6 +8,18 @@ from db.engine import async_session
 from db.models import Item, Speler
 from utils.discord_log import fmt_log, send_log, set_log_channel
 
+# Speler-gerichte commando's om aan te kondigen bij een testronde, met een
+# korte uitleg per commando. Handmatig bijgehouden (geen introspectie op de
+# command tree), dus bijwerken als er een nieuw speler-commando bijkomt.
+TEST_COMMANDOS = [
+    ("/vang <naam>", "Vang de pet die net gespawnd is in dit kanaal (exacte naam, of het stuk vóór de haakjes, bijv. 'Hond')."),
+    ("/lijst", "Bekijk al je pets: level, werkstatus en honger/energie/blijdschap. Sorteerbaar via de knoppen."),
+    ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is."),
+    ("/verzorg pet_id [item]", "Bekijk de stats van een pet, of voer 'm met voeding uit je inventaris om energie aan te vullen."),
+    ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
+    ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
+]
+
 
 class AdminCog(commands.Cog):
     """Admin-commando's voor balans en instellingen. Zie projectbrief sectie 14."""
@@ -93,6 +105,31 @@ class AdminCog(commands.Cog):
                 "give",
                 f"{interaction.user.mention} gaf {aantal}x **{item}** aan {speler.mention} (admin/test)",
             ),
+        )
+    @app_commands.command(
+        name="tests", description="Stuur een @everyone-oproep met de huidige teststatus (admin)"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def tests(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            title="🧪 Chaos Critters — klaar om getest te worden!",
+            description=(
+                "Er staat genoeg om mee te spelen. Dit is een vroege testversie, dus bugs en "
+                "rare balans zijn te verwachten — laat het gewoon weten als je iets geks tegenkomt!"
+            ),
+            color=discord.Color.green(),
+        )
+        for commando, uitleg in TEST_COMMANDOS:
+            embed.add_field(name=commando, value=uitleg, inline=False)
+
+        await interaction.response.send_message(
+            "@everyone", embed=embed, allowed_mentions=discord.AllowedMentions(everyone=True)
+        )
+        await send_log(
+            self.bot,
+            interaction.guild_id,
+            "main",
+            fmt_log("🟡", "tests", f"{interaction.user.mention} stuurde een testoproep"),
         )
 
 
