@@ -35,6 +35,7 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 6. Admin panel / `/instelling`-commando (placeholder in `cogs/admin.py`) — Instellingen-tabel bestaat al met een paar waardes (spawn-interval, vang-cooldown, ranked-per-dag), maar er is nog geen manier om ze via Discord te wijzigen.
 7. Werkplek-capaciteit afdwingen (zie hierboven — expliciet uitgesteld, niet vergeten).
 8. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema).
+9. Help-commando (mini-wiki): `/help`, publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
 
 ## Belangrijke afspraken/voorkeuren van de gebruiker
 
