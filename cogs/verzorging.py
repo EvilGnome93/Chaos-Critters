@@ -20,6 +20,14 @@ SHOP_CATEGORIE_LABELS = {
     ItemType.overig: "📦 Overig",
 }
 
+ITEM_CATEGORIE_LABELS = {
+    ItemType.voeding: "🍖 Voeding",
+    ItemType.grondstof: "🌾 Grondstoffen",
+    ItemType.materiaal: "🔧 Materialen",
+    ItemType.boost: "✨ Boosts",
+    ItemType.overig: "📦 Overig",
+}
+
 # Directe voedingsitems die /verzorg kan gebruiken (energie-effect, brief sectie 5).
 # Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
 # aankopen voor de shop-stap en horen hier nog niet bij.
@@ -58,6 +66,9 @@ SORTEER_OPTIES = {
     "level": "Level",
     "naam": "Naam",
     "werk": "Werkstatus",
+    "honger": "Honger",
+    "energie": "Energie",
+    "blijdschap": "Blijdschap",
 }
 
 SORTEER_LABELS = {
@@ -65,6 +76,9 @@ SORTEER_LABELS = {
     "sorteer_level": "Level",
     "sorteer_naam": "Naam",
     "sorteer_werk": "Werkstatus",
+    "sorteer_honger": "Honger",
+    "sorteer_energie": "Energie",
+    "sorteer_blijdschap": "Blijdschap",
 }
 
 
@@ -75,6 +89,9 @@ def _sorteer(pets: list[Huisdier], sortering: str) -> list[Huisdier]:
         return sorted(pets, key=lambda p: p.naam.lower())
     if sortering == "werk":
         return sorted(pets, key=lambda p: (p.status != PetStatus.werkplek, p.id))
+    if sortering in ("honger", "energie", "blijdschap"):
+        # Laagst (meest urgent te verzorgen) eerst.
+        return sorted(pets, key=lambda p: (getattr(p, sortering), p.id))
     return sorted(pets, key=lambda p: p.id)
 
 
@@ -112,7 +129,16 @@ class PetLijstView(discord.ui.View):
     def _update_knoppen(self) -> None:
         self.vorige.disabled = self.pagina == 0
         self.volgende.disabled = self.pagina >= self.max_pagina
-        for knop in (self.sorteer_id, self.sorteer_level, self.sorteer_naam, self.sorteer_werk):
+        knoppen = (
+            self.sorteer_id,
+            self.sorteer_level,
+            self.sorteer_naam,
+            self.sorteer_werk,
+            self.sorteer_honger,
+            self.sorteer_energie,
+            self.sorteer_blijdschap,
+        )
+        for knop in knoppen:
             waarde = knop.custom_id.removeprefix("sorteer_")
             basis = SORTEER_LABELS[knop.custom_id]
             knop.label = f"✅ {basis}" if waarde == self.sortering else basis
@@ -125,8 +151,13 @@ class PetLijstView(discord.ui.View):
         embed = discord.Embed(title="🐾 Jouw pets", color=TIER_KLEUREN.get(hoogste_tier, discord.Color.blurple()))
         for pet in subset:
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
+            stats = f"🍖 {pet.honger} ⚡ {pet.energie} 😊 {pet.blijdschap}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
-            embed.add_field(name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})", value=status, inline=False)
+            embed.add_field(
+                name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})",
+                value=f"{status}\n{stats}",
+                inline=False,
+            )
         embed.set_footer(
             text=f"Pagina {self.pagina + 1}/{self.max_pagina + 1} — {len(self.pets)} pets totaal "
             f"— sortering: {SORTEER_OPTIES[self.sortering]}"
@@ -183,6 +214,18 @@ class PetLijstView(discord.ui.View):
     @discord.ui.button(label="Werkstatus", style=discord.ButtonStyle.danger, row=1, custom_id="sorteer_werk")
     async def sorteer_werk(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "werk")
+
+    @discord.ui.button(label="Honger", style=discord.ButtonStyle.secondary, row=2, custom_id="sorteer_honger")
+    async def sorteer_honger(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self._wissel_sortering(interaction, "honger")
+
+    @discord.ui.button(label="Energie", style=discord.ButtonStyle.secondary, row=2, custom_id="sorteer_energie")
+    async def sorteer_energie(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self._wissel_sortering(interaction, "energie")
+
+    @discord.ui.button(label="Blijdschap", style=discord.ButtonStyle.secondary, row=2, custom_id="sorteer_blijdschap")
+    async def sorteer_blijdschap(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self._wissel_sortering(interaction, "blijdschap")
 
 
 class VerzorgingCog(commands.Cog):
@@ -315,6 +358,34 @@ class VerzorgingCog(commands.Cog):
                 f"Saldo: {speler.currency} Chaos Coins.",
                 ephemeral=True,
             )
+
+    @app_commands.command(name="items", description="Bekijk je inventaris")
+    async def items(self, interaction: discord.Interaction) -> None:
+        async with async_session() as session:
+            rijen = (
+                await session.execute(
+                    select(InventarisItem, Item)
+                    .join(Item, InventarisItem.item_id == Item.id)
+                    .where(InventarisItem.speler_id == interaction.user.id, InventarisItem.aantal > 0)
+                )
+            ).all()
+
+        if not rijen:
+            await interaction.response.send_message("Je inventaris is leeg.", ephemeral=True)
+            return
+
+        aantallen = {item.id: inv.aantal for inv, item in rijen}
+        embed = discord.Embed(title="🎒 Jouw inventaris", color=discord.Color.blurple())
+        for categorie, label in ITEM_CATEGORIE_LABELS.items():
+            subset = sorted(
+                (item for _, item in rijen if item.type == categorie), key=lambda i: i.naam
+            )
+            if not subset:
+                continue
+            waarde = "\n".join(f"**{item.naam}** x{aantallen[item.id]}" for item in subset)
+            embed.add_field(name=label, value=waarde, inline=False)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="lijst", description="Bekijk al je pets")
     async def lijst(self, interaction: discord.Interaction) -> None:
