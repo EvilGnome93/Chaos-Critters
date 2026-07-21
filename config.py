@@ -19,6 +19,10 @@ if ENVIRONMENT == "dev" and DEV_GUILD_ID is None:
         "ENVIRONMENT=dev vereist DEV_GUILD_ID in .env (de test-server waar commands instant synced worden)."
     )
 
+# Rol die naast Administrator ook admin-commando's mag gebruiken (optioneel).
+_admin_role_id = os.environ.get("ADMIN_ROLE_ID")
+ADMIN_ROLE_ID = int(_admin_role_id) if _admin_role_id else None
+
 # SQLAlchemy async vereist het postgresql+asyncpg:// schema, Railway levert
 # meestal postgresql:// of postgres://.
 ASYNC_DATABASE_URL = DATABASE_URL.replace(

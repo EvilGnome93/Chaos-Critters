@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 import config
 from db.engine import async_session
 from db.models import Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
+from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log
 
 log = logging.getLogger("chaos_critters")
@@ -271,7 +272,7 @@ class VangenCog(commands.Cog):
         name="setspawnkanaal", description="Voeg een kanaal toe waar pets automatisch kunnen spawnen"
     )
     @app_commands.describe(kanaal="Het kanaal (standaard: dit kanaal)")
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def setspawnkanaal(
         self, interaction: discord.Interaction, kanaal: discord.TextChannel | None = None
     ) -> None:
@@ -283,7 +284,7 @@ class VangenCog(commands.Cog):
 
     @app_commands.command(name="verwijderspawnkanaal", description="Verwijder een kanaal als spawn-kanaal")
     @app_commands.describe(kanaal="Het kanaal (standaard: dit kanaal)")
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def verwijderspawnkanaal(
         self, interaction: discord.Interaction, kanaal: discord.TextChannel | None = None
     ) -> None:
@@ -319,7 +320,7 @@ class VangenCog(commands.Cog):
         ]
     )
     @app_commands.autocomplete(naam=_naam_autocomplete)
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def spawn(
         self,
         interaction: discord.Interaction,

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Item, Speler
+from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log, set_log_channel
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een
@@ -31,7 +32,7 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="instelling", description="Bekijk of wijzig een balans-instelling")
     @app_commands.describe(sleutel="De naam van de instelling", waarde="De nieuwe waarde (optioneel)")
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def instelling(
         self, interaction: discord.Interaction, sleutel: str, waarde: str | None = None
     ) -> None:
@@ -44,7 +45,7 @@ class AdminCog(commands.Cog):
         categorie="Vrije naam voor de logcategorie, bijv. 'main' of 'vangst'",
         kanaal="Het tekstkanaal waar logs van deze categorie naartoe gestuurd worden",
     )
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def setlog(
         self, interaction: discord.Interaction, categorie: str, kanaal: discord.TextChannel
     ) -> None:
@@ -75,7 +76,7 @@ class AdminCog(commands.Cog):
         speler="Wie krijgt het item", item="Welk item", aantal="Hoeveel stuks (standaard 1)"
     )
     @app_commands.autocomplete(item=_item_autocomplete)
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def give(
         self, interaction: discord.Interaction, speler: discord.Member, item: str, aantal: int = 1
     ) -> None:
@@ -111,7 +112,7 @@ class AdminCog(commands.Cog):
     @app_commands.command(
         name="tests", description="Stuur een @everyone-oproep met de huidige teststatus (admin)"
     )
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.check(is_admin)
     async def tests(self, interaction: discord.Interaction) -> None:
         embed = discord.Embed(
             title="🧪 Chaos Critters — klaar om getest te worden!",

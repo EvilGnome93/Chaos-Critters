@@ -39,6 +39,14 @@ class LoggingCommandTree(app_commands.CommandTree):
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ) -> None:
         naam = interaction.command.qualified_name if interaction.command else "onbekend"
+
+        if isinstance(error, app_commands.CheckFailure):
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "Je hebt geen toestemming om dit commando te gebruiken.", ephemeral=True
+                )
+            return
+
         log.exception("Fout bij /%s door %s", naam, interaction.user, exc_info=error)
         if not interaction.response.is_done():
             await interaction.response.send_message(
