@@ -38,6 +38,19 @@ SOORT_SLUGS = {
     "Wolf": "wolf",
     "Steenarend": "steenarend",
     "Chaos Eenhoorn": "chaos_eenhoorn",
+    "Gans": "gans",
+    "Marter": "marter",
+    "Chaos Rat": "chaos_rat",
+    "Eekhoorn": "eekhoorn",
+    "Hagedis": "hagedis",
+    "Kever": "kever",
+    "Valk": "valk",
+    "Hert": "hert",
+    "Chaos Bever": "chaos_bever",
+    "Hermelijn": "hermelijn",
+    "Lynx": "lynx",
+    "Ringslang": "ringslang",
+    "Chaos Zwijn": "chaos_zwijn",
 }
 
 

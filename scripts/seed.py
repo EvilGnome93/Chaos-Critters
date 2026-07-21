@@ -90,6 +90,23 @@ PET_SOORTEN = [
         None,
         "Willekeurige chaos events bij gebruik",
     ),
+    # Tweede lichting (2026-07-21), aangeleverd als (soort, tier) door de
+    # gebruiker; stats/werkplek/beschrijving hieronder ingevuld met dezelfde
+    # aanpak als de eerste 13: omgekeerde correlatie gevecht/werk, en Legendary
+    # (tier 5) zonder werkplek-voorkeur, zoals Wolf/Steenarend/Chaos Eenhoorn.
+    ("Gans", 1, GEMIDDELD, HOOG, "Vijver", None),
+    ("Marter", 1, GEMIDDELD, HOOG, "Werkbank", None),
+    ("Chaos Rat", 1, LAAG, GEMIDDELD, None, "Vermenigvuldigt zich razendsnel, niemand weet precies hoeveel er rondlopen"),
+    ("Eekhoorn", 1, LAAG, HOOG, "Bos", None),
+    ("Hagedis", 1, LAAG, GEMIDDELD, "Moestuin", None),
+    ("Kever", 1, LAAG, GEMIDDELD, "Moestuin", None),
+    ("Valk", 3, HOOG, GEMIDDELD, "Nachtwacht", None),
+    ("Hert", 3, GEMIDDELD, HOOG, "Bos", None),
+    ("Chaos Bever", 3, GEMIDDELD, HOOG, "Bos", "Bouwt constructies die niemand gevraagd heeft, meestal midden in het bos"),
+    ("Hermelijn", 3, GEMIDDELD, HOOG, "Werkbank", None),
+    ("Lynx", 5, ZEER_HOOG, LAAG, None, "Legendarisch stille jager, vrijwel nooit gespot vóór de aanval"),
+    ("Ringslang", 5, HOOG, GEMIDDELD, None, "Vrijwel onzichtbaar in het gras, glipt gemakkelijk voorbij vangpogingen"),
+    ("Chaos Zwijn", 5, HOOGSTE, HOOGSTE, None, "Ontketent pure chaos zodra hij wordt losgelaten"),
 ]
 
 # (naam, type, prijs, beschrijving)
