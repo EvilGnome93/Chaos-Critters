@@ -18,6 +18,8 @@ TEST_COMMANDOS = [
     ("/verzorg pet_id [item]", "Bekijk de stats van een pet, of voer 'm met voeding uit je inventaris om energie aan te vullen."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
+    ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
+    ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
 ]
 
 
