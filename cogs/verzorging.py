@@ -276,7 +276,7 @@ class VerzorgingCog(commands.Cog):
             )
             if inventaris_item is None or inventaris_item.aantal < 1:
                 await interaction.response.send_message(
-                    f"Je hebt geen **{item.value}** in je inventaris.", ephemeral=True
+                    f"Je hebt geen **{item.value}** in je inventaris. Koop het via `/shop`.", ephemeral=True
                 )
                 return
 
