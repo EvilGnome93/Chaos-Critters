@@ -149,7 +149,7 @@ class PetLijstView(discord.ui.View):
 
         hoogste_tier = max((pet.tier_id for pet in subset), default=1)
         embed = discord.Embed(title="🐾 Jouw pets", color=TIER_KLEUREN.get(hoogste_tier, discord.Color.blurple()))
-        for pet in subset:
+        for i, pet in enumerate(subset):
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
             stats = f"🍖 {pet.honger} ⚡ {pet.energie} 😊 {pet.blijdschap}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
@@ -158,6 +158,8 @@ class PetLijstView(discord.ui.View):
                 value=f"{status}\n{stats}",
                 inline=False,
             )
+            if i < len(subset) - 1:
+                embed.add_field(name="​", value="​", inline=False)
         embed.set_footer(
             text=f"Pagina {self.pagina + 1}/{self.max_pagina + 1} — {len(self.pets)} pets totaal "
             f"— sortering: {SORTEER_OPTIES[self.sortering]}"
