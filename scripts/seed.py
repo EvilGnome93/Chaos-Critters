@@ -126,20 +126,20 @@ ITEMS = [
     ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet"),
     ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen"),
     # Grondstoffen, verkregen via de werk-laag (sectie 6), niet los kopen in de shop.
-    ("Moestuin-oogst", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Moestuin"),
-    ("Vijver-extract", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Vijver"),
-    ("Werkbank-materiaal", ItemType.materiaal, 0, "Upgrade-materiaal, verkregen via werken op de Werkbank"),
-    ("Bos-oogst", ItemType.grondstof, 0, "Grondstof, verkregen via werken in het Bos"),
-    ("Nachtwacht-extract", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Nachtwacht"),
+    ("Groente", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Moestuin"),
+    ("Algen", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Vijver"),
+    ("Schroot", ItemType.materiaal, 0, "Upgrade-materiaal, verkregen via werken op de Werkbank"),
+    ("Takken", ItemType.grondstof, 0, "Grondstof, verkregen via werken in het Bos"),
+    ("Maanschijnkristal", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Nachtwacht"),
 ]
 
 # Koppelt elke werkplek aan het grondstof-item dat hij oplevert.
 WERKPLEK_OPBRENGSTEN = {
-    "Moestuin": "Moestuin-oogst",
-    "Vijver": "Vijver-extract",
-    "Werkbank": "Werkbank-materiaal",
-    "Bos": "Bos-oogst",
-    "Nachtwacht": "Nachtwacht-extract",
+    "Moestuin": "Groente",
+    "Vijver": "Algen",
+    "Werkbank": "Schroot",
+    "Bos": "Takken",
+    "Nachtwacht": "Maanschijnkristal",
 }
 
 INSTELLINGEN = [
