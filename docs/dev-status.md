@@ -12,6 +12,7 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **Lokaal draaien**: `venv/Scripts/python.exe bot.py` vanuit `gamename-bot/`. **Let op**: niet lokaal draaien terwijl Railway ook live staat — beide processen proberen dezelfde Discord-interacties te beantwoorden en botsen (zie git-log rond "Race condition" en de `/werk` ephemeral-fix).
 - **Environments**: `ENVIRONMENT=dev` in `.env`/Railway-variables schakelt: instant guild-command-sync (`DEV_GUILD_ID`), snellere test-cycli (werk-shifts 1 minuut i.p.v. uren, spawn-tijd-trigger elke 30 min i.p.v. 2-4 uur), en dev-logging naar console.
 - **Railway**: twee environments (`production` = huidige Postgres + huidige dev-bot-service; er is nog geen aparte prod-bot-service). `DATABASE_URL` op Railway zelf gebruikt de interne referentie; lokaal `.env` gebruikt de publieke proxy-URL (interne hostname is niet bereikbaar van buiten Railway's netwerk).
+- **Testgroep heeft momenteel allemaal admin-rechten** op de test-server. Dat betekent dat de `default_permissions(administrator=True)`-restrictie op admin-commando's (`/spawn`, `/give`, `/instelling`, `/setlog`, `/tests`) nog niet getest is tegen een niet-admin gebruiker — en dat testers per ongeluk admin-commando's kunnen uitvoeren (bijv. `/spawn`) zonder dat dat een bug is.
 
 ## Wat werkt (getest, op dev)
 
