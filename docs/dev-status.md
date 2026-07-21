@@ -25,6 +25,7 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **5 werkplekken geseed**, elk gekoppeld aan een eigen grondstof-item.
 - **11 shop-items geseed** (nog geen `/shop`-koopcommando gebouwd, alleen de data staat klaar).
 - **Stat-verval & `/verzorg`**: honger/blijdschap dalen lazy over tijd (berekend bij elke aanraking van een pet, zoals `/lijst`, `/verzorg`, `/werk` — geen achtergrondtaak, logica in `utils/stats.py`). Energie herstelt passief (+1/10 min, alleen in status `rust`, brief sectie 6). `/verzorg pet_id` toont de stats; met optioneel `item` (Basis brokjes/Graanvrije premium voeding/Vers vlees/vis/Mysterie voedselzak) verbruikt het 1 stuk uit de inventaris voor een energie-boost. Bij honger=0 of blijdschap=0 kan een pet niet aan het werk gezet worden (zelfde blokkade als energie<20, gedeeld via `inzetbaarheid_probleem()`). Verval-snelheden zijn placeholders, en in dev met dezelfde 120x-versnellingsfactor als de werk-cycli. **Nog niet gedekt**: honger zelf direct herstellen (de 3 voedingsitems herstellen alleen energie, per brief-tekst) en de "overig"-automatiseringsitems (voerbakken, zelfreinigend systeem) — die horen bij de shop-stap.
+- **`/give`** (admin) — geeft een speler N stuks van een item (autocomplete over alle geseede items). Tijdelijk testcommando zodat `/verzorg` (en later de shop-items) getest kunnen worden zonder `/shop`. Overwegen om te verwijderen of achter een extra guard te zetten zodra `/shop` bestaat.
 
 ## Nog niet gebouwd (uit de brief, ruwweg in logische volgorde)
 
