@@ -7,12 +7,18 @@ from discord.ext import commands
 from sqlalchemy import select
 
 from cogs.vangen import TIER_KLEUREN
-from cogs.werk import WERK_CYCLI, _format_duur, _nu
+from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
-from db.models import Huisdier, InventarisItem, Item, PetStatus
+from db.models import Huisdier, InventarisItem, Item, ItemType, PetStatus, Speler
 from utils.stats import sync_stats
 
 PETS_PER_PAGINA = 10
+
+SHOP_CATEGORIE_LABELS = {
+    ItemType.voeding: "🍖 Voeding",
+    ItemType.boost: "✨ Boosts",
+    ItemType.overig: "📦 Overig",
+}
 
 # Directe voedingsitems die /verzorg kan gebruiken (energie-effect, brief sectie 5).
 # Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
@@ -236,6 +242,77 @@ class VerzorgingCog(commands.Cog):
             extra = f" (bleek **{gebruikt_item}**)" if item.value == _MYSTERIE_VOEDSEL else ""
             await interaction.response.send_message(
                 f"🍽️ **{huisdier.naam}** kreeg **{item.value}**{extra}. Energie is nu {huisdier.energie}/100.",
+                ephemeral=True,
+            )
+
+    async def _shop_item_autocomplete(
+        self, interaction: discord.Interaction, huidig: str
+    ) -> list[app_commands.Choice[str]]:
+        async with async_session() as session:
+            namen = (
+                await session.execute(select(Item.naam).where(Item.prijs > 0))
+            ).scalars().all()
+        huidig = huidig.lower()
+        return [app_commands.Choice(name=naam, value=naam) for naam in namen if huidig in naam.lower()][:25]
+
+    @app_commands.command(name="shop", description="Bekijk de shop, of koop een item met Chaos Coins")
+    @app_commands.describe(
+        item="Item om te kopen (optioneel, laat leeg om de shop te bekijken)",
+        aantal="Hoeveel stuks (standaard 1)",
+    )
+    @app_commands.autocomplete(item=_shop_item_autocomplete)
+    async def shop(
+        self, interaction: discord.Interaction, item: str | None = None, aantal: int = 1
+    ) -> None:
+        async with async_session() as session:
+            if item is None:
+                items = (
+                    await session.execute(
+                        select(Item).where(Item.prijs > 0).order_by(Item.type, Item.naam)
+                    )
+                ).scalars().all()
+
+                embed = discord.Embed(title="🛒 Shop", color=discord.Color.gold())
+                for categorie, label in SHOP_CATEGORIE_LABELS.items():
+                    subset = [i for i in items if i.type == categorie]
+                    if not subset:
+                        continue
+                    waarde = "\n".join(f"**{i.naam}** — {i.prijs} Chaos Coins\n{i.beschrijving}" for i in subset)
+                    embed.add_field(name=label, value=waarde, inline=False)
+                embed.set_footer(text="Koop met /shop item:<naam> aantal:<n>")
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            if aantal < 1:
+                await interaction.response.send_message("`aantal` moet minstens 1 zijn.", ephemeral=True)
+                return
+
+            item_obj = await session.scalar(select(Item).where(Item.naam == item, Item.prijs > 0))
+            if item_obj is None:
+                await interaction.response.send_message(f"Onbekend shop-item: **{item}**.", ephemeral=True)
+                return
+
+            speler = await session.get(Speler, interaction.user.id)
+            if speler is None:
+                speler = Speler(discord_id=interaction.user.id, currency=0)
+                session.add(speler)
+
+            kosten = item_obj.prijs * aantal
+            if speler.currency < kosten:
+                await interaction.response.send_message(
+                    f"Je hebt niet genoeg Chaos Coins. **{item}** x{aantal} kost {kosten}, "
+                    f"je hebt {speler.currency}.",
+                    ephemeral=True,
+                )
+                return
+
+            speler.currency -= kosten
+            await _voeg_toe_aan_inventaris(session, interaction.user.id, item_obj.id, aantal)
+            await session.commit()
+
+            await interaction.response.send_message(
+                f"✅ Gekocht: {aantal}x **{item}** voor {kosten} Chaos Coins. "
+                f"Saldo: {speler.currency} Chaos Coins.",
                 ephemeral=True,
             )
 

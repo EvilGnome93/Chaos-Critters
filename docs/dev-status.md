@@ -24,21 +24,24 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **Discord-logsysteem**: `/setlog <categorie> <kanaal>` (admin) koppelt per server+categorie een logkanaal (`utils/discord_log.py`, patroon overgenomen van het Botv3-project maar herbouwd in Python). Categorieën in gebruik: `main` (bot start/fouten), `vangst` (catches + geforceerde spawns), `werk` (start/opbrengst).
 - **13 pet-soorten geseed** (3 tiers: Common 70%, Rare 25%, Legendary 5%, gelijk verdeeld binnen tier), elk met een eigen AI-gegenereerde afbeelding in `docs/assets/`, gelinkt via `scripts/link_afbeeldingen.py` (leest repo-naam automatisch uit de git remote, dus overleefde de repo-rename zonder handwerk).
 - **5 werkplekken geseed**, elk gekoppeld aan een eigen grondstof-item.
-- **11 shop-items geseed** (nog geen `/shop`-koopcommando gebouwd, alleen de data staat klaar).
-- **Stat-verval & `/verzorg`**: honger/blijdschap dalen lazy over tijd (berekend bij elke aanraking van een pet, zoals `/lijst`, `/verzorg`, `/werk` — geen achtergrondtaak, logica in `utils/stats.py`). Energie herstelt passief (+1/10 min, alleen in status `rust`, brief sectie 6). `/verzorg pet_id` toont de stats; met optioneel `item` (Basis brokjes/Graanvrije premium voeding/Vers vlees/vis/Mysterie voedselzak) verbruikt het 1 stuk uit de inventaris voor een energie-boost. Bij honger=0 of blijdschap=0 kan een pet niet aan het werk gezet worden (zelfde blokkade als energie<20, gedeeld via `inzetbaarheid_probleem()`). Verval-snelheden zijn placeholders, en in dev met dezelfde 120x-versnellingsfactor als de werk-cycli. **Nog niet gedekt**: honger zelf direct herstellen (de 3 voedingsitems herstellen alleen energie, per brief-tekst) en de "overig"-automatiseringsitems (voerbakken, zelfreinigend systeem) — die horen bij de shop-stap.
-- **`/give`** (admin) — geeft een speler N stuks van een item (autocomplete over alle geseede items). Tijdelijk testcommando zodat `/verzorg` (en later de shop-items) getest kunnen worden zonder `/shop`. Overwegen om te verwijderen of achter een extra guard te zetten zodra `/shop` bestaat.
+- **11 shop-items geseed**, koopbaar via `/shop` (zie hieronder).
+- **Stat-verval & `/verzorg`**: honger/blijdschap dalen lazy over tijd (berekend bij elke aanraking van een pet, zoals `/lijst`, `/verzorg`, `/werk` — geen achtergrondtaak, logica in `utils/stats.py`). Energie herstelt passief (+1/10 min, alleen in status `rust`, brief sectie 6). `/verzorg pet_id` toont de stats; met optioneel `item` (Basis brokjes/Graanvrije premium voeding/Vers vlees/vis/Mysterie voedselzak) verbruikt het 1 stuk uit de inventaris voor een energie-boost. Bij honger=0 of blijdschap=0 kan een pet niet aan het werk gezet worden (zelfde blokkade als energie<20, gedeeld via `inzetbaarheid_probleem()`). Verval-snelheden zijn placeholders, en in dev met dezelfde 120x-versnellingsfactor als de werk-cycli. Volledig getest op dev (2026-07-21): verval, herstel, voeden en de blokkade bij 0 werken allemaal. **Nog niet gedekt**: honger zelf direct herstellen (de 3 voedingsitems herstellen alleen energie, per brief-tekst).
+- **`/shop`** — zonder `item` toont het een ephemeral overzicht van de 11 koopbare items (gegroepeerd: Voeding/Boosts/Overig, grondstoffen/materialen niet-koopbaar want die komen alleen uit werken). Met `item` + optioneel `aantal` koopt het tegen Chaos Coins (autocomplete over koopbare items). De 3 "overig"-automatiseringsitems (voerbakken, zelfreinigend systeem) zijn nu wel koopbaar, maar hun passieve herstel-effect is **bewust nog niet geïmplementeerd** — ze belanden alleen in de inventaris, met opzet buiten scope van deze stap gehouden.
+- **`/give`** (admin) — geeft een speler N stuks van een item (autocomplete over alle geseede items). Was bedoeld als tijdelijk testcommando zolang er geen `/shop` was; nu die er is, heroverwegen of dit blijft staan (handig voor toekomstige features testen) of weg mag.
 
 ## Nog niet gebouwd (uit de brief, ruwweg in logische volgorde)
 
-1. Verzorgingssysteem: shop-koopcommando (`/shop`, uitgeven van Chaos Coins aan de 11 geseede items) — voeding gebruiken + stat-verval is al gebouwd, zie hierboven.
-2. Level-up systeem (stats/genen laten meegroeien).
-3. Team & gevechten (`/team`, `/vecht`) — placeholders in `cogs/gevechten.py`, vecht-formule staat al in de brief (sectie 12).
-4. Fokken/breeding (`cogs/fokken.py` is placeholder).
-5. Trading (`cogs/trading.py` is placeholder).
-6. Admin panel / `/instelling`-commando (placeholder in `cogs/admin.py`) — Instellingen-tabel bestaat al met een paar waardes (spawn-interval, vang-cooldown, ranked-per-dag), maar er is nog geen manier om ze via Discord te wijzigen.
-7. Werkplek-capaciteit afdwingen (zie hierboven — expliciet uitgesteld, niet vergeten).
-8. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema).
-9. Help-commando (mini-wiki): `/help`, publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
+Het verzorgingssysteem (voeden, stat-verval, shop-koopcommando) is volledig af en getest, zie "Wat werkt" hierboven.
+
+1. Level-up systeem (stats/genen laten meegroeien).
+2. Team & gevechten (`/team`, `/vecht`) — placeholders in `cogs/gevechten.py`, vecht-formule staat al in de brief (sectie 12).
+3. Fokken/breeding (`cogs/fokken.py` is placeholder).
+4. Trading (`cogs/trading.py` is placeholder).
+5. Admin panel / `/instelling`-commando (placeholder in `cogs/admin.py`) — Instellingen-tabel bestaat al met een paar waardes (spawn-interval, vang-cooldown, ranked-per-dag), maar er is nog geen manier om ze via Discord te wijzigen.
+6. Werkplek-capaciteit afdwingen (zie hierboven — expliciet uitgesteld, niet vergeten).
+7. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema).
+8. Help-commando (mini-wiki): `/help`, publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
+9. Passief herstel-effect van de automatiseringsitems (Simpele/Slimme voerbak, Zelfreinigend systeem) — nu wel koopbaar via `/shop`, maar zonder effect. Vereist nieuwe velden + aanpassing van `utils/stats.py`.
 
 ## Belangrijke afspraken/voorkeuren van de gebruiker
 
