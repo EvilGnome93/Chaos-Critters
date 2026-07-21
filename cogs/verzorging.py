@@ -159,7 +159,7 @@ class PetLijstView(discord.ui.View):
                 inline=False,
             )
             if i < len(subset) - 1:
-                embed.add_field(name="​", value="​", inline=False)
+                embed.add_field(name="​", value="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", inline=False)
         embed.set_footer(
             text=f"Pagina {self.pagina + 1}/{self.max_pagina + 1} — {len(self.pets)} pets totaal "
             f"— sortering: {SORTEER_OPTIES[self.sortering]}"
