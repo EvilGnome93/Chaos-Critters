@@ -49,7 +49,7 @@ SOORT_SLUGS = {
     "Chaos Bever": "chaos_bever",
     "Hermelijn": "hermelijn",
     "Lynx": "lynx",
-    "Ringslang": "ringslang",
+    "Slang": "slang",
     "Chaos Zwijn": "chaos_zwijn",
 }
 
