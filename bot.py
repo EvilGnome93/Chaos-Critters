@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import subprocess
+import sys
+from pathlib import Path
 
 import discord
 from discord import app_commands
@@ -82,6 +85,25 @@ class GameNameBot(commands.Bot):
         log.info("/%s uitgevoerd door %s in %s/#%s", command.qualified_name, interaction.user, guild, kanaal)
 
 
+def _draai_migraties() -> None:
+    """Voert pending Alembic-migraties uit tegen de huidige database, vóór de bot
+    start. Draait als apart subprocess (niet via de alembic Python-API) omdat
+    migrations/env.py zelf al asyncio.run() aanroept, wat niet kan vanuit een
+    al draaiende event loop. Voorkomt dat een deploy start met een schema dat
+    achterloopt op de code (zie het laatste_verzorging_op-incident)."""
+    alembic_ini = Path(__file__).resolve().parent / "alembic.ini"
+    log.info("Migraties uitvoeren (alembic upgrade head)...")
+    resultaat = subprocess.run(
+        [sys.executable, "-m", "alembic", "-c", str(alembic_ini), "upgrade", "head"],
+        capture_output=True,
+        text=True,
+    )
+    if resultaat.returncode != 0:
+        log.error("Migraties mislukt:\n%s", resultaat.stdout + resultaat.stderr)
+        raise RuntimeError("Alembic-migratie mislukt, bot start niet op met een verouderd schema.")
+    log.info("Migraties op orde.\n%s", resultaat.stdout.strip())
+
+
 async def main() -> None:
     bot = GameNameBot()
     async with bot:
@@ -89,4 +111,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    _draai_migraties()
     asyncio.run(main())
