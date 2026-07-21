@@ -17,6 +17,7 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 ## Wat werkt (getest, op dev)
 
 - **`/ping`** — connectiviteitscheck.
+- **`/todo`** — publiek overzicht van wat er nog gepland staat (tester-vriendelijke versie van "Nog niet gebouwd" hieronder). Lijst staat hardcoded in `TODO_ITEMS` in `cogs/algemeen.py` — handmatig in sync houden met de backlog-sectie.
 - **`/vang <naam>`** — vangt de actief gespawnde pet in het kanaal (exacte naam, of het deel vóór haakjes bij soorten als "Hond (Zwerfhond)" → "Hond"). Geen spawn actief = nette foutmelding.
 - **Spawn-systeem**: activiteit-trigger (25-40 berichten, instelbaar via `Instelling`-tabel) + tijd-trigger (2-4u, 30 min in dev), meerdere spawn-kanalen per server (`/setspawnkanaal`, `/verwijderspawnkanaal`). Eén actieve spawn per kanaal; een nieuwe spawn markeert de oude als "ontsnapt" in de embed (race-condition-veilig via een lock per kanaal). Spawn-embed toont tier-kleur + pet-afbeelding (of placeholder). Bij vangst wordt dezelfde embed geëdit naar "gevangen door X", geen apart bericht meer.
 - **`/spawn`** (admin) — forceert een spawn, met optionele `tier`- en `naam`-parameters (naam heeft autocomplete).
