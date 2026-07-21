@@ -115,6 +115,9 @@ class Huisdier(Base):
     werk_notificatie_verstuurd: Mapped[bool] = mapped_column(default=False)
     werk_kanaal_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
+    # Peilmoment voor het lazy honger/energie/blijdschap-verval, zie utils/stats.py.
+    laatste_verzorging_op: Mapped[datetime] = mapped_column(server_default=func.now())
+
     level: Mapped[int] = mapped_column(default=1)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

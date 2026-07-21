@@ -24,10 +24,11 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **13 pet-soorten geseed** (3 tiers: Common 70%, Rare 25%, Legendary 5%, gelijk verdeeld binnen tier), elk met een eigen AI-gegenereerde afbeelding in `docs/assets/`, gelinkt via `scripts/link_afbeeldingen.py` (leest repo-naam automatisch uit de git remote, dus overleefde de repo-rename zonder handwerk).
 - **5 werkplekken geseed**, elk gekoppeld aan een eigen grondstof-item.
 - **11 shop-items geseed** (nog geen `/shop`-koopcommando gebouwd, alleen de data staat klaar).
+- **Stat-verval & `/verzorg`**: honger/blijdschap dalen lazy over tijd (berekend bij elke aanraking van een pet, zoals `/lijst`, `/verzorg`, `/werk` — geen achtergrondtaak, logica in `utils/stats.py`). Energie herstelt passief (+1/10 min, alleen in status `rust`, brief sectie 6). `/verzorg pet_id` toont de stats; met optioneel `item` (Basis brokjes/Graanvrije premium voeding/Vers vlees/vis/Mysterie voedselzak) verbruikt het 1 stuk uit de inventaris voor een energie-boost. Bij honger=0 of blijdschap=0 kan een pet niet aan het werk gezet worden (zelfde blokkade als energie<20, gedeeld via `inzetbaarheid_probleem()`). Verval-snelheden zijn placeholders, en in dev met dezelfde 120x-versnellingsfactor als de werk-cycli. **Nog niet gedekt**: honger zelf direct herstellen (de 3 voedingsitems herstellen alleen energie, per brief-tekst) en de "overig"-automatiseringsitems (voerbakken, zelfreinigend systeem) — die horen bij de shop-stap.
 
 ## Nog niet gebouwd (uit de brief, ruwweg in logische volgorde)
 
-1. Verzorgingssysteem: voeding kopen/gebruiken, energie/honger/blijdschap-verval over tijd, shop-koopcommando (`/verzorg` is nu nog een placeholder in `cogs/verzorging.py`).
+1. Verzorgingssysteem: shop-koopcommando (`/shop`, uitgeven van Chaos Coins aan de 11 geseede items) — voeding gebruiken + stat-verval is al gebouwd, zie hierboven.
 2. Level-up systeem (stats/genen laten meegroeien).
 3. Team & gevechten (`/team`, `/vecht`) — placeholders in `cogs/gevechten.py`, vecht-formule staat al in de brief (sectie 12).
 4. Fokken/breeding (`cogs/fokken.py` is placeholder).

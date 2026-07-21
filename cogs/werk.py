@@ -13,6 +13,7 @@ import config
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
+from utils.stats import inzetbaarheid_probleem, sync_stats
 
 log = logging.getLogger("chaos_critters")
 
@@ -176,6 +177,8 @@ class WerkCog(commands.Cog):
                 )
                 return
 
+            sync_stats(huisdier)
+
             if huisdier.status == PetStatus.werkplek:
                 await self._verwerk_lopende_shift(session, interaction, huisdier)
                 return
@@ -193,11 +196,9 @@ class WerkCog(commands.Cog):
                 )
                 return
 
-            if huisdier.energie < 20:
-                await interaction.response.send_message(
-                    f"**{huisdier.naam}** heeft te weinig energie om te werken (onder 20).",
-                    ephemeral=True,
-                )
+            probleem = inzetbaarheid_probleem(huisdier)
+            if probleem is not None:
+                await interaction.response.send_message(probleem, ephemeral=True)
                 return
 
             werkplek_obj = await session.scalar(select(Werkplek).where(Werkplek.type == werkplek.value))

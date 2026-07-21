@@ -1,3 +1,4 @@
+import random
 from datetime import timedelta
 
 import discord
@@ -8,9 +9,36 @@ from sqlalchemy import select
 from cogs.vangen import TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _format_duur, _nu
 from db.engine import async_session
-from db.models import Huisdier, PetStatus
+from db.models import Huisdier, InventarisItem, Item, PetStatus
+from utils.stats import sync_stats
 
 PETS_PER_PAGINA = 10
+
+# Directe voedingsitems die /verzorg kan gebruiken (energie-effect, brief sectie 5).
+# Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
+# aankopen voor de shop-stap en horen hier nog niet bij.
+_ENERGIE_BOOST = {
+    "Basis brokjes": 15,
+    "Graanvrije premium voeding": 40,
+}
+_VOLLEDIG_HERSTEL = {"Vers vlees/vis"}
+_MYSTERIE_VOEDSEL = "Mysterie voedselzak"
+
+VOEDING_ITEMS = [*_ENERGIE_BOOST.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
+
+
+def _toepassen_voeding(huisdier: Huisdier, item_naam: str) -> str:
+    """Past het effect van een voedingsitem toe op de pet, geeft de gebruikte naam terug
+    (relevant bij de Mysterie voedselzak, die een willekeurig item simuleert)."""
+    if item_naam == _MYSTERIE_VOEDSEL:
+        item_naam = random.choice([*_ENERGIE_BOOST.keys(), *_VOLLEDIG_HERSTEL])
+
+    if item_naam in _VOLLEDIG_HERSTEL:
+        huisdier.energie = 100
+    else:
+        huisdier.energie = min(100, huisdier.energie + _ENERGIE_BOOST[item_naam])
+    return item_naam
+
 
 STATUS_LABELS = {
     PetStatus.rust: "😴 Rust",
@@ -46,7 +74,11 @@ def _sorteer(pets: list[Huisdier], sortering: str) -> list[Huisdier]:
 
 async def _haal_pets_op(session, speler_id: int) -> list[Huisdier]:
     stmt = select(Huisdier).where(Huisdier.eigenaar_id == speler_id)
-    return (await session.execute(stmt)).scalars().all()
+    pets = (await session.execute(stmt)).scalars().all()
+    for pet in pets:
+        sync_stats(pet)
+    await session.commit()
+    return pets
 
 
 def _werk_status(pet: Huisdier) -> str:
@@ -153,12 +185,59 @@ class VerzorgingCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="verzorg", description="Bekijk of verzorg de stats van een pet")
-    @app_commands.describe(pet_id="Het ID van je pet")
-    async def verzorg(self, interaction: discord.Interaction, pet_id: int) -> None:
-        await interaction.response.send_message(
-            f"Verzorgingssysteem voor pet #{pet_id} is nog niet geïmplementeerd.", ephemeral=True
-        )
+    @app_commands.command(name="verzorg", description="Bekijk de stats van een pet, of voer 'm met voeding uit je inventaris")
+    @app_commands.describe(
+        pet_id="Het ID van je pet",
+        item="Voeding om te gebruiken (optioneel, laat leeg om alleen de stats te bekijken)",
+    )
+    @app_commands.choices(
+        item=[app_commands.Choice(name=naam, value=naam) for naam in VOEDING_ITEMS]
+    )
+    async def verzorg(
+        self,
+        interaction: discord.Interaction,
+        pet_id: int,
+        item: app_commands.Choice[str] | None = None,
+    ) -> None:
+        async with async_session() as session:
+            huisdier = await session.get(Huisdier, pet_id)
+            if huisdier is None or huisdier.eigenaar_id != interaction.user.id:
+                await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
+                return
+
+            sync_stats(huisdier)
+
+            if item is None:
+                await session.commit()
+                await interaction.response.send_message(
+                    f"**{huisdier.naam}** — 🍖 Honger: {huisdier.honger}/100, "
+                    f"⚡ Energie: {huisdier.energie}/100, 😊 Blijdschap: {huisdier.blijdschap}/100",
+                    ephemeral=True,
+                )
+                return
+
+            item_obj = await session.scalar(select(Item).where(Item.naam == item.value))
+            inventaris_item = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == interaction.user.id,
+                    InventarisItem.item_id == item_obj.id,
+                )
+            )
+            if inventaris_item is None or inventaris_item.aantal < 1:
+                await interaction.response.send_message(
+                    f"Je hebt geen **{item.value}** in je inventaris.", ephemeral=True
+                )
+                return
+
+            inventaris_item.aantal -= 1
+            gebruikt_item = _toepassen_voeding(huisdier, item.value)
+            await session.commit()
+
+            extra = f" (bleek **{gebruikt_item}**)" if item.value == _MYSTERIE_VOEDSEL else ""
+            await interaction.response.send_message(
+                f"🍽️ **{huisdier.naam}** kreeg **{item.value}**{extra}. Energie is nu {huisdier.energie}/100.",
+                ephemeral=True,
+            )
 
     @app_commands.command(name="lijst", description="Bekijk al je pets")
     async def lijst(self, interaction: discord.Interaction) -> None:
