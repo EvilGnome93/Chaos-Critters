@@ -39,8 +39,6 @@ XP_VERLIES = 10
 ENERGIE_KOST_MIN = 10
 ENERGIE_KOST_MAX = 20
 
-PVE_BASIS_TEAM_POWER = 200  # team-macht van een gesimuleerde tegenstander bij MMR 1000
-
 _RANKED_RESET_UUR_ECHT = 24
 RANKED_RESET_UUR = (
     _RANKED_RESET_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _RANKED_RESET_UUR_ECHT
@@ -69,9 +67,19 @@ def bereken_schade(macht: float) -> int:
     return max(1, round(macht * SCHADE_FRACTIE))
 
 
-def synthetische_tegenstander_macht(mmr: int) -> float:
-    """Genereert de macht van een gesimuleerde PvE-tegenstander, geschaald op MMR."""
-    return (mmr / 1000) * PVE_BASIS_TEAM_POWER
+def synthetische_tegenstander_macht(eigen_pet_macht: float, mmr: int) -> float:
+    """Basismacht van de gesimuleerde PvE-tegenstander in één matchup.
+
+    Spiegelt de macht van de eigen pet in díé specifieke matchup (niet het
+    teamtotaal): matchups zijn opeenvolgend 1-op-1, dus een ongelijk
+    verdeeld team (bijv. één sterke Legendary plus twee zwakkere pets) zou
+    bij een totaal-gebaseerde tegenstander alsnog 2 van de 3 matchups
+    verliezen ondanks een gelijk teamtotaal. Per-pet spiegelen blijft ook
+    dan eerlijk. Kleine MMR-modifier zodat een hogere MMR iets zwaarder
+    weegt; de aanroeper past er zelf nog eigen willekeurige variantie op
+    toe per matchup."""
+    mmr_factor = max(0.5, 1 + (mmr - 1000) / 1000 * 0.2)
+    return eigen_pet_macht * mmr_factor
 
 
 def elo_delta(mmr_eigen: int, mmr_tegenstander: int, gewonnen: bool) -> int:

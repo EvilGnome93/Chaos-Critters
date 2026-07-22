@@ -595,7 +595,9 @@ class GevechtenCog(commands.Cog):
             )
             return
 
-        # PvE: gesimuleerde tegenstander op basis van eigen MMR
+        # PvE: gesimuleerde tegenstander, per matchup gespiegeld op de macht
+        # van de eigen pet in die matchup (blijft eerlijk ongeacht hoe scheef
+        # de eigen teamsamenstelling is), met een kleine MMR-modifier.
         async with async_session() as session:
             speler = await session.get(Speler, interaction.user.id)
             await _verbruik_ranked_poging(session, speler)
@@ -607,8 +609,10 @@ class GevechtenCog(commands.Cog):
             await session.commit()
 
         tegenstander_mmr = eigen_mmr
-        basis_macht = synthetische_tegenstander_macht(tegenstander_mmr)
-        tegenstander_macht = [basis_macht / 3 * random.uniform(0.85, 1.15) for _ in range(3)]
+        tegenstander_macht = [
+            synthetische_tegenstander_macht(macht, eigen_mmr) * random.uniform(0.85, 1.15)
+            for macht in eigen_macht
+        ]
 
         view = VechtView(
             self.bot,
