@@ -82,6 +82,9 @@ class Speler(Base):
     level: Mapped[int] = mapped_column(default=1)
     xp: Mapped[int] = mapped_column(default=0)
     mmr: Mapped[int] = mapped_column(default=1000)
+    # Rollend 24-uursvenster voor de dagelijkse gratis ranked-pogingen (sectie 12/13).
+    ranked_pogingen_vandaag: Mapped[int] = mapped_column(default=0)
+    ranked_reset_op: Mapped[datetime | None] = mapped_column(nullable=True)
     # Alvast aanwezig voor het gilde-systeem, komt later; blijft voorlopig NULL.
     gilde_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -118,6 +121,9 @@ class Huisdier(Base):
     # Peilmoment voor het lazy honger/energie/blijdschap-verval, zie utils/stats.py.
     laatste_verzorging_op: Mapped[datetime] = mapped_column(server_default=func.now())
     laatste_slaap_op: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Gezet wanneer een pet een gevecht-matchup verliest (0 HP); tot dit
+    # moment niet inzetbaar voor werk/team. Zie utils/gevechten.py.
+    geblesseerd_tot: Mapped[datetime | None] = mapped_column(nullable=True)
 
     level: Mapped[int] = mapped_column(default=1)
     xp: Mapped[int] = mapped_column(default=0)

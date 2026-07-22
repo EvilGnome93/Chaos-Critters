@@ -37,6 +37,11 @@ SLAAP_COOLDOWN_UUR = (
 )
 SLAAP_HONGER_KOST = 20
 
+_BLESSURE_DUUR_UUR_ECHT = 2  # tijdelijk niet inzetbaar na een verloren gevecht-matchup
+BLESSURE_DUUR_UUR = (
+    _BLESSURE_DUUR_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _BLESSURE_DUUR_UUR_ECHT
+)
+
 
 def _nu() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -57,6 +62,9 @@ def sync_stats(huisdier: Huisdier, nu: datetime | None = None) -> None:
 
 def inzetbaarheid_probleem(huisdier: Huisdier) -> str | None:
     """None als de pet aan het werk gezet/in team geplaatst mag worden, anders de foutmelding."""
+    if huisdier.geblesseerd_tot is not None and huisdier.geblesseerd_tot > _nu():
+        resterend = (huisdier.geblesseerd_tot - _nu()).total_seconds() / 3600
+        return f"**{huisdier.naam}** is geblesseerd na een gevecht en kan nog niet ingezet worden (nog {resterend:.1f} uur)."
     if huisdier.energie < ENERGIE_MINIMUM:
         return f"**{huisdier.naam}** heeft te weinig energie om ingezet te worden (onder {ENERGIE_MINIMUM})."
     if huisdier.honger <= 0:
