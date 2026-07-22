@@ -13,6 +13,7 @@ import config
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
+from utils.leveling import XP_PER_EFFECTIEVE_UUR, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats
 
 log = logging.getLogger("chaos_critters")
@@ -255,6 +256,9 @@ class WerkCog(commands.Cog):
         speler.currency += currency_aantal
         await _voeg_toe_aan_inventaris(session, interaction.user.id, item.id, grondstof_aantal)
 
+        xp_gewonnen = round(effectieve_uren * XP_PER_EFFECTIEVE_UUR)
+        nieuwe_levels = voeg_xp_toe(huisdier, xp_gewonnen)
+
         huisdier.status = PetStatus.rust
         huisdier.werkplek_type_id = None
         huisdier.werk_cyclus = None
@@ -262,9 +266,14 @@ class WerkCog(commands.Cog):
         huisdier.werk_kanaal_id = None
         await session.commit()
 
+        level_up_tekst = ""
+        if nieuwe_levels:
+            level_up_tekst = f"\n✨ **{huisdier.naam}** bereikte level {nieuwe_levels[-1]}!"
+
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
-            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins.",
+            f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP."
+            f"{level_up_tekst}",
             ephemeral=True,
         )
         await send_log(
@@ -275,7 +284,8 @@ class WerkCog(commands.Cog):
                 "🟢",
                 "werk",
                 f"{interaction.user.mention} haalde opbrengst op van **{huisdier.naam}** "
-                f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins",
+                f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP"
+                + (f", level-up naar {nieuwe_levels[-1]}" if nieuwe_levels else ""),
             ),
         )
 

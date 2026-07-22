@@ -119,6 +119,7 @@ class Huisdier(Base):
     laatste_verzorging_op: Mapped[datetime] = mapped_column(server_default=func.now())
 
     level: Mapped[int] = mapped_column(default=1)
+    xp: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     eigenaar: Mapped["Speler"] = relationship(back_populates="huisdieren")
