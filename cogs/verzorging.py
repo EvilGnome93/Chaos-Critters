@@ -10,7 +10,14 @@ from cogs.vangen import TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetStatus, Speler
+from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
 from utils.stats import sync_stats
+
+
+def _level_status(pet: Huisdier) -> str:
+    if pet.level >= MAX_LEVEL:
+        return f"Level {pet.level} (max)"
+    return f"Level {pet.level} (XP: {pet.xp}/{xp_voor_volgend_level(pet.level)})"
 
 PETS_PER_PAGINA = 10
 
@@ -155,7 +162,7 @@ class PetLijstView(discord.ui.View):
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
             embed.add_field(
                 name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})",
-                value=f"{status}\n{stats}",
+                value=f"{_level_status(pet)}\n{status}\n{stats}",
                 inline=False,
             )
             if i < len(subset) - 1:
@@ -261,7 +268,8 @@ class VerzorgingCog(commands.Cog):
             if item is None:
                 await session.commit()
                 await interaction.response.send_message(
-                    f"**{huisdier.naam}** — 🍖 Honger: {huisdier.honger}/100, "
+                    f"**{huisdier.naam}** — {_level_status(huisdier)}\n"
+                    f"🍖 Honger: {huisdier.honger}/100, "
                     f"⚡ Energie: {huisdier.energie}/100, 😊 Blijdschap: {huisdier.blijdschap}/100",
                     ephemeral=True,
                 )
