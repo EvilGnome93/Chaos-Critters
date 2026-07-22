@@ -39,7 +39,6 @@ async def main() -> None:
             werk_genen=50,
             honger=100,
             energie=50,
-            blijdschap=100,
             status=PetStatus.rust,
             laatste_verzorging_op=_nu() - timedelta(minutes=HONGER_VERVAL_MINUTEN * 3),
         )
@@ -59,8 +58,8 @@ async def main() -> None:
             print(probleem)
             assert probleem is not None
 
-            print("\n-- inzetbaarheid na voeding (Basis brokjes) --")
-            huisdier.honger = 100  # simuleert dat honger geen blokkade meer is
+            print("\n-- voeding herstelt honger, niet energie (Basis brokjes) --")
+            huisdier.honger = 50
             item = await session.scalar(select(Item).where(Item.naam == "Basis brokjes"))
             stmt = insert(InventarisItem).values(speler_id=TEST_SPELER_ID, item_id=item.id, aantal=1)
             stmt = stmt.on_conflict_do_update(
@@ -68,10 +67,12 @@ async def main() -> None:
             )
             await session.execute(stmt)
 
+            honger_voor = huisdier.honger
             energie_voor = huisdier.energie
             _toepassen_voeding(huisdier, "Basis brokjes")
-            print(f"energie {energie_voor} -> {huisdier.energie} (verwacht +15)")
-            assert huisdier.energie == min(100, energie_voor + 15)
+            print(f"honger {honger_voor} -> {huisdier.honger} (verwacht +15), energie ongewijzigd: {huisdier.energie}")
+            assert huisdier.honger == min(100, honger_voor + 15)
+            assert huisdier.energie == energie_voor
             assert inzetbaarheid_probleem(huisdier) is None
 
             print("\nAlle checks geslaagd.")

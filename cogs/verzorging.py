@@ -76,7 +76,6 @@ SORTEER_OPTIES = {
     "werk": "Werkstatus",
     "honger": "Honger",
     "energie": "Energie",
-    "blijdschap": "Blijdschap",
 }
 
 SORTEER_LABELS = {
@@ -86,7 +85,6 @@ SORTEER_LABELS = {
     "sorteer_werk": "Werkstatus",
     "sorteer_honger": "Honger",
     "sorteer_energie": "Energie",
-    "sorteer_blijdschap": "Blijdschap",
 }
 
 
@@ -97,7 +95,7 @@ def _sorteer(pets: list[Huisdier], sortering: str) -> list[Huisdier]:
         return sorted(pets, key=lambda p: p.naam.lower())
     if sortering == "werk":
         return sorted(pets, key=lambda p: (p.status != PetStatus.werkplek, p.id))
-    if sortering in ("honger", "energie", "blijdschap"):
+    if sortering in ("honger", "energie"):
         # Laagst (meest urgent te verzorgen) eerst.
         return sorted(pets, key=lambda p: (getattr(p, sortering), p.id))
     return sorted(pets, key=lambda p: p.id)
@@ -144,7 +142,6 @@ class PetLijstView(discord.ui.View):
             self.sorteer_werk,
             self.sorteer_honger,
             self.sorteer_energie,
-            self.sorteer_blijdschap,
         )
         for knop in knoppen:
             waarde = knop.custom_id.removeprefix("sorteer_")
@@ -159,7 +156,7 @@ class PetLijstView(discord.ui.View):
         embed = discord.Embed(title="🐾 Jouw pets", color=TIER_KLEUREN.get(hoogste_tier, discord.Color.blurple()))
         for i, pet in enumerate(subset):
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
-            stats = f"🍖 {pet.honger} ⚡ {pet.energie} 😊 {pet.blijdschap}"
+            stats = f"🍖 {pet.honger} ⚡ {pet.energie}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
             embed.add_field(
                 name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})",
@@ -233,10 +230,6 @@ class PetLijstView(discord.ui.View):
     async def sorteer_energie(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "energie")
 
-    @discord.ui.button(label="Blijdschap", style=discord.ButtonStyle.secondary, row=2, custom_id="sorteer_blijdschap")
-    async def sorteer_blijdschap(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        await self._wissel_sortering(interaction, "blijdschap")
-
 
 class VerzorgingCog(commands.Cog):
     """Voeding, stats en shop-items voor huisdieren. Zie projectbrief sectie 5 en 6."""
@@ -271,7 +264,7 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message(
                     f"**{huisdier.naam}** — {_level_status(huisdier)}\n"
                     f"🍖 Honger: {huisdier.honger}/100, "
-                    f"⚡ Energie: {huisdier.energie}/100, 😊 Blijdschap: {huisdier.blijdschap}/100",
+                    f"⚡ Energie: {huisdier.energie}/100",
                     ephemeral=True,
                 )
                 return
