@@ -150,13 +150,22 @@ class TeamSelectView(discord.ui.View):
 
 
 class UitdagingView(discord.ui.View):
-    def __init__(self, cog: "GevechtenCog", uitdager_id: int, tegenstander_id: int, inzet_coins: int, inzet_item):
+    def __init__(
+        self,
+        cog: "GevechtenCog",
+        uitdager_id: int,
+        tegenstander_id: int,
+        inzet_coins: int,
+        inzet_item,
+        guild_id: int | None,
+    ):
         super().__init__(timeout=180)
         self.cog = cog
         self.uitdager_id = uitdager_id
         self.tegenstander_id = tegenstander_id
         self.inzet_coins = inzet_coins
         self.inzet_item = inzet_item
+        self.guild_id = guild_id
         self.message: discord.Message | None = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -169,6 +178,12 @@ class UitdagingView(discord.ui.View):
     async def accepteren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         for item in self.children:
             item.disabled = True
+        await send_log(
+            self.cog.bot,
+            self.guild_id,
+            "gevecht",
+            fmt_log("🟢", "vecht", f"<@{self.tegenstander_id}> accepteerde de uitdaging van <@{self.uitdager_id}>"),
+        )
         await self.cog.start_pvp_gevecht(interaction, self)
 
     @discord.ui.button(label="❌ Weigeren", style=discord.ButtonStyle.danger)
@@ -176,6 +191,12 @@ class UitdagingView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         await interaction.response.edit_message(content="❌ Uitdaging geweigerd.", embed=None, view=self)
+        await send_log(
+            self.cog.bot,
+            self.guild_id,
+            "gevecht",
+            fmt_log("🔴", "vecht", f"<@{self.tegenstander_id}> weigerde de uitdaging van <@{self.uitdager_id}>"),
+        )
 
     async def on_timeout(self) -> None:
         if self.message is None:
@@ -186,6 +207,12 @@ class UitdagingView(discord.ui.View):
             await self.message.edit(content="⌛ Uitdaging verlopen.", view=self)
         except discord.HTTPException:
             pass
+        await send_log(
+            self.cog.bot,
+            self.guild_id,
+            "gevecht",
+            fmt_log("🔴", "vecht", f"Uitdaging van <@{self.uitdager_id}> aan <@{self.tegenstander_id}> verliep zonder reactie"),
+        )
 
 
 class VechtView(discord.ui.View):
@@ -542,7 +569,9 @@ class GevechtenCog(commands.Cog):
             if inzet_item_getal:
                 inzet_tekst += f"\n📦 Inzet: {inzet_item_getal[1]}x {inzet_item_getal[0]}"
 
-            view = UitdagingView(self, interaction.user.id, tegenstander.id, inzet_coins or 0, inzet_item_getal)
+            view = UitdagingView(
+                self, interaction.user.id, tegenstander.id, inzet_coins or 0, inzet_item_getal, interaction.guild_id
+            )
             embed = discord.Embed(
                 title="⚔️ Ranked uitdaging!",
                 description=(
@@ -553,6 +582,17 @@ class GevechtenCog(commands.Cog):
             )
             await interaction.response.send_message(content=tegenstander.mention, embed=embed, view=view)
             view.message = await interaction.original_response()
+            await send_log(
+                self.bot,
+                interaction.guild_id,
+                "gevecht",
+                fmt_log(
+                    "🟡",
+                    "vecht",
+                    f"{interaction.user.mention} daagde {tegenstander.mention} uit voor een gevecht"
+                    + (inzet_tekst.replace("\n", ", ") if inzet_tekst else ""),
+                ),
+            )
             return
 
         # PvE: gesimuleerde tegenstander op basis van eigen MMR
@@ -586,6 +626,27 @@ class GevechtenCog(commands.Cog):
             None,
         )
         await view.start(interaction)
+        await send_log(
+            self.bot,
+            interaction.guild_id,
+            "gevecht",
+            fmt_log("🟡", "vecht", f"{interaction.user.mention} startte een gevecht tegen een gesimuleerde tegenstander (MMR {tegenstander_mmr})"),
+        )
+
+    async def _annuleer_uitdaging(
+        self, interaction: discord.Interaction, uitdaging: UitdagingView, reden: str
+    ) -> None:
+        await interaction.response.edit_message(content=f"{reden} Uitdaging geannuleerd.", embed=None, view=uitdaging)
+        await send_log(
+            self.bot,
+            uitdaging.guild_id,
+            "gevecht",
+            fmt_log(
+                "🔴",
+                "vecht",
+                f"Uitdaging tussen <@{uitdaging.uitdager_id}> en <@{uitdaging.tegenstander_id}> geannuleerd: {reden}",
+            ),
+        )
 
     async def start_pvp_gevecht(self, interaction: discord.Interaction, uitdaging: UitdagingView) -> None:
         async with async_session() as session:
@@ -596,18 +657,14 @@ class GevechtenCog(commands.Cog):
             await session.commit()
 
             if len(eigen_team) != 3 or len(tegenstander_team) != 3:
-                await interaction.response.edit_message(
-                    content="Een van beide spelers heeft geen volledig team meer van 3. Uitdaging geannuleerd.",
-                    embed=None,
-                    view=uitdaging,
+                await self._annuleer_uitdaging(
+                    interaction, uitdaging, "Een van beide spelers heeft geen volledig team meer van 3."
                 )
                 return
             for pet in [*eigen_team, *tegenstander_team]:
                 probleem = inzetbaarheid_probleem(pet)
                 if probleem:
-                    await interaction.response.edit_message(
-                        content=f"{probleem} Uitdaging geannuleerd.", embed=None, view=uitdaging
-                    )
+                    await self._annuleer_uitdaging(interaction, uitdaging, probleem)
                     return
 
             uitdager = await session.get(Speler, uitdaging.uitdager_id)
@@ -617,20 +674,14 @@ class GevechtenCog(commands.Cog):
                 heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
                 if not heeft_poging:
                     await session.commit()
-                    await interaction.response.edit_message(
-                        content=f"<@{speler.discord_id}>: {poging_probleem} Uitdaging geannuleerd.",
-                        embed=None,
-                        view=uitdaging,
-                    )
+                    await self._annuleer_uitdaging(interaction, uitdaging, f"<@{speler.discord_id}>: {poging_probleem}")
                     return
 
             if uitdaging.inzet_coins:
                 if uitdager.currency < uitdaging.inzet_coins or tegenstander_speler.currency < uitdaging.inzet_coins:
                     await session.commit()
-                    await interaction.response.edit_message(
-                        content="Een van beide spelers heeft niet meer genoeg Chaos Coins voor de inzet. Uitdaging geannuleerd.",
-                        embed=None,
-                        view=uitdaging,
+                    await self._annuleer_uitdaging(
+                        interaction, uitdaging, "Een van beide spelers heeft niet meer genoeg Chaos Coins voor de inzet."
                     )
                     return
             if uitdaging.inzet_item:
@@ -644,10 +695,8 @@ class GevechtenCog(commands.Cog):
                     )
                     if inv is None or inv.aantal < aantal:
                         await session.commit()
-                        await interaction.response.edit_message(
-                            content=f"<@{speler_id}> heeft niet meer genoeg **{item_naam}** voor de inzet. Uitdaging geannuleerd.",
-                            embed=None,
-                            view=uitdaging,
+                        await self._annuleer_uitdaging(
+                            interaction, uitdaging, f"<@{speler_id}> heeft niet meer genoeg **{item_naam}** voor de inzet."
                         )
                         return
 

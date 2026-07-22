@@ -83,14 +83,22 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="setlog", description="Stel het logkanaal voor een categorie in")
     @app_commands.describe(
-        categorie="Vrije naam voor de logcategorie, bijv. 'main' of 'vangst'",
+        categorie="De logcategorie",
         kanaal="Het tekstkanaal waar logs van deze categorie naartoe gestuurd worden",
+    )
+    @app_commands.choices(
+        categorie=[
+            app_commands.Choice(name="Main (bot start/fouten)", value="main"),
+            app_commands.Choice(name="Vangst (catches + geforceerde spawns)", value="vangst"),
+            app_commands.Choice(name="Werk (shifts starten/opbrengst)", value="werk"),
+            app_commands.Choice(name="Gevecht (team/vecht-gerelateerd)", value="gevecht"),
+        ]
     )
     @app_commands.check(is_admin)
     async def setlog(
-        self, interaction: discord.Interaction, categorie: str, kanaal: discord.TextChannel
+        self, interaction: discord.Interaction, categorie: app_commands.Choice[str], kanaal: discord.TextChannel
     ) -> None:
-        categorie = categorie.strip().lower()
+        categorie = categorie.value
         await set_log_channel(interaction.guild_id, categorie, kanaal.id)
         await interaction.response.send_message(
             f"Logkanaal voor categorie **{categorie}** ingesteld op {kanaal.mention}.", ephemeral=True
