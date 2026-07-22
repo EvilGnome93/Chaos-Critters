@@ -101,16 +101,24 @@ class MatchupResultaat:
     gevlucht: bool = False
 
 
-def speel_matchup(eigen_macht_basis: float, tegenstander_macht_basis: float, tactiek: str) -> MatchupResultaat:
+def speel_matchup(
+    eigen_macht_basis: float,
+    tegenstander_macht_basis: float,
+    tactiek: str,
+    tegenstander_tactiek: str = "gebalanceerd",
+) -> MatchupResultaat:
     """Lost één 1v1-matchup op: meerdere interne rondes tot een kant 0 HP heeft
-    of de rondelimiet bereikt wordt (dan wint wie meer HP over heeft)."""
+    of de rondelimiet bereikt wordt (dan wint wie meer HP over heeft).
+
+    `tegenstander_tactiek` is 'gebalanceerd' bij PvE (passieve simulatie) of
+    bij een PvP-tegenstander die zelf ook een tactiek koos."""
     eigen_hp = pet_hp(eigen_macht_basis)
     tegenstander_hp = pet_hp(tegenstander_macht_basis)
     log: list[str] = []
 
     for ronde in range(1, MAX_INTERNE_RONDES + 1):
         eigen_macht = macht_met_tactiek(eigen_macht_basis, tactiek)
-        tegenstander_macht = macht_met_tactiek(tegenstander_macht_basis, "gebalanceerd")
+        tegenstander_macht = macht_met_tactiek(tegenstander_macht_basis, tegenstander_tactiek)
 
         schade_aan_tegenstander = bereken_schade(eigen_macht)
         schade_aan_mij = bereken_schade(tegenstander_macht)

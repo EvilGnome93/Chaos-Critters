@@ -216,10 +216,10 @@ class UitdagingView(discord.ui.View):
 
 
 class VechtView(discord.ui.View):
-    """Speelt een best-of-3 van opeenvolgende 1v1-matchups, met per matchup
-    een tactiek-keuze (of vluchten). Bij PvP speelt de uitgedaagde kant
-    passief mee (altijd 'gebalanceerd'), zie module-docstring van
-    utils/gevechten.py."""
+    """Speelt een best-of-3 van opeenvolgende 1v1-matchups. Per matchup kiest
+    elke kant een tactiek (of vlucht): bij PvE kiest alleen de speler (de
+    tegenstander is een simulatie), bij PvP kiezen beide spelers en wordt de
+    matchup pas opgelost zodra allebei gekozen hebben."""
 
     def __init__(
         self,
@@ -255,10 +255,16 @@ class VechtView(discord.ui.View):
         self.matchup_index = 0
         self.eigen_wins = 0
         self.tegenstander_wins = 0
+        self.eigen_tactiek: str | None = None
+        self.tegenstander_tactiek: str | None = None
         self.message: discord.Message | None = None
 
+    @property
+    def is_pvp(self) -> bool:
+        return self.tegenstander_id is not None
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.eigen_id:
+        if interaction.user.id not in (self.eigen_id, self.tegenstander_id):
             await interaction.response.send_message("Dit is niet jouw gevecht.", ephemeral=True)
             return False
         return True
@@ -270,12 +276,24 @@ class VechtView(discord.ui.View):
             if self.tegenstander_team
             else f"Wilde {self.tegenstander_naam}"
         )
+        instructie = (
+            f"Beide spelers kiezen een tactiek (of vluchten) — <@{self.eigen_id}> en <@{self.tegenstander_id}>:"
+            if self.is_pvp
+            else "Kies een tactiek voor deze matchup:"
+        )
         return discord.Embed(
             title=f"⚔️ Matchup {self.matchup_index + 1}/3: {eigen_pet.naam} vs {tegen_naam}",
             description=(
-                f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n"
-                "Kies een tactiek voor deze matchup:"
+                f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n{instructie}"
             ),
+            color=discord.Color.orange(),
+        )
+
+    def _wacht_embed(self) -> discord.Embed:
+        wie = f"<@{self.eigen_id}>" if self.eigen_tactiek is not None else f"<@{self.tegenstander_id}>"
+        return discord.Embed(
+            title=f"⏳ Matchup {self.matchup_index + 1}/3 — wachten...",
+            description=f"{wie} heeft gekozen. Wachten op de andere speler.",
             color=discord.Color.orange(),
         )
 
@@ -291,10 +309,35 @@ class VechtView(discord.ui.View):
             await session.commit()
 
     async def _kies_tactiek(self, interaction: discord.Interaction, tactiek: str) -> None:
+        if interaction.user.id == self.eigen_id:
+            if self.eigen_tactiek is not None:
+                await interaction.response.send_message(
+                    "Je hebt al gekozen voor deze matchup, wachten op de andere speler...", ephemeral=True
+                )
+                return
+            self.eigen_tactiek = tactiek
+        else:
+            if self.tegenstander_tactiek is not None:
+                await interaction.response.send_message(
+                    "Je hebt al gekozen voor deze matchup, wachten op de andere speler...", ephemeral=True
+                )
+                return
+            self.tegenstander_tactiek = tactiek
+
         await interaction.response.defer()
 
+        if self.is_pvp and (self.eigen_tactiek is None or self.tegenstander_tactiek is None):
+            await self.message.edit(embed=self._wacht_embed(), view=self)
+            return
+
+        eigen_tactiek = self.eigen_tactiek
+        tegenstander_tactiek = self.tegenstander_tactiek if self.is_pvp else "gebalanceerd"
+
         resultaat = speel_matchup(
-            self.eigen_macht[self.matchup_index], self.tegenstander_macht[self.matchup_index], tactiek
+            self.eigen_macht[self.matchup_index],
+            self.tegenstander_macht[self.matchup_index],
+            eigen_tactiek,
+            tegenstander_tactiek,
         )
         if resultaat.eigen_wint:
             self.eigen_wins += 1
@@ -305,8 +348,13 @@ class VechtView(discord.ui.View):
             await self._blesseer(self.eigen_team[self.matchup_index].id)
 
         uitslag_tekst = "✅ Jij wint deze matchup!" if resultaat.eigen_wint else "❌ Jij verliest deze matchup."
+        tactiek_tekst = (
+            f"{TACTIEK_LABELS[eigen_tactiek]} vs {TACTIEK_LABELS[tegenstander_tactiek]}"
+            if self.is_pvp
+            else TACTIEK_LABELS[eigen_tactiek]
+        )
         resultaat_embed = discord.Embed(
-            title=f"Matchup {self.matchup_index + 1}/3 — {TACTIEK_LABELS[tactiek]}",
+            title=f"Matchup {self.matchup_index + 1}/3 — {tactiek_tekst}",
             description=(
                 f"{chr(10).join(resultaat.ronde_log)}\n\n{uitslag_tekst}\n"
                 f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}"
@@ -321,21 +369,29 @@ class VechtView(discord.ui.View):
             return
 
         self.matchup_index += 1
+        self.eigen_tactiek = None
+        self.tegenstander_tactiek = None
         await asyncio.sleep(2)
         await self.message.edit(embed=self._intro_embed(), view=self)
 
     async def _wegrennen(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
-        self.tegenstander_wins = 3
+        gevlucht_id = interaction.user.id
+        if gevlucht_id == self.eigen_id:
+            self.tegenstander_wins = 3
+            vlucht_tekst = f"<@{self.eigen_id}> is gevlucht uit het gevecht!"
+        else:
+            self.eigen_wins = 3
+            vlucht_tekst = f"<@{self.tegenstander_id}> is gevlucht uit het gevecht!"
         await self.message.edit(
-            embed=discord.Embed(title="🏃 Je bent gevlucht uit het gevecht!", color=discord.Color.dark_grey()),
+            embed=discord.Embed(title=f"🏃 {vlucht_tekst}", color=discord.Color.dark_grey()),
             view=None,
         )
         await asyncio.sleep(1)
-        await self._verwerk_einde(gevlucht=True)
+        await self._verwerk_einde(gevlucht_id=gevlucht_id)
 
-    async def _verwerk_einde(self, gevlucht: bool = False) -> None:
-        gewonnen = self.eigen_wins > self.tegenstander_wins and not gevlucht
+    async def _verwerk_einde(self, gevlucht_id: int | None = None) -> None:
+        gewonnen = self.eigen_wins > self.tegenstander_wins
         nieuwe_levels_eigen: list[tuple[str, int]] = []
 
         async with async_session() as session:
@@ -383,7 +439,12 @@ class VechtView(discord.ui.View):
 
             await session.commit()
 
-        titel = "🏳️ Gevlucht" if gevlucht else ("🏆 Gewonnen!" if gewonnen else "💀 Verloren")
+        if gevlucht_id == self.eigen_id:
+            titel = "🏳️ Gevlucht"
+        elif gevlucht_id == self.tegenstander_id:
+            titel = "🏆 Gewonnen! (tegenstander vluchtte)"
+        else:
+            titel = "🏆 Gewonnen!" if gewonnen else "💀 Verloren"
         beschrijving = f"Eindstand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n"
         beschrijving += f"MMR-verandering: {'+' if delta >= 0 else ''}{delta}\n"
         if beloning:
