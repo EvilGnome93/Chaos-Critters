@@ -9,6 +9,17 @@ from db.models import Item, Speler
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log, set_log_channel
 
+# Wat er nieuw is sinds de vorige testronde, om testers direct naar de
+# nieuwste features te wijzen i.p.v. dat ze het hele overzicht moeten
+# doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
+NIEUW_OM_TE_TESTEN = [
+    (
+        "📈 Level-up systeem",
+        "Werken geeft nu ook XP. Genoeg XP (level × 100) = level-up, met +2% groei "
+        "in gevecht_genen en werk_genen. Check `/verzorg` of `/lijst` voor level+XP.",
+    ),
+]
+
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een
 # korte uitleg per commando. Handmatig bijgehouden (geen introspectie op de
 # command tree), dus bijwerken als er een nieuw speler-commando bijkomt.
@@ -122,6 +133,13 @@ class AdminCog(commands.Cog):
             ),
             color=discord.Color.green(),
         )
+
+        if NIEUW_OM_TE_TESTEN:
+            embed.add_field(name="🆕 Nieuw om te testen", value="​", inline=False)
+            for titel, uitleg in NIEUW_OM_TE_TESTEN:
+                embed.add_field(name=titel, value=uitleg, inline=False)
+            embed.add_field(name="📋 Volledig commando-overzicht", value="​", inline=False)
+
         for commando, uitleg in TEST_COMMANDOS:
             embed.add_field(name=commando, value=uitleg, inline=False)
 
