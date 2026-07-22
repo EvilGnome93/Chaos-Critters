@@ -15,8 +15,17 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 NIEUW_OM_TE_TESTEN = [
     (
         "📈 Level-up systeem",
-        "Werken geeft nu ook XP. Genoeg XP (level × 100) = level-up, met +2% groei "
-        "in gevecht_genen en werk_genen. Check `/verzorg` of `/lijst` voor level+XP.",
+        "Pets kunnen nu levelen door te werken. Genoeg XP (level × 100, bijv. 100 XP voor "
+        "level 2) geeft een level-up: +2% groei in gevecht_genen en werk_genen per level, "
+        "tot max level 50.\n\n"
+        "**Wat te testen:**\n"
+        "1. Zet een pet een paar keer aan het werk (`/werk pet_id werkplek cyclus` → wachten → "
+        "`/werk pet_id` om op te halen). Overnacht-shifts geven de meeste XP per keer.\n"
+        "2. Check na elke shift of de XP oploopt via `/verzorg pet_id` of `/lijst` (zoek de "
+        "regel `Level X (XP: Y/Z)`).\n"
+        "3. Bij een level-up zie je dat direct terug in het opbrengst-bericht van `/werk`.\n"
+        "4. Klopt de XP-teller, klopt het level, en voelt de groei-snelheid redelijk aan?, Houd wel in de gaten de /werk hier sneller gaat ivm testen. "
+        "Laat het weten als iets raar aanvoelt (te snel/traag, verkeerde berekening, etc.).",
     ),
 ]
 
@@ -125,7 +134,7 @@ class AdminCog(commands.Cog):
     )
     @app_commands.check(is_admin)
     async def tests(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(
+        hoofd_embed = discord.Embed(
             title="🧪 Chaos Critters — klaar om getest te worden!",
             description=(
                 "Er staat genoeg om mee te spelen. Dit is een vroege testversie, dus bugs en "
@@ -133,18 +142,21 @@ class AdminCog(commands.Cog):
             ),
             color=discord.Color.green(),
         )
+        embeds = [hoofd_embed]
 
         if NIEUW_OM_TE_TESTEN:
-            embed.add_field(name="🆕 Nieuw om te testen", value="​", inline=False)
+            nieuw_embed = discord.Embed(title="🆕 Nieuw om te testen", color=discord.Color.gold())
             for titel, uitleg in NIEUW_OM_TE_TESTEN:
-                embed.add_field(name=titel, value=uitleg, inline=False)
-            embed.add_field(name="📋 Volledig commando-overzicht", value="​", inline=False)
+                nieuw_embed.add_field(name=titel, value=uitleg, inline=False)
+            embeds.append(nieuw_embed)
 
+        overzicht_embed = discord.Embed(title="📋 Volledig commando-overzicht", color=discord.Color.blurple())
         for commando, uitleg in TEST_COMMANDOS:
-            embed.add_field(name=commando, value=uitleg, inline=False)
+            overzicht_embed.add_field(name=commando, value=uitleg, inline=False)
+        embeds.append(overzicht_embed)
 
         await interaction.response.send_message(
-            "@everyone", embed=embed, allowed_mentions=discord.AllowedMentions(everyone=True)
+            "@everyone", embeds=embeds, allowed_mentions=discord.AllowedMentions(everyone=True)
         )
         await send_log(
             self.bot,
