@@ -8,47 +8,42 @@ from db.engine import async_session
 from db.models import Item, Speler
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log, set_log_channel
-from utils.stats import SLAAP_HONGER_KOST
 
 # Wat er nieuw is sinds de vorige testronde, om testers direct naar de
 # nieuwste features te wijzen i.p.v. dat ze het hele overzicht moeten
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "📈 Level-up systeem",
-        "Pets kunnen nu levelen door te werken. Genoeg XP (level × 100, bijv. 100 XP voor "
-        "level 2) geeft een level-up: +2% groei in gevecht_genen en werk_genen per level, "
-        "tot max level 50.\n\n"
-        "**Wat te testen:**\n"
-        "1. Zet een pet een paar keer aan het werk (`/werk pet_id werkplek cyclus` → wachten → "
-        "`/werk pet_id` om op te halen). Overnacht-shifts geven de meeste XP per keer.\n"
-        "2. Check na elke shift of de XP oploopt via `/verzorg pet_id` of `/lijst` (zoek de "
-        "regel `Level X (XP: Y/Z)`).\n"
-        "3. Bij een level-up zie je dat direct terug in het opbrengst-bericht van `/werk`.\n"
-        "4. Klopt de XP-teller, klopt het level, en voelt de groei-snelheid redelijk aan?, Houd wel in de gaten de /werk hier sneller gaat ivm testen. "
-        "Laat het weten als iets raar aanvoelt (te snel/traag, verkeerde berekening, etc.).",
+        "🧹 Database is gereset",
+        "Alle spelers, pets en inventarissen zijn gewist voor deze testronde — iedereen begint "
+        "weer bij nul. **Ook `/setlog` en `/setspawnkanaal` moeten opnieuw ingesteld worden** "
+        "door een admin, die stonden ook op nul.",
     ),
     (
-        "🍖 Honger vs. energie gesplitst + /slaap",
-        "Voeding (Basis brokjes/Graanvrije premium/Vers vlees/vis) herstelt nu **honger** "
-        "i.p.v. energie — dat voelde onlogisch (voeding tegen energie in plaats van tegen "
-        "trek). Energie krijg je terug via passief rusten, of instant via het nieuwe "
-        f"`/slaap pet_id`: zet energie direct op 100, kost {SLAAP_HONGER_KOST} honger, "
-        "max 1x per (test-)dag per pet.\n\n"
-        "**Wat te testen:**\n"
-        "1. Gebruik `/verzorg pet_id item:` met een voedingsitem — check dat honger omhoog gaat, energie niet.\n"
-        "2. Gebruik `/slaap pet_id` — energie moet meteen 100/100 zijn, honger gaat 20 omlaag.\n"
-        "3. Probeer `/slaap` nogmaals meteen daarna — moet een cooldown-melding geven.\n"
-        "4. Probeer `/slaap` met een pet op 0 honger — moet geweigerd worden.",
+        "🔢 Pet-nummers zijn nu per speler",
+        "Je pets heten nu #1, #2, #3, ... geteld vanaf jouw eigen eerste vangst, i.p.v. een "
+        "doorlopend nummer over alle spelers heen (dus geen 'pet #1546' meer na een week spelen).",
     ),
     (
-        "👷 Max 3 pets tegelijk aan het werk",
-        "Elke speler kan nu maximaal 3 pets tegelijk aan het werk hebben (instelbaar via de "
-        "database-instelling `max_werkende_pets_per_speler`, kan later omhoog).\n\n"
-        "**Wat te testen:**\n"
-        "1. Zet 3 pets aan het werk.\n"
-        "2. Probeer een 4e — moet geweigerd worden met een duidelijke melding.\n"
-        "3. Haal er eentje op met `/werk pet_id` en probeer daarna een nieuwe te starten — moet nu wel lukken.",
+        "⚔️ Team & gevechten",
+        "Nieuw: `/team` om een team van 3 pets samen te stellen, en `/vecht` om te vechten — "
+        "tegen een gesimuleerde tegenstander (op basis van je MMR), of een echte speler "
+        "uitdagen met optioneel een inzet (Chaos Coins en/of een item).\n\n"
+        "Een gevecht is een best-of-3: je pet 1 vs hun pet 1, dan pet 2, dan pet 3. Per matchup "
+        "kies je een tactiek (🗡️ Aggressief / ⚖️ Gebalanceerd / 🛡️ Voorzichtig, elk een ander "
+        "risicoprofiel) of je rent weg (🏃, telt als verlies). Een verslagen pet krijgt 0 energie "
+        "en is even geblesseerd (niet inzetbaar).",
+    ),
+    (
+        "⚔️ Wat te testen bij gevechten",
+        "1. `/team` — stel een team van 3 pets samen via de dropdown.\n"
+        "2. `/vecht` zonder tegenstander — vecht tegen een gesimuleerde tegenstander, probeer "
+        "verschillende tactieken en ook een keer wegrennen.\n"
+        "3. `/vecht tegenstander:@iemand inzet_coins:10` — daag iemand uit met een inzet, laat "
+        "die persoon accepteren, check dat de winnaar de pot krijgt.\n"
+        "4. Check `/lijst` na een verlies — is de verslagen pet echt geblesseerd/niet inzetbaar?\n"
+        "5. Check of je MMR en Chaos Coins kloppen na afloop, en of je dagelijkse ranked-pogingen "
+        "opraken na een paar gevechten (`ranked_gratis_per_dag`).",
     ),
 ]
 
@@ -63,6 +58,8 @@ TEST_COMMANDOS = [
     ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
+    ("/team", "Stel je team van 3 pets samen voor gevechten."),
+    ("/vecht [tegenstander] [inzet_coins] [inzet_item] [inzet_aantal]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit (optioneel met inzet)."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
 ]
