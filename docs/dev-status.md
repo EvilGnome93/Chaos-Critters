@@ -53,6 +53,10 @@ Het verzorgingssysteem, het level-up systeem, en team & gevechten zijn volledig 
 8. Tweede grondstof per werkplek (meer variatie) — bewust nog niet gebouwd. Kandidaat-namen alvast bedacht door de gebruiker (2026-07-21): Moestuin→Fruit, Vijver→Water, Werkbank→Spijker, Bos→Bladeren, Nachtwacht→Sterrenstof. Vereist een schemawijziging (`Werkplek` heeft nu maar 1 `opbrengst_item_id`) + keuzelogica in `cogs/werk.py`. Advies: wacht hiermee tot er een crafting/upgrade-systeem is dat grondstoffen daadwerkelijk verbruikt.
 9. `/release` — pets vrijlaten voor items/Chaos Coins (idee van de gebruiker, 2026-07-22).
 
+## Bekende balans-issues (nog niet opgelost, expliciet uitgesteld)
+
+- **PvE-gevechten voelen te makkelijk, en de dagelijkse ranked-limiet stelt daardoor weinig voor** (gemeld door de gebruiker 2026-07-22, met bewijs): 3 PvE-winsten op rij, elke keer 2-0, elke keer +16 MMR en 40 Chaos Coins beloning (`CURRENCY_BASIS_WINST=20` + `CURRENCY_BONUS_PER_100_MMR=2` × mmr/100). Na de 3 gratis pogingen van de dag (`ranked_gratis_per_dag`) had de speler dus al 120 coins verdiend — genoeg voor 2x een "Extra match token" (kost 50) om de limiet meteen te omzeilen. De limiet is bedoeld om pacing te forceren, maar als winnen makkelijk én de opbrengst hoger is dan de token-prijs, is er weinig rem. Kandidaat-oplossingen om later te overwegen (nog geen keuze gemaakt): PvE moeilijker maken (bijv. `PVE_BASIS_TEAM_POWER` omhoog, of minder gunstige variantie voor de "gebalanceerde" tegenstander-AI), de token duurder maken, de winst-beloning verlagen, of currency helemaal loskoppelen van PvE-winst en alleen uit PvP/werk laten komen.
+
 ## Belangrijke afspraken/voorkeuren van de gebruiker
 
 - Altijd vragen stellen bij ontwerpkeuzes voordat je bouwt (niet zelf beslissen en doorbouwen).
