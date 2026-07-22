@@ -90,15 +90,15 @@ SORTEER_LABELS = {
 
 def _sorteer(pets: list[Huisdier], sortering: str) -> list[Huisdier]:
     if sortering == "level":
-        return sorted(pets, key=lambda p: (-p.level, p.id))
+        return sorted(pets, key=lambda p: (-p.level, p.volgnummer))
     if sortering == "naam":
         return sorted(pets, key=lambda p: p.naam.lower())
     if sortering == "werk":
-        return sorted(pets, key=lambda p: (p.status != PetStatus.werkplek, p.id))
+        return sorted(pets, key=lambda p: (p.status != PetStatus.werkplek, p.volgnummer))
     if sortering in ("honger", "energie"):
         # Laagst (meest urgent te verzorgen) eerst.
-        return sorted(pets, key=lambda p: (getattr(p, sortering), p.id))
-    return sorted(pets, key=lambda p: p.id)
+        return sorted(pets, key=lambda p: (getattr(p, sortering), p.volgnummer))
+    return sorted(pets, key=lambda p: p.volgnummer)
 
 
 async def _haal_pets_op(session, speler_id: int) -> list[Huisdier]:
@@ -159,7 +159,7 @@ class PetLijstView(discord.ui.View):
             stats = f"🍖 {pet.honger} ⚡ {pet.energie}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
             embed.add_field(
-                name=f"{emoji} #{pet.id} {pet.naam} (lvl {pet.level})",
+                name=f"{emoji} #{pet.volgnummer} {pet.naam} (lvl {pet.level})",
                 value=f"{_level_status(pet)}\n{status}\n{stats}",
                 inline=False,
             )
@@ -252,8 +252,12 @@ class VerzorgingCog(commands.Cog):
         item: app_commands.Choice[str] | None = None,
     ) -> None:
         async with async_session() as session:
-            huisdier = await session.get(Huisdier, pet_id)
-            if huisdier is None or huisdier.eigenaar_id != interaction.user.id:
+            huisdier = await session.scalar(
+                select(Huisdier).where(
+                    Huisdier.eigenaar_id == interaction.user.id, Huisdier.volgnummer == pet_id
+                )
+            )
+            if huisdier is None:
                 await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
                 return
 
@@ -298,8 +302,12 @@ class VerzorgingCog(commands.Cog):
     @app_commands.describe(pet_id="Het ID van je pet")
     async def slaap(self, interaction: discord.Interaction, pet_id: int) -> None:
         async with async_session() as session:
-            huisdier = await session.get(Huisdier, pet_id)
-            if huisdier is None or huisdier.eigenaar_id != interaction.user.id:
+            huisdier = await session.scalar(
+                select(Huisdier).where(
+                    Huisdier.eigenaar_id == interaction.user.id, Huisdier.volgnummer == pet_id
+                )
+            )
+            if huisdier is None:
                 await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
                 return
 

@@ -147,7 +147,7 @@ class WerkCog(commands.Cog):
                     )
                     await kanaal.send(
                         f"🧺 <@{huisdier.eigenaar_id}> **{huisdier.naam}** is klaar met werken! "
-                        f"Gebruik `/werk pet_id:{huisdier.id}` om de opbrengst op te halen."
+                        f"Gebruik `/werk pet_id:{huisdier.volgnummer}` om de opbrengst op te halen."
                     )
                 except discord.HTTPException as e:
                     log.warning(
@@ -186,8 +186,12 @@ class WerkCog(commands.Cog):
         cyclus: app_commands.Choice[str] | None = None,
     ) -> None:
         async with async_session() as session:
-            huisdier = await session.get(Huisdier, pet_id)
-            if huisdier is None or huisdier.eigenaar_id != interaction.user.id:
+            huisdier = await session.scalar(
+                select(Huisdier).where(
+                    Huisdier.eigenaar_id == interaction.user.id, Huisdier.volgnummer == pet_id
+                )
+            )
+            if huisdier is None:
                 await interaction.response.send_message(
                     "Je hebt geen pet met dat ID.", ephemeral=True
                 )

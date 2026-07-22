@@ -243,10 +243,14 @@ class VangenCog(commands.Cog):
         async with async_session() as session:
             speler = await session.get(Speler, interaction.user.id)
             if speler is None:
-                speler = Speler(discord_id=interaction.user.id)
+                speler = Speler(discord_id=interaction.user.id, volgend_pet_nummer=1)
                 session.add(speler)
 
+            volgnummer = speler.volgend_pet_nummer
+            speler.volgend_pet_nummer = volgnummer + 1
+
             huisdier = Huisdier(
+                volgnummer=volgnummer,
                 eigenaar_id=interaction.user.id,
                 soort_id=soort.id,
                 tier_id=soort.tier_id,
@@ -258,14 +262,14 @@ class VangenCog(commands.Cog):
             await session.commit()
             await session.refresh(huisdier)
 
-        await self._markeer_gevangen(bericht, soort, interaction.user, huisdier.id)
+        await self._markeer_gevangen(bericht, soort, interaction.user, huisdier.volgnummer)
         await interaction.response.defer(ephemeral=True)
         await interaction.delete_original_response()
         await send_log(
             self.bot,
             interaction.guild_id,
             "vangst",
-            fmt_log("🟢", "vangst", f"{interaction.user.mention} ving **{soort.naam}** (pet #{huisdier.id})"),
+            fmt_log("🟢", "vangst", f"{interaction.user.mention} ving **{soort.naam}** (pet #{huisdier.volgnummer})"),
         )
 
     @app_commands.command(

@@ -85,6 +85,9 @@ class Speler(Base):
     # Rollend 24-uursvenster voor de dagelijkse gratis ranked-pogingen (sectie 12/13).
     ranked_pogingen_vandaag: Mapped[int] = mapped_column(default=0)
     ranked_reset_op: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Volgende per-speler pet-volgnummer (zie Huisdier.volgnummer): blijft
+    # oplopen, ook na een toekomstige /release, zodat nummers nooit botsen.
+    volgend_pet_nummer: Mapped[int] = mapped_column(default=1)
     # Alvast aanwezig voor het gilde-systeem, komt later; blijft voorlopig NULL.
     gilde_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -95,8 +98,13 @@ class Speler(Base):
 
 class Huisdier(Base):
     __tablename__ = "huisdieren"
+    __table_args__ = (UniqueConstraint("eigenaar_id", "volgnummer", name="uq_huisdieren_eigenaar_volgnummer"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Zichtbaar pet-nummer, per speler (jouw #1, #2, ...) i.p.v. het interne,
+    # over alle spelers heen doorlopende id hierboven. Toegewezen vanuit
+    # Speler.volgend_pet_nummer bij het vangen (cogs/vangen.py).
+    volgnummer: Mapped[int]
     eigenaar_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("spelers.discord_id"))
     soort_id: Mapped[int] = mapped_column(ForeignKey("pet_soorten.id"))
     tier_id: Mapped[int] = mapped_column(ForeignKey("tiers.id"))
