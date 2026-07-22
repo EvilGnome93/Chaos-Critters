@@ -6,8 +6,7 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("📈 Level-up systeem", "Pets laten groeien in stats naarmate ze levelen."),
-    ("⚔️ Team & gevechten", "`/team` en `/vecht` — tactische 3-tegen-3 gevechten tussen teams."),
+    ("⚔️ Team & gevechten", "`/team` en `/vecht` — tactische 3-tegen-3 gevechten tussen teams. Kan ook XP opleveren."),
     ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
     ("🔄 Trading", "Items en pets ruilen met andere spelers."),
     ("🛠️ Admin panel", "`/instelling` live laten werken, zodat balans aan te passen is zonder code-wijziging."),

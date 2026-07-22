@@ -14,9 +14,9 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # command tree), dus bijwerken als er een nieuw speler-commando bijkomt.
 TEST_COMMANDOS = [
     ("/vang <naam>", "Vang de pet die net gespawnd is in dit kanaal (exacte naam, of het stuk vóór de haakjes, bijv. 'Hond')."),
-    ("/lijst", "Bekijk al je pets: level, werkstatus en honger/energie/blijdschap. Sorteerbaar via de knoppen."),
-    ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is."),
-    ("/verzorg pet_id [item]", "Bekijk de stats van een pet, of voer 'm met voeding uit je inventaris om energie aan te vullen."),
+    ("/lijst", "Bekijk al je pets: level+XP, werkstatus en honger/energie/blijdschap. Sorteerbaar via de knoppen."),
+    ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins + XP. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is (met eventuele level-up)."),
+    ("/verzorg pet_id [item]", "Bekijk het level, XP en de stats van een pet, of voer 'm met voeding uit je inventaris om energie aan te vullen."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
