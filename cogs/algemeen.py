@@ -10,10 +10,11 @@ TODO_ITEMS = [
     ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
     ("🔄 Trading", "Items en pets ruilen met andere spelers."),
     ("🛠️ Admin panel", "`/instelling` live laten werken, zodat balans aan te passen is zonder code-wijziging."),
-    ("👷 Werkplek-capaciteit", "Een limiet op hoeveel pets tegelijk op 1 werkplek kunnen werken."),
+    ("👷 Gedeelde werkplek-capaciteit", "Een limiet op hoeveel pets van ALLE spelers samen tegelijk op 1 werkplek kunnen werken (los van het per-speler-max dat er al is)."),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
     ("❓ /help mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🏠 Automatisering-items", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect."),
+    ("🕊️ /release", "Pets vrijlaten in ruil voor items of Chaos Coins."),
 ]
 
 

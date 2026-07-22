@@ -41,6 +41,15 @@ NIEUW_OM_TE_TESTEN = [
         "3. Probeer `/slaap` nogmaals meteen daarna — moet een cooldown-melding geven.\n"
         "4. Probeer `/slaap` met een pet op 0 honger — moet geweigerd worden.",
     ),
+    (
+        "👷 Max 3 pets tegelijk aan het werk",
+        "Elke speler kan nu maximaal 3 pets tegelijk aan het werk hebben (instelbaar via de "
+        "database-instelling `max_werkende_pets_per_speler`, kan later omhoog).\n\n"
+        "**Wat te testen:**\n"
+        "1. Zet 3 pets aan het werk.\n"
+        "2. Probeer een 4e — moet geweigerd worden met een duidelijke melding.\n"
+        "3. Haal er eentje op met `/werk pet_id` en probeer daarna een nieuwe te starten — moet nu wel lukken.",
+    ),
 ]
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een

@@ -6,12 +6,12 @@ from datetime import datetime, timedelta, timezone
 import discord
 from discord import app_commands
 from discord.ext import commands
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 import config
 from db.engine import async_session
-from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler, Werkplek
+from db.models import Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
 from utils.leveling import XP_PER_EFFECTIEVE_UUR, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats
@@ -78,6 +78,21 @@ async def _voeg_toe_aan_inventaris(session, speler_id: int, item_id: int, aantal
         set_={"aantal": InventarisItem.aantal + aantal},
     )
     await session.execute(stmt)
+
+
+async def _max_werkende_pets(session) -> int:
+    waarde = await session.scalar(
+        select(Instelling.waarde).where(Instelling.sleutel == "max_werkende_pets_per_speler")
+    )
+    return int(waarde or 3)
+
+
+async def _aantal_werkende_pets(session, speler_id: int) -> int:
+    return await session.scalar(
+        select(func.count())
+        .select_from(Huisdier)
+        .where(Huisdier.eigenaar_id == speler_id, Huisdier.status == PetStatus.werkplek)
+    )
 
 
 class WerkCog(commands.Cog):
@@ -200,6 +215,16 @@ class WerkCog(commands.Cog):
             probleem = inzetbaarheid_probleem(huisdier)
             if probleem is not None:
                 await interaction.response.send_message(probleem, ephemeral=True)
+                return
+
+            max_pets = await _max_werkende_pets(session)
+            aantal_werkend = await _aantal_werkende_pets(session, interaction.user.id)
+            if aantal_werkend >= max_pets:
+                await interaction.response.send_message(
+                    f"Je hebt al {max_pets} pets tegelijk aan het werk (het maximum). "
+                    "Haal er eerst een op met `/werk pet_id`.",
+                    ephemeral=True,
+                )
                 return
 
             werkplek_obj = await session.scalar(select(Werkplek).where(Werkplek.type == werkplek.value))

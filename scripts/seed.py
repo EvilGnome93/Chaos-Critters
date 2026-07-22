@@ -164,6 +164,7 @@ INSTELLINGEN = [
     ("ranked_gratis_per_dag", "3", "Aantal gratis ranked pogingen per dag"),
     ("spawn_interval_min_berichten", "25", "Ondergrens van de activiteit-trigger voor spawns"),
     ("spawn_interval_max_berichten", "40", "Bovengrens van de activiteit-trigger voor spawns"),
+    ("max_werkende_pets_per_speler", "3", "Max aantal pets dat een speler tegelijk aan het werk kan hebben"),
 ]
 
 
