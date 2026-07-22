@@ -33,6 +33,12 @@ ENERGIE_HERSTEL_MINUTEN = (
 
 ENERGIE_MINIMUM = 20  # onder dit niveau kan een pet niet ingezet worden (brief sectie 6)
 
+_SLAAP_COOLDOWN_UUR_ECHT = 24  # /slaap: instant volle energie, kost honger, max 1x per dag per pet
+SLAAP_COOLDOWN_UUR = (
+    _SLAAP_COOLDOWN_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _SLAAP_COOLDOWN_UUR_ECHT
+)
+SLAAP_HONGER_KOST = 20
+
 
 def _nu() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)

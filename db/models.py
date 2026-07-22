@@ -117,6 +117,7 @@ class Huisdier(Base):
 
     # Peilmoment voor het lazy honger/energie/blijdschap-verval, zie utils/stats.py.
     laatste_verzorging_op: Mapped[datetime] = mapped_column(server_default=func.now())
+    laatste_slaap_op: Mapped[datetime | None] = mapped_column(nullable=True)
 
     level: Mapped[int] = mapped_column(default=1)
     xp: Mapped[int] = mapped_column(default=0)

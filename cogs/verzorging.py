@@ -11,7 +11,7 @@ from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetStatus, Speler
 from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
-from utils.stats import sync_stats
+from utils.stats import SLAAP_COOLDOWN_UUR, SLAAP_HONGER_KOST, sync_stats
 
 
 def _level_status(pet: Huisdier) -> str:
@@ -35,29 +35,30 @@ ITEM_CATEGORIE_LABELS = {
     ItemType.overig: "📦 Overig",
 }
 
-# Directe voedingsitems die /verzorg kan gebruiken (energie-effect, brief sectie 5).
+# Directe voedingsitems die /verzorg kan gebruiken (honger-effect). Energie
+# komt voortaan alleen uit passief herstel in rust (utils/stats.py) of /slaap.
 # Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
 # aankopen voor de shop-stap en horen hier nog niet bij.
-_ENERGIE_BOOST = {
+_HONGER_HERSTEL = {
     "Basis brokjes": 15,
     "Graanvrije premium voeding": 40,
 }
 _VOLLEDIG_HERSTEL = {"Vers vlees/vis"}
 _MYSTERIE_VOEDSEL = "Mysterie voedselzak"
 
-VOEDING_ITEMS = [*_ENERGIE_BOOST.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
+VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
 
 
 def _toepassen_voeding(huisdier: Huisdier, item_naam: str) -> str:
     """Past het effect van een voedingsitem toe op de pet, geeft de gebruikte naam terug
     (relevant bij de Mysterie voedselzak, die een willekeurig item simuleert)."""
     if item_naam == _MYSTERIE_VOEDSEL:
-        item_naam = random.choice([*_ENERGIE_BOOST.keys(), *_VOLLEDIG_HERSTEL])
+        item_naam = random.choice([*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL])
 
     if item_naam in _VOLLEDIG_HERSTEL:
-        huisdier.energie = 100
+        huisdier.honger = 100
     else:
-        huisdier.energie = min(100, huisdier.energie + _ENERGIE_BOOST[item_naam])
+        huisdier.honger = min(100, huisdier.honger + _HONGER_HERSTEL[item_naam])
     return item_naam
 
 
@@ -294,7 +295,51 @@ class VerzorgingCog(commands.Cog):
 
             extra = f" (bleek **{gebruikt_item}**)" if item.value == _MYSTERIE_VOEDSEL else ""
             await interaction.response.send_message(
-                f"🍽️ **{huisdier.naam}** kreeg **{item.value}**{extra}. Energie is nu {huisdier.energie}/100.",
+                f"🍽️ **{huisdier.naam}** kreeg **{item.value}**{extra}. Honger is nu {huisdier.honger}/100.",
+                ephemeral=True,
+            )
+
+    @app_commands.command(
+        name="slaap", description="Laat een pet direct volledig uitrusten (kost honger, max 1x per dag per pet)"
+    )
+    @app_commands.describe(pet_id="Het ID van je pet")
+    async def slaap(self, interaction: discord.Interaction, pet_id: int) -> None:
+        async with async_session() as session:
+            huisdier = await session.get(Huisdier, pet_id)
+            if huisdier is None or huisdier.eigenaar_id != interaction.user.id:
+                await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
+                return
+
+            sync_stats(huisdier)
+
+            if huisdier.laatste_slaap_op is not None:
+                verstreken = _nu() - huisdier.laatste_slaap_op
+                resterend = timedelta(hours=SLAAP_COOLDOWN_UUR) - verstreken
+                if resterend > timedelta(0):
+                    await session.commit()
+                    await interaction.response.send_message(
+                        f"**{huisdier.naam}** heeft al geslapen. Nog {_format_duur(resterend.total_seconds() / 3600)} "
+                        "tot de volgende keer.",
+                        ephemeral=True,
+                    )
+                    return
+
+            if huisdier.honger <= 0:
+                await session.commit()
+                await interaction.response.send_message(
+                    f"**{huisdier.naam}** heeft te veel honger om te kunnen slapen. Verzorg de pet eerst met `/verzorg`.",
+                    ephemeral=True,
+                )
+                return
+
+            huisdier.energie = 100
+            huisdier.honger = max(0, huisdier.honger - SLAAP_HONGER_KOST)
+            huisdier.laatste_slaap_op = _nu()
+            await session.commit()
+
+            await interaction.response.send_message(
+                f"💤 **{huisdier.naam}** heeft goed geslapen! Energie is nu 100/100, "
+                f"honger is nu {huisdier.honger}/100.",
                 ephemeral=True,
             )
 

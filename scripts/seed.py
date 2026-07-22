@@ -111,14 +111,14 @@ PET_SOORTEN = [
 
 # (naam, type, prijs, beschrijving)
 ITEMS = [
-    ("Basis brokjes", ItemType.voeding, 10, "Kleine energie boost, goedkoop"),
+    ("Basis brokjes", ItemType.voeding, 10, "Klein honger-herstel, goedkoop"),
     (
         "Graanvrije premium voeding",
         ItemType.voeding,
         35,
-        "Grotere energie boost + tijdelijke stat boost voor 1 match",
+        "Groter honger-herstel + tijdelijke stat boost voor 1 match",
     ),
-    ("Vers vlees/vis", ItemType.voeding, 60, "Volledige energie herstel, duur"),
+    ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur"),
     ("Simpele voerbak", ItemType.overig, 100, "Klein passief energie herstel, eenmalige aankoop"),
     (
         "Slimme voerbak",

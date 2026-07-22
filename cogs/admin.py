@@ -8,6 +8,7 @@ from db.engine import async_session
 from db.models import Item, Speler
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log, set_log_channel
+from utils.stats import SLAAP_HONGER_KOST
 
 # Wat er nieuw is sinds de vorige testronde, om testers direct naar de
 # nieuwste features te wijzen i.p.v. dat ze het hele overzicht moeten
@@ -27,6 +28,19 @@ NIEUW_OM_TE_TESTEN = [
         "4. Klopt de XP-teller, klopt het level, en voelt de groei-snelheid redelijk aan?, Houd wel in de gaten de /werk hier sneller gaat ivm testen. "
         "Laat het weten als iets raar aanvoelt (te snel/traag, verkeerde berekening, etc.).",
     ),
+    (
+        "🍖 Honger vs. energie gesplitst + /slaap",
+        "Voeding (Basis brokjes/Graanvrije premium/Vers vlees/vis) herstelt nu **honger** "
+        "i.p.v. energie — dat voelde onlogisch (voeding tegen energie in plaats van tegen "
+        "trek). Energie krijg je terug via passief rusten, of instant via het nieuwe "
+        f"`/slaap pet_id`: zet energie direct op 100, kost {SLAAP_HONGER_KOST} honger, "
+        "max 1x per (test-)dag per pet.\n\n"
+        "**Wat te testen:**\n"
+        "1. Gebruik `/verzorg pet_id item:` met een voedingsitem — check dat honger omhoog gaat, energie niet.\n"
+        "2. Gebruik `/slaap pet_id` — energie moet meteen 100/100 zijn, honger gaat 20 omlaag.\n"
+        "3. Probeer `/slaap` nogmaals meteen daarna — moet een cooldown-melding geven.\n"
+        "4. Probeer `/slaap` met een pet op 0 honger — moet geweigerd worden.",
+    ),
 ]
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een
@@ -36,7 +50,8 @@ TEST_COMMANDOS = [
     ("/vang <naam>", "Vang de pet die net gespawnd is in dit kanaal (exacte naam, of het stuk vóór de haakjes, bijv. 'Hond')."),
     ("/lijst", "Bekijk al je pets: level+XP, werkstatus en honger/energie/blijdschap. Sorteerbaar via de knoppen."),
     ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins + XP. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is (met eventuele level-up)."),
-    ("/verzorg pet_id [item]", "Bekijk het level, XP en de stats van een pet, of voer 'm met voeding uit je inventaris om energie aan te vullen."),
+    ("/verzorg pet_id [item]", "Bekijk het level, XP en de stats van een pet, of voer 'm met voeding uit je inventaris om honger aan te vullen."),
+    ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
