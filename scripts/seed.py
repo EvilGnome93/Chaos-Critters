@@ -131,6 +131,29 @@ PET_SOORTEN = [
     ("Chaos Reiger", 3, GEMIDDELD, GEMIDDELD, "Vijver", "Onvoorspelbare stats die dagelijks licht wisselen, sterk op de Vijver"),
     ("Beer", 5, ZEER_HOOG, LAAG, None, "Intimidatie-bonus: verhoogt winstkans tegen lagere tier teams"),
     ("Chaos Olifant", 5, HOOGSTE, HOOGSTE, None, "Willekeurige chaos events bij gebruik, unieke bonus op XP-gain"),
+    # Vierde lichting (2026-07-24), aangeleverd door de gebruiker met dezelfde
+    # aanpak: omgekeerde correlatie gevecht/werk, Legendary zonder
+    # werkplek-voorkeur. "Laag-gemiddeld" (Geit) ingevuld als LAAG.
+    ("Fret", 1, LAAG, HOOG, None, "Kan wisselen tussen werkplekken zonder cooldown verlies"),
+    ("Schaap", 1, LAAG, GEMIDDELD, None, "Hoogste blijdschap herstel bij groepswerk"),
+    ("Geit", 1, LAAG, HOOG, None, "Allrounder: geen efficiëntieverlies op elke werkplek"),
+    ("Kikker", 1, LAAG, GEMIDDELD, "Vijver", "Sterk op de Vijver, extra kans op zeldzame grondstof"),
+    ("Pauw", 1, LAAG, LAAG, None, "Verhoogt blijdschap van het hele team"),
+    ("Goudvis", 1, ZEER_LAAG, LAAG, None, "Laagste onderhoudskosten van alle pets"),
+    ("Muis", 1, LAAG, HOOG, None, "Snelste energie-herstel in rust"),
+    ("Mus", 1, LAAG, GEMIDDELD, None, "Kleine kans op extra currency tijdens werk"),
+    ("Chaos Spin", 1, GEMIDDELD, GEMIDDELD, "Werkbank", "Onvoorspelbare stats die dagelijks licht wisselen, sterk op de Werkbank"),
+    ("Kraai", 3, GEMIDDELD, HOOG, None, "Kleine kans op bonus grondstof per werk-cyclus"),
+    ("Pelikaan", 3, LAAG, HOOG, "Vijver", "Grotere opbrengst per werk-cyclus op de Vijver"),
+    ("Flamingo", 3, LAAG, GEMIDDELD, "Vijver", "Hoogste blijdschap bonus op de Vijver"),
+    ("Stekelvarken", 3, HOOG, LAAG, None, "Defensieve bonus, moeilijker te verslaan in gevechten"),
+    ("Kwal", 3, GEMIDDELD, LAAG, None, "Vermindert tegenstander energie tijdens gevecht"),
+    ("Zwaan", 3, GEMIDDELD, GEMIDDELD, None, "Elegante allrounder, kleine bonus op beide assen"),
+    ("Chaos Kameleon", 3, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, camouflage-bonus verhoogt ontsnappingskans bij vangst"),
+    ("Tijger", 5, ZEER_HOOG, LAAG, None, "Sterkste directe impact in team gevechten"),
+    ("Panter", 5, HOOG, GEMIDDELD, None, "Snelheidsbonus, verhoogt kans op eerste aanval"),
+    ("Neushoorn", 5, ZEER_HOOG, LAAG, None, "Doorbreekt verdediging, bonus tegen defensieve teams"),
+    ("Chaos Giraffe", 5, HOOGSTE, HOOGSTE, None, "Willekeurige chaos events, verhoogt zeldzame spawn kans in zijn kanaal"),
 ]
 
 # (naam, type, prijs, beschrijving)
