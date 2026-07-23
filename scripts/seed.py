@@ -23,9 +23,11 @@ from db.models import Instelling, Item, ItemType, PetSoort, Tier, Werkplek
 ZEER_LAAG, LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 10, 20, 40, 60, 80, 95
 
 TIERS = [
-    {"id": 1, "naam": "Common", "spawnkans": 0.70, "stat_multiplier": 1.0},
-    {"id": 3, "naam": "Rare", "spawnkans": 0.25, "stat_multiplier": 1.4},
-    {"id": 5, "naam": "Legendary", "spawnkans": 0.05, "stat_multiplier": 2.0},
+    {"id": 1, "naam": "Common", "spawnkans": 0.45, "stat_multiplier": 1.0},
+    {"id": 2, "naam": "Uncommon", "spawnkans": 0.25, "stat_multiplier": 1.2},
+    {"id": 3, "naam": "Rare", "spawnkans": 0.18, "stat_multiplier": 1.4},
+    {"id": 4, "naam": "Epic", "spawnkans": 0.09, "stat_multiplier": 1.7},
+    {"id": 5, "naam": "Legendary", "spawnkans": 0.03, "stat_multiplier": 2.0},
 ]
 
 WERKPLEKKEN = [
@@ -154,6 +156,40 @@ PET_SOORTEN = [
     ("Panter", 5, HOOG, GEMIDDELD, None, "Snelheidsbonus, verhoogt kans op eerste aanval"),
     ("Neushoorn", 5, ZEER_HOOG, LAAG, None, "Doorbreekt verdediging, bonus tegen defensieve teams"),
     ("Chaos Giraffe", 5, HOOGSTE, HOOGSTE, None, "Willekeurige chaos events, verhoogt zeldzame spawn kans in zijn kanaal"),
+    # Vijfde lichting (2026-07-24): eerste soorten voor de nieuwe tussentiers
+    # Uncommon (2) en Epic (4), zelf verzonnen (naam+stats+beschrijving) op
+    # verzoek van de gebruiker. Afbeeldingen komen later — tot dan gebruikt
+    # /vang de placeholder-afbeelding voor deze 30 soorten.
+    ("Kip", 2, LAAG, GEMIDDELD, "Moestuin", "Onvermoeibare pikker, scharrelt de hele dag door de Moestuin"),
+    ("Varken", 2, LAAG, HOOG, "Mijnschacht", "Wroet met de snuit dieper dan de meeste pets, sterk in de Mijnschacht"),
+    ("Ezel", 2, LAAG, HOOG, "Bos", "Onvermoeibaar lastdier, houdt het langst vol op zware klussen in het Bos"),
+    ("Wezel", 2, GEMIDDELD, HOOG, "Werkbank", "Rap en behendig, glipt overal tussendoor op de Werkbank"),
+    ("Bunzing", 2, GEMIDDELD, GEMIDDELD, "Bos", "Familie van de Wezel, jaagt liever alleen door het Bos"),
+    ("Buizerd", 2, GEMIDDELD, GEMIDDELD, "Bos", "Cirkelt boven het Bos, scherp oog voor grondstoffen"),
+    ("Kraanvogel", 2, LAAG, GEMIDDELD, "Vijver", "Elegante wadervogel, geduldig en efficiënt op de Vijver"),
+    ("Alpaca", 2, LAAG, GEMIDDELD, "Moestuin", "Kalmeert de rest van het team, kleine blijdschap-bonus"),
+    ("Lama", 2, LAAG, HOOG, "Bos", "Sterker familielid van de Alpaca, uitstekend pakdier in het Bos"),
+    ("Kwartel", 2, ZEER_LAAG, LAAG, "Moestuin", "Klein en schuw, moeilijk te vangen tussen het groen"),
+    ("Parkiet", 2, ZEER_LAAG, LAAG, None, "Praatgraag, kleine blijdschap-bonus voor de rest van het team"),
+    ("Faisant", 2, LAAG, GEMIDDELD, "Bos", "Kleurrijke grondbewoner, houdt zich schuil in het Bos"),
+    ("Stokstaartje", 2, LAAG, GEMIDDELD, None, "Altijd op wacht, kleine kans om een ontsnapping te voorkomen bij vangst"),
+    ("Chaos Kangoeroe", 2, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, onberekenbare trapaanval"),
+    ("Chaos Toekan", 2, GEMIDDELD, GEMIDDELD, "Bos", "Onvoorspelbare stats die dagelijks licht wisselen, opvallende kleuren in het Bos"),
+    ("Jaguar", 4, ZEER_HOOG, LAAG, None, "Verrassingsaanval-bonus in de eerste ronde van een gevecht"),
+    ("Luipaard", 4, HOOG, GEMIDDELD, None, "Snelheidsbonus, lastig te raken in een gevecht"),
+    ("Poema", 4, ZEER_HOOG, LAAG, None, "Bijna geruisloze jager, kleine kans op een ongeschonden overwinning"),
+    ("Krokodil", 4, HOOG, LAAG, "Vijver", "Verpletterende bijtkracht, sterke verdediger op de Vijver"),
+    ("Anaconda", 4, HOOG, LAAG, "Vijver", "Verstikkende greep vermindert de macht van de tegenstander"),
+    ("Condor", 4, GEMIDDELD, GEMIDDELD, None, "Cirkelt hoog boven zijn kanaal, verhoogt de zeldzame spawnkans daar"),
+    ("Gier", 4, LAAG, GEMIDDELD, None, "Herstelt sneller van een blessure dan andere pets"),
+    ("Walrus", 4, HOOG, LAAG, "Vijver", "Dikke huid vermindert opgelopen schade in elk gevecht"),
+    ("Zeekoe", 4, GEMIDDELD, LAAG, "Vijver", "Kalmerende reus, blijdschap-bonus voor het hele team"),
+    ("Haai", 4, ZEER_HOOG, LAAG, "Vijver", "Ruikt zwakte: extra schade tegen een tegenstander onder de halve HP"),
+    ("Veelvraat", 4, ZEER_HOOG, GEMIDDELD, None, "Vecht feller naarmate de eigen HP lager wordt"),
+    ("Griffioen", 4, HOOGSTE, GEMIDDELD, None, "Mythisch roofdier, imponeert elk team van een lagere tier"),
+    ("Nijlpaard", 4, ZEER_HOOG, LAAG, "Vijver", "Verrassend agressief ondanks de logge indruk"),
+    ("Chaos Octopus", 4, GEMIDDELD, GEMIDDELD, "Vijver", "Onvoorspelbare stats die dagelijks licht wisselen, tentakel-verwarring op de Vijver"),
+    ("Chaos Basilisk", 4, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, verlammende blik houdt de tegenstander soms een ronde stil"),
 ]
 
 # (naam, type, prijs, beschrijving)
@@ -222,6 +258,15 @@ async def seed() -> None:
         await session.execute(
             insert(Tier).on_conflict_do_nothing(index_elements=["id"]), TIERS
         )
+        # Tiers 1/3/5 bestonden al (INSERT ON CONFLICT raakt ze dus niet aan) en
+        # kregen op 2026-07-24 nieuwe spawnkans-waardes i.v.m. de introductie
+        # van tiers 2/4 (Uncommon/Epic) — expliciet bijwerken.
+        for tier_data in TIERS:
+            await session.execute(
+                update(Tier)
+                .where(Tier.id == tier_data["id"])
+                .values(spawnkans=tier_data["spawnkans"], stat_multiplier=tier_data["stat_multiplier"])
+            )
         await session.flush()
 
         await session.execute(

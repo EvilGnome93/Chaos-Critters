@@ -24,7 +24,13 @@ else:
     TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
     TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
 
-TIER_KLEUREN = {1: 0x95A5A6, 3: 0x3498DB, 5: 0xF1C40F}  # Common grijs, Rare blauw, Legendary goud
+TIER_KLEUREN = {
+    1: 0x95A5A6,  # Common grijs
+    2: 0x2ECC71,  # Uncommon groen
+    3: 0x3498DB,  # Rare blauw
+    4: 0x9B59B6,  # Epic paars
+    5: 0xF1C40F,  # Legendary goud
+}
 PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff/png?text=%3F"  # tot er echte pet-art is
 
 
@@ -319,7 +325,9 @@ class VangenCog(commands.Cog):
     @app_commands.choices(
         tier=[
             app_commands.Choice(name="Common", value=1),
+            app_commands.Choice(name="Uncommon", value=2),
             app_commands.Choice(name="Rare", value=3),
+            app_commands.Choice(name="Epic", value=4),
             app_commands.Choice(name="Legendary", value=5),
         ]
     )
