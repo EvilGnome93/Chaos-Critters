@@ -439,9 +439,9 @@ class VechtView(discord.ui.View):
 
             await session.commit()
 
-        if gevlucht_id == self.eigen_id:
+        if gevlucht_id is not None and gevlucht_id == self.eigen_id:
             titel = "🏳️ Gevlucht"
-        elif gevlucht_id == self.tegenstander_id:
+        elif gevlucht_id is not None and gevlucht_id == self.tegenstander_id:
             titel = "🏆 Gewonnen! (tegenstander vluchtte)"
         else:
             titel = "🏆 Gewonnen!" if gewonnen else "💀 Verloren"
