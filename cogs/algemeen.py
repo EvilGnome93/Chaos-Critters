@@ -8,6 +8,7 @@ from discord.ext import commands
 TODO_ITEMS = [
     ("🔄 Trading", "Items en pets ruilen met andere spelers."),
     ("🕊️ /release", "Pets vrijlaten in ruil voor items of Chaos Coins."),
+    ("🌪️ Elementen & contra's", "Elk pet-soort krijgt een element (Grond/Water/Lucht/Vuur/Chaos) met contra's, zodat een Common met het juiste element een Rare kan verslaan."),
     ("👷 Werkplekken uitbreiden", "Gedeelde capaciteit-limiet per werkplek (over alle spelers heen) + een tweede grondstof per werkplek."),
     ("🏠 Automatisering-items", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect."),
     ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
