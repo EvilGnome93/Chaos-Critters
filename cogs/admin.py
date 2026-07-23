@@ -14,6 +14,12 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
+        "🐾 14 nieuwe pet-soorten (totaal nu 40)",
+        "Duif, Cavia, Krab, Mier, Chaos Mol, Specht, Slak (Common), Das, Zeehond, Havik, Vleermuis, "
+        "Chaos Reiger (Rare), Beer, Chaos Olifant (Legendary). Nieuw: de **Mijnschacht**-werkplek "
+        "(6e werkplek, levert Erts), gekoppeld aan Das en Chaos Mol.",
+    ),
+    (
         "🧹 Database is gereset",
         "Alle spelers, pets en inventarissen zijn gewist voor deze testronde — iedereen begint "
         "weer bij nul. **Ook `/setlog` en `/setspawnkanaal` moeten opnieuw ingesteld worden** "

@@ -51,6 +51,20 @@ SOORT_SLUGS = {
     "Lynx": "lynx",
     "Slang": "slang",
     "Chaos Zwijn": "chaos_zwijn",
+    "Duif": "duif",
+    "Cavia": "cavia",
+    "Krab": "krab",
+    "Mier": "mier",
+    "Chaos Mol": "chaos_mol",
+    "Specht": "specht",
+    "Slak": "slak",
+    "Das": "das",
+    "Zeehond": "zeehond",
+    "Havik": "havik",
+    "Vleermuis": "vleermuis",
+    "Chaos Reiger": "chaos_reiger",
+    "Beer": "beer",
+    "Chaos Olifant": "chaos_olifant",
 }
 
 

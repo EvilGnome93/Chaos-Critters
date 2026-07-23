@@ -20,7 +20,7 @@ from db.engine import async_session
 from db.models import Instelling, Item, ItemType, PetSoort, Tier, Werkplek
 
 # Kwalitatieve schaal -> placeholder-getal, later bij te stellen via admin panel.
-LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 20, 40, 60, 80, 95
+ZEER_LAAG, LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 10, 20, 40, 60, 80, 95
 
 TIERS = [
     {"id": 1, "naam": "Common", "spawnkans": 0.70, "stat_multiplier": 1.0},
@@ -58,6 +58,12 @@ WERKPLEKKEN = [
         "vereiste_werk_genen": "Nacht-affiniteit",
         "output_per_uur": 7.0,
         "capaciteit": 1,
+    },
+    {
+        "type": "Mijnschacht",
+        "vereiste_werk_genen": "Kracht/graafvermogen",
+        "output_per_uur": 6.5,
+        "capaciteit": 2,
     },
 ]
 
@@ -107,6 +113,24 @@ PET_SOORTEN = [
     ("Lynx", 5, ZEER_HOOG, LAAG, None, "Legendarisch stille jager, vrijwel nooit gespot vóór de aanval"),
     ("Slang", 5, HOOG, GEMIDDELD, None, "Vrijwel onzichtbaar in het gras, glipt gemakkelijk voorbij vangpogingen"),
     ("Chaos Zwijn", 5, HOOGSTE, HOOGSTE, None, "Ontketent pure chaos zodra hij wordt losgelaten"),
+    # Derde lichting (2026-07-23), aangeleverd door de gebruiker met dezelfde
+    # aanpak: omgekeerde correlatie gevecht/werk, Legendary zonder
+    # werkplek-voorkeur. Das/Chaos Mol krijgen de nieuwe Mijnschacht-werkplek
+    # (voorheen alleen flavor-tekst bij Wasbeer).
+    ("Duif", 1, LAAG, GEMIDDELD, "Moestuin", "Werkt goed op de Moestuin, stedelijk foerageren"),
+    ("Cavia", 1, ZEER_LAAG, LAAG, None, "Hoogste blijdschap bonus van alle Common pets"),
+    ("Krab", 1, GEMIDDELD, HOOG, "Werkbank", "Werkt efficiënt op de Werkbank door precisieklauwen"),
+    ("Mier", 1, LAAG, HOOG, None, "Colony-bonus: efficiënter naarmate meer Mieren op dezelfde werkplek staan"),
+    ("Chaos Mol", 1, GEMIDDELD, GEMIDDELD, "Mijnschacht", "Onvoorspelbare stats die dagelijks licht wisselen, sterk in de Mijnschacht"),
+    ("Specht", 1, LAAG, HOOG, "Werkbank", "Werkt goed op de Werkbank, bonus kans op extra grondstof"),
+    ("Slak", 1, ZEER_LAAG, LAAG, None, "Laagste energiekosten van alle pets, traag maar zuinig"),
+    ("Das", 3, GEMIDDELD, HOOG, "Mijnschacht", "Sterk in de Mijnschacht, stevige verdediging in gevechten"),
+    ("Zeehond", 3, LAAG, HOOG, "Vijver", "Snelste werker op de Vijver"),
+    ("Havik", 3, HOOG, GEMIDDELD, None, "Kleine verkenner-bonus zoals Steenarend, maar zwakker effect"),
+    ("Vleermuis", 3, GEMIDDELD, HOOG, "Nachtwacht", "Extra sterk tijdens de Nachtwacht overnacht-cyclus"),
+    ("Chaos Reiger", 3, GEMIDDELD, GEMIDDELD, "Vijver", "Onvoorspelbare stats die dagelijks licht wisselen, sterk op de Vijver"),
+    ("Beer", 5, ZEER_HOOG, LAAG, None, "Intimidatie-bonus: verhoogt winstkans tegen lagere tier teams"),
+    ("Chaos Olifant", 5, HOOGSTE, HOOGSTE, None, "Willekeurige chaos events bij gebruik, unieke bonus op XP-gain"),
 ]
 
 # (naam, type, prijs, beschrijving)
@@ -148,6 +172,7 @@ ITEMS = [
     ("Schroot", ItemType.materiaal, 0, "Upgrade-materiaal, verkregen via werken op de Werkbank"),
     ("Takken", ItemType.grondstof, 0, "Grondstof, verkregen via werken in het Bos"),
     ("Maanschijnkristal", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Nachtwacht"),
+    ("Erts", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Mijnschacht"),
 ]
 
 # Koppelt elke werkplek aan het grondstof-item dat hij oplevert.
@@ -157,6 +182,7 @@ WERKPLEK_OPBRENGSTEN = {
     "Werkbank": "Schroot",
     "Bos": "Takken",
     "Nachtwacht": "Maanschijnkristal",
+    "Mijnschacht": "Erts",
 }
 
 INSTELLINGEN = [
