@@ -14,6 +14,7 @@ TODO_ITEMS = [
     ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
     ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
+    ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet."),
     ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
 ]
