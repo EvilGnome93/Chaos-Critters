@@ -66,20 +66,12 @@ TEST_COMMANDOS = [
 
 
 class AdminCog(commands.Cog):
-    """Admin-commando's voor balans en instellingen. Zie projectbrief sectie 14."""
+    """Admin-commando's. Balans-instellingen zelf komen niet via Discord maar
+    via een web-based admin panel op casualchaos.nl (brief sectie 14),
+    nog te bouwen — dit is geen Discord-cog-taak."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-
-    @app_commands.command(name="instelling", description="Bekijk of wijzig een balans-instelling")
-    @app_commands.describe(sleutel="De naam van de instelling", waarde="De nieuwe waarde (optioneel)")
-    @app_commands.check(is_admin)
-    async def instelling(
-        self, interaction: discord.Interaction, sleutel: str, waarde: str | None = None
-    ) -> None:
-        await interaction.response.send_message(
-            f"Instellingenbeheer voor '{sleutel}' is nog niet geïmplementeerd.", ephemeral=True
-        )
 
     @app_commands.command(name="setlog", description="Stel het logkanaal voor een categorie in")
     @app_commands.describe(

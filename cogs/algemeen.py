@@ -6,14 +6,15 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
     ("🔄 Trading", "Items en pets ruilen met andere spelers."),
-    ("🛠️ Admin panel", "`/instelling` live laten werken, zodat balans aan te passen is zonder code-wijziging."),
-    ("👷 Gedeelde werkplek-capaciteit", "Een limiet op hoeveel pets van ALLE spelers samen tegelijk op 1 werkplek kunnen werken (los van het per-speler-max dat er al is)."),
-    ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
-    ("❓ /help mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
-    ("🏠 Automatisering-items", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect."),
     ("🕊️ /release", "Pets vrijlaten in ruil voor items of Chaos Coins."),
+    ("👷 Werkplekken uitbreiden", "Gedeelde capaciteit-limiet per werkplek (over alle spelers heen) + een tweede grondstof per werkplek."),
+    ("🏠 Automatisering-items", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect."),
+    ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
+    ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
+    ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
+    ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
+    ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
 ]
 
 
@@ -33,7 +34,10 @@ class AlgemeenCog(commands.Cog):
     async def todo(self, interaction: discord.Interaction) -> None:
         embed = discord.Embed(
             title="🗺️ Chaos Critters — wat komt er nog aan?",
-            description="Dit staat (ruwweg in deze volgorde) nog op de planning:",
+            description=(
+                "Dit staat (ruwweg in deze volgorde) nog op de planning. "
+                "(Nieuwe pet-soorten komen er trouwens doorlopend bij, dat stopt nooit echt.)"
+            ),
             color=discord.Color.blurple(),
         )
         for titel, uitleg in TODO_ITEMS:

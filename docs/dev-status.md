@@ -40,19 +40,21 @@ Dit document vat samen wat er staat en waarom, zodat een nieuwe Claude Code-sess
 - **Team & gevechten** (sectie 12/13): `/team` (interactieve Select, max 3 niet-werkende/inzetbare pets) en `/vecht` (gesimuleerde tegenstander op basis van MMR, of een speler uitdagen met optionele inzet in Chaos Coins/items). Een gevecht is best-of-3 van opeenvolgende 1v1-matchups (niet één team-vergelijking zoals de brief letterlijk beschrijft — uitgebreid op verzoek van de gebruiker), met per matchup een tactiek-keuze (Aggressief/Gebalanceerd/Voorzichtig, elk een andere RNG-variantie) of vluchten, en automatisch opgeloste interne rondes met korte animatie. Een verslagen pet krijgt 0 energie + een tijdelijke blessure (`Huisdier.geblesseerd_tot`, gecontroleerd via `inzetbaarheid_probleem()`). MMR-aanpassing via Elo (`utils/gevechten.py:elo_delta`), currency-beloning schalend met tegenstander-MMR, XP naar pets. Dagelijkse gratis ranked-pogingen (`Instelling.ranked_gratis_per_dag`, huidige waarde 3) met het "Extra match token"-item als manier om daaroverheen te gaan. Bij PvP kiezen **beide spelers** per matchup een eigen tactiek (2026-07-22, was eerst alleen de uitdager met de tegenstander altijd passief "gebalanceerd"); een matchup lost pas op zodra beide gekozen hebben, met een "wachten..."-tussenscherm zolang dat niet zo is. Wegrennen werkt voor beide kanten en telt correct als winst voor de ander (fix: dit gaf voorheen altijd een verlies voor de uitdager, ook als de tegenstander vluchtte). PvE blijft ongewijzigd: alleen de speler kiest, tegenstander is een simulatie. Volledig end-to-end getest via scripts (PvE win/verlies/vluchten, PvP met inzet, daglimiet+token, PvP-tactieken van beide kanten, vluchtende tegenstander).
 - **PvE-tegenstander schaalt per matchup op de eigen pet-macht** (2026-07-22, i.p.v. alleen op MMR): MMR beweegt nauwelijks (+16/winst) terwijl een enkele Legendary-vangst de teammacht kan verdubbelen, dus een MMR-only tegenstander werd al snel makkelijk te verslaan (gemeld door de gebruiker met bewijs: 367 eigen macht vs 210 tegenstander-macht bij mmr 1048). Eerste poging (schalen op teamtotaal) was zelf ook fout: bij een scheef verdeeld team (1 sterke pet + 2 zwakke) verloor je alsnog 2 van de 3 matchups ondanks een gelijk totaal, omdat matchups per pet zijn, niet team-totaal-vs-totaal. Juiste fix: elke matchup spiegelt de tegenstander-macht op de macht van de eigen pet in díé matchup specifiek, met een kleine MMR-modifier erbovenop. Getest: ~50/50 winstkans tegen een even sterke tegenstander, ook bij een scheef team.
 
-## Nog niet gebouwd (uit de brief, ruwweg in logische volgorde)
+## Nog niet gebouwd (herprioriteerd door de gebruiker, 2026-07-22)
 
 Het verzorgingssysteem, het level-up systeem, en team & gevechten zijn volledig af en getest, zie "Wat werkt" hierboven.
 
-1. Fokken/breeding (`cogs/fokken.py` is placeholder).
-2. Trading (`cogs/trading.py` is placeholder).
-3. Admin panel / `/instelling`-commando (placeholder in `cogs/admin.py`) — Instellingen-tabel bestaat al met een paar waardes (spawn-interval, vang-cooldown, ranked-per-dag, max-werkende-pets), maar er is nog geen manier om ze via Discord te wijzigen.
-4. Werkplek-capaciteit afdwingen (gedeeld over alle spelers heen per werkplek — het per-speler-max van 3 bestaat al, zie hierboven; dit is de aparte, nog niet afgedwongen gedeelde limiet).
-5. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema).
-6. Help-commando (mini-wiki): `/help`, publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
-7. Passief herstel-effect van de automatiseringsitems (Simpele/Slimme voerbak, Zelfreinigend systeem) — nu wel koopbaar via `/shop`, maar zonder effect. Vereist nieuwe velden + aanpassing van `utils/stats.py`.
-8. Tweede grondstof per werkplek (meer variatie) — bewust nog niet gebouwd. Kandidaat-namen alvast bedacht door de gebruiker (2026-07-21): Moestuin→Fruit, Vijver→Water, Werkbank→Spijker, Bos→Bladeren, Nachtwacht→Sterrenstof. Vereist een schemawijziging (`Werkplek` heeft nu maar 1 `opbrengst_item_id`) + keuzelogica in `cogs/werk.py`. Advies: wacht hiermee tot er een crafting/upgrade-systeem is dat grondstoffen daadwerkelijk verbruikt.
-9. `/release` — pets vrijlaten voor items/Chaos Coins (idee van de gebruiker, 2026-07-22).
+**Doorlopend, geen afvinkbaar punt**: nieuwe pet-soorten blijven erbij komen naast het onderstaande werk — dat is nooit "klaar".
+
+1. Trading (`cogs/trading.py` is placeholder).
+2. `/release` — pets vrijlaten voor items/Chaos Coins.
+3. Werkplekken uitbreiden: gedeelde capaciteit-limiet per werkplek over alle spelers heen (het per-speler-max van 3 bestaat al, zie "Wat werkt") + een tweede grondstof per werkplek (kandidaat-namen: Moestuin→Fruit, Vijver→Water, Werkbank→Spijker, Bos→Bladeren, Nachtwacht→Sterrenstof — vereist een schemawijziging, `Werkplek` heeft nu maar 1 `opbrengst_item_id`).
+4. Passief herstel-effect van de automatiseringsitems (Simpele/Slimme voerbak, Zelfreinigend systeem) — nu wel koopbaar via `/shop`, maar zonder effect. Vereist nieuwe velden + aanpassing van `utils/stats.py`.
+5. Fokken/breeding (`cogs/fokken.py` is placeholder).
+6. Herbalanceren van alles: item-prijzen, XP-snelheden, werk-opbrengsten, alle placeholder-balanswaarden. Zie ook de "Bekende balans-issues" hieronder.
+7. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema).
+8. Mini-wiki: publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
+9. Admin panel: **web-based op casualchaos.nl** (brief sectie 14), niet via Discord. Het `/instelling`-Discord-commando (was een placeholder) is verwijderd uit `cogs/admin.py` (2026-07-22) — één bron van waarheid, alleen het webpanel. De `Instellingen`-tabel in de database blijft de opslag; het webpanel leest/schrijft dezelfde database als de bot. Dit is een apart (web)project, geen Discord-cog-werk.
 
 ## Bekende balans-issues (nog niet opgelost, expliciet uitgesteld)
 
