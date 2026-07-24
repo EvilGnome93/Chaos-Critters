@@ -11,17 +11,19 @@ from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler
 from utils.discord_log import fmt_log, send_log
 
-TradeKant = tuple[str | None, int, int | None, int]
-"""(item_naam, item_aantal, pet_id, coins) — item_naam en pet_id zijn onderling exclusief."""
+TradeKant = tuple[str | None, int, int | None, int, str | None]
+"""(item_naam, item_aantal, pet_id, coins, pet_naam) — item_naam en pet_id zijn
+onderling exclusief. pet_naam is puur voor weergave, alleen gezet als pet_id
+gezet is."""
 
 
 def _kant_tekst(kant: TradeKant) -> str:
-    item_naam, item_aantal, pet_id, coins = kant
+    item_naam, item_aantal, pet_id, coins, pet_naam = kant
     delen = []
     if item_naam:
         delen.append(f"{item_aantal}x {item_naam}")
     if pet_id is not None:
-        delen.append(f"pet #{pet_id}")
+        delen.append(f"pet #{pet_id} {pet_naam}" if pet_naam else f"pet #{pet_id}")
     if coins:
         delen.append(f"{coins} Chaos Coins")
     return " + ".join(delen) if delen else "niets"
@@ -30,7 +32,7 @@ def _kant_tekst(kant: TradeKant) -> str:
 async def _bezit_kant(session, speler_id: int, kant: TradeKant) -> str | None:
     """Controleert of speler_id daadwerkelijk over de aangeboden kant beschikt.
     Geeft None terug bij een geldige kant, anders een foutmelding."""
-    item_naam, item_aantal, pet_id, coins = kant
+    item_naam, item_aantal, pet_id, coins, _pet_naam = kant
 
     if item_naam:
         item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
@@ -62,7 +64,7 @@ async def _bezit_kant(session, speler_id: int, kant: TradeKant) -> str | None:
 
 
 async def _voer_kant_uit(session, van_speler_id: int, naar_speler_id: int, kant: TradeKant) -> None:
-    item_naam, item_aantal, pet_id, coins = kant
+    item_naam, item_aantal, pet_id, coins, _pet_naam = kant
 
     if item_naam:
         item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
@@ -289,10 +291,13 @@ def _parse_optie(waarde: str) -> tuple[str, str | int] | None:
     return (soort, int(rest)) if soort == "pet" else (soort, rest)
 
 
-async def _bouw_opties(session, speler_id: int) -> list[discord.SelectOption]:
+async def _bouw_opties(session, speler_id: int) -> tuple[list[discord.SelectOption], dict[int, str]]:
     """Dropdown-opties voor wat een speler kan aanbieden/terugvragen: eigen
-    (of, bij de ander, hun) items met voorraad + niet-werkende pets."""
+    (of, bij de ander, hun) items met voorraad + niet-werkende pets. Geeft ook
+    een volgnummer->naam lookup terug, zodat de pet-naam getoond kan worden
+    zonder opnieuw te hoeven queryen."""
     opties = [discord.SelectOption(label="Niets", value="none", default=True)]
+    pet_namen: dict[int, str] = {}
 
     inv_rows = (
         await session.execute(
@@ -316,9 +321,10 @@ async def _bouw_opties(session, speler_id: int) -> list[discord.SelectOption]:
         )
     ).scalars().all()
     for pet in pets:
+        pet_namen[pet.volgnummer] = pet.naam
         opties.append(discord.SelectOption(label=f"Pet #{pet.volgnummer} {pet.naam}"[:100], value=f"pet::{pet.volgnummer}"))
 
-    return opties[:25]
+    return opties[:25], pet_namen
 
 
 class AantalCoinsModal(discord.ui.Modal):
@@ -372,12 +378,16 @@ class TradeBuilderView(discord.ui.View):
         guild_id: int | None,
         eigen_opties: list[discord.SelectOption],
         ontvanger_opties: list[discord.SelectOption],
+        eigen_pet_namen: dict[int, str],
+        ontvanger_pet_namen: dict[int, str],
     ):
         super().__init__(timeout=300)
         self.cog = cog
         self.voorsteller_id = voorsteller_id
         self.ontvanger_id = ontvanger_id
         self.guild_id = guild_id
+        self.eigen_pet_namen = eigen_pet_namen
+        self.ontvanger_pet_namen = ontvanger_pet_namen
         self.message: discord.Message | None = None
 
         self.geef_waarde: tuple[str, str | int] | None = None
@@ -417,19 +427,23 @@ class TradeBuilderView(discord.ui.View):
             return False
         return True
 
-    def _kant_van(self, waarde: tuple[str, str | int] | None, aantal: int, coins: int) -> TradeKant:
+    def _kant_van(
+        self, waarde: tuple[str, str | int] | None, aantal: int, coins: int, pet_namen: dict[int, str]
+    ) -> TradeKant:
         if waarde is None:
-            return (None, aantal, None, coins)
+            return (None, aantal, None, coins, None)
         soort, val = waarde
-        return (val, aantal, None, coins) if soort == "item" else (None, aantal, val, coins)
+        if soort == "item":
+            return (val, aantal, None, coins, None)
+        return (None, aantal, val, coins, pet_namen.get(val))
 
     @property
     def geef(self) -> TradeKant:
-        return self._kant_van(self.geef_waarde, self.geef_aantal, self.geef_coins)
+        return self._kant_van(self.geef_waarde, self.geef_aantal, self.geef_coins, self.eigen_pet_namen)
 
     @property
     def vraag(self) -> TradeKant:
-        return self._kant_van(self.vraag_waarde, self.vraag_aantal, self.vraag_coins)
+        return self._kant_van(self.vraag_waarde, self.vraag_aantal, self.vraag_coins, self.ontvanger_pet_namen)
 
     def _bouw_embed(self) -> discord.Embed:
         return discord.Embed(
@@ -535,10 +549,13 @@ class TradingCog(commands.Cog):
                 session.add(Speler(discord_id=speler.id))
             await session.commit()
 
-            eigen_opties = await _bouw_opties(session, interaction.user.id)
-            ontvanger_opties = await _bouw_opties(session, speler.id)
+            eigen_opties, eigen_pet_namen = await _bouw_opties(session, interaction.user.id)
+            ontvanger_opties, ontvanger_pet_namen = await _bouw_opties(session, speler.id)
 
-        view = TradeBuilderView(self, interaction.user.id, speler.id, interaction.guild_id, eigen_opties, ontvanger_opties)
+        view = TradeBuilderView(
+            self, interaction.user.id, speler.id, interaction.guild_id,
+            eigen_opties, ontvanger_opties, eigen_pet_namen, ontvanger_pet_namen,
+        )
         await interaction.response.send_message(embed=view._bouw_embed(), view=view, ephemeral=True)
         view.message = await interaction.original_response()
 

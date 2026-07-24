@@ -108,8 +108,8 @@ async def main() -> None:
             geef_waarde="item::Basis brokjes", geef_aantal=3, geef_coins=0,
             vraag_waarde=None, vraag_aantal=1, vraag_coins=20,
         )
-        assert voorstel_view.geef == ("Basis brokjes", 3, None, 0)
-        assert voorstel_view.vraag == (None, 1, None, 20)
+        assert voorstel_view.geef == ("Basis brokjes", 3, None, 0, None)
+        assert voorstel_view.vraag == (None, 1, None, 20, None)
 
         interaction2 = fake_interaction(SPELER_B)
         await voorstel_view.accepteren.callback(interaction2)
@@ -142,7 +142,7 @@ async def main() -> None:
             geef_waarde=f"pet::{pet_b_volgnummer}", geef_aantal=1, geef_coins=0,
             vraag_waarde=None, vraag_aantal=1, vraag_coins=15,
         )
-        assert voorstel_view2.geef == (None, 1, pet_b_volgnummer, 0)
+        assert voorstel_view2.geef == (None, 1, pet_b_volgnummer, 0, "Ruiltest")
 
         interaction5 = fake_interaction(SPELER_A)
         await voorstel_view2.accepteren.callback(interaction5)
