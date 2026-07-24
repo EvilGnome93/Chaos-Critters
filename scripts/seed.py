@@ -216,10 +216,10 @@ PET_SOORTEN = [
     ("Koala", 1, ZEER_LAAG, LAAG, "Bos", "Slaapt het grootste deel van de dag in de boomtoppen"),
     ("Kalkoen", 1, LAAG, GEMIDDELD, "Moestuin", "Statige boerenerf-bewoner, laat zich niet gek maken"),
     ("Lieveheersbeestje", 1, ZEER_LAAG, LAAG, "Moestuin", "Eet ongedierte op, geliefd bij tuiniers"),
-    ("Naaktslak", 1, ZEER_LAAG, LAAG, None, "Kwetsbaarder dan de Slak zonder huisje, maar wel iets vlotter"),
+    ("Ekster", 1, LAAG, GEMIDDELD, None, "Steelt graag glimmende spulletjes, kleine kans op een bonus-item bij het werk"),
     ("Libelle", 1, LAAG, LAAG, "Vijver", "Zweeft en schiet vliegensvlug heen en weer boven het water"),
     ("Bij", 1, LAAG, HOOG, "Moestuin", "Onvermoeibare bestuiver, harde werker ondanks het formaat"),
-    ("Zeester", 1, ZEER_LAAG, ZEER_LAAG, "Vijver", "Doet vrijwel niets, maar wel op een charmante manier"),
+    ("Gordeldier", 1, LAAG, LAAG, None, "Rolt zich op tot een bal bij gevaar, verrassend goede verdediging voor zijn tier"),
     ("Chaos Sprinkhaan", 1, GEMIDDELD, GEMIDDELD, "Moestuin", "Onvoorspelbare stats die dagelijks licht wisselen, springt onvoorspelbaar door het veld"),
     ("Garnaal", 1, ZEER_LAAG, LAAG, "Vijver", "Piepklein bewonertje van de Vijver, bijna onzichtbaar"),
     ("Pinguin", 2, LAAG, GEMIDDELD, "Vijver", "Onhandig op het land, verrassend soepel in het water"),
@@ -236,7 +236,7 @@ PET_SOORTEN = [
     ("Panda", 3, GEMIDDELD, LAAG, "Bos", "Ontspannen en sterk, maar het liefst zo min mogelijk moeite doen"),
     ("Zwaardvis", 3, HOOG, LAAG, "Vijver", "Scherpe, snelle aanvaller met een gevaarlijke punt"),
     ("Chaos Wasbeerhond", 3, GEMIDDELD, GEMIDDELD, "Bos", "Onvoorspelbare stats die dagelijks licht wisselen, sluwe bosbewoner met een ondoorgrondelijke uitstraling"),
-    ("Walvis", 4, HOOG, LAAG, "Vijver", "Enorme, kalme reus die de hele Vijver lijkt te vullen"),
+    ("Rode Panda", 4, HOOG, GEMIDDELD, "Bos", "Behendige klimmer met verrassend scherpe klauwen, moeilijker te raken dan het uiterlijk doet vermoeden"),
 ]
 
 # (naam, type, prijs, beschrijving)
