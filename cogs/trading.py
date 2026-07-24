@@ -282,107 +282,265 @@ class TradeVoorstelView(discord.ui.View):
         )
 
 
+def _parse_optie(waarde: str) -> tuple[str, str | int] | None:
+    if waarde == "none":
+        return None
+    soort, rest = waarde.split("::", 1)
+    return (soort, int(rest)) if soort == "pet" else (soort, rest)
+
+
+async def _bouw_opties(session, speler_id: int) -> list[discord.SelectOption]:
+    """Dropdown-opties voor wat een speler kan aanbieden/terugvragen: eigen
+    (of, bij de ander, hun) items met voorraad + niet-werkende pets."""
+    opties = [discord.SelectOption(label="Niets", value="none", default=True)]
+
+    inv_rows = (
+        await session.execute(
+            select(InventarisItem).where(InventarisItem.speler_id == speler_id, InventarisItem.aantal > 0)
+        )
+    ).scalars().all()
+    if inv_rows:
+        item_ids = [r.item_id for r in inv_rows]
+        items_bij_id = {
+            i.id: i for i in (await session.execute(select(Item).where(Item.id.in_(item_ids)))).scalars().all()
+        }
+        for r in inv_rows:
+            item = items_bij_id[r.item_id]
+            opties.append(
+                discord.SelectOption(label=f"{item.naam} ({r.aantal}x in bezit)"[:100], value=f"item::{item.naam}"[:100])
+            )
+
+    pets = (
+        await session.execute(
+            select(Huisdier).where(Huisdier.eigenaar_id == speler_id, Huisdier.status != PetStatus.werkplek)
+        )
+    ).scalars().all()
+    for pet in pets:
+        opties.append(discord.SelectOption(label=f"Pet #{pet.volgnummer} {pet.naam}"[:100], value=f"pet::{pet.volgnummer}"))
+
+    return opties[:25]
+
+
+class AantalCoinsModal(discord.ui.Modal):
+    def __init__(self, view: "TradeBuilderView", kant: str):
+        super().__init__(title="Aanbod aanpassen" if kant == "geef" else "Vraag aanpassen")
+        self.view_ref = view
+        self.kant = kant
+        huidig_aantal = view.geef_aantal if kant == "geef" else view.vraag_aantal
+        huidige_coins = view.geef_coins if kant == "geef" else view.vraag_coins
+        self.aantal_input = discord.ui.TextInput(
+            label="Aantal (alleen relevant bij een item)", default=str(huidig_aantal), required=False, max_length=5
+        )
+        self.coins_input = discord.ui.TextInput(
+            label="Chaos Coins", default=str(huidige_coins), required=False, max_length=8
+        )
+        self.add_item(self.aantal_input)
+        self.add_item(self.coins_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            aantal = max(1, int(self.aantal_input.value or 1))
+        except ValueError:
+            aantal = 1
+        try:
+            coins = max(0, int(self.coins_input.value or 0))
+        except ValueError:
+            coins = 0
+
+        if self.kant == "geef":
+            self.view_ref.geef_aantal = aantal
+            self.view_ref.geef_coins = coins
+        else:
+            self.view_ref.vraag_aantal = aantal
+            self.view_ref.vraag_coins = coins
+
+        await interaction.response.edit_message(embed=self.view_ref._bouw_embed(), view=self.view_ref)
+
+
+class TradeBuilderView(discord.ui.View):
+    """Interactief paneel om een ruilvoorstel samen te stellen: dropdowns
+    voor wat je aanbiedt/terugvraagt (gevuld met de eigen/andermans items en
+    pets), knoppen voor aantal + Chaos Coins per kant. Alleen zichtbaar voor
+    de voorsteller (ephemeral), pas bij versturen komt er een publiek bericht
+    met de bestaande accept/weiger-flow."""
+
+    def __init__(
+        self,
+        cog: "TradingCog",
+        voorsteller_id: int,
+        ontvanger_id: int,
+        guild_id: int | None,
+        eigen_opties: list[discord.SelectOption],
+        ontvanger_opties: list[discord.SelectOption],
+    ):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.voorsteller_id = voorsteller_id
+        self.ontvanger_id = ontvanger_id
+        self.guild_id = guild_id
+        self.message: discord.Message | None = None
+
+        self.geef_waarde: tuple[str, str | int] | None = None
+        self.geef_aantal = 1
+        self.geef_coins = 0
+        self.vraag_waarde: tuple[str, str | int] | None = None
+        self.vraag_aantal = 1
+        self.vraag_coins = 0
+
+        self.geef_select = discord.ui.Select(placeholder="Wat bied jij aan?", options=eigen_opties, row=0)
+        self.geef_select.callback = self._on_geef_select
+        self.add_item(self.geef_select)
+
+        self.vraag_select = discord.ui.Select(placeholder="Wat vraag je terug?", options=ontvanger_opties, row=1)
+        self.vraag_select.callback = self._on_vraag_select
+        self.add_item(self.vraag_select)
+
+        aanbod_knop = discord.ui.Button(label="Aanbod: aantal/coins", style=discord.ButtonStyle.secondary, row=2)
+        aanbod_knop.callback = self._open_geef_modal
+        self.add_item(aanbod_knop)
+
+        vraag_knop = discord.ui.Button(label="Vraag: aantal/coins", style=discord.ButtonStyle.secondary, row=2)
+        vraag_knop.callback = self._open_vraag_modal
+        self.add_item(vraag_knop)
+
+        versturen_knop = discord.ui.Button(label="✅ Versturen", style=discord.ButtonStyle.success, row=3)
+        versturen_knop.callback = self._versturen
+        self.add_item(versturen_knop)
+
+        annuleren_knop = discord.ui.Button(label="❌ Annuleren", style=discord.ButtonStyle.danger, row=3)
+        annuleren_knop.callback = self._annuleren
+        self.add_item(annuleren_knop)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.voorsteller_id:
+            await interaction.response.send_message("Dit is niet jouw ruilvoorstel om samen te stellen.", ephemeral=True)
+            return False
+        return True
+
+    def _kant_van(self, waarde: tuple[str, str | int] | None, aantal: int, coins: int) -> TradeKant:
+        if waarde is None:
+            return (None, aantal, None, coins)
+        soort, val = waarde
+        return (val, aantal, None, coins) if soort == "item" else (None, aantal, val, coins)
+
+    @property
+    def geef(self) -> TradeKant:
+        return self._kant_van(self.geef_waarde, self.geef_aantal, self.geef_coins)
+
+    @property
+    def vraag(self) -> TradeKant:
+        return self._kant_van(self.vraag_waarde, self.vraag_aantal, self.vraag_coins)
+
+    def _bouw_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title="🔄 Ruilvoorstel samenstellen",
+            description=(
+                f"Ruil met <@{self.ontvanger_id}>.\n\n"
+                f"**Jij biedt:** {_kant_tekst(self.geef)}\n"
+                f"**Jij vraagt:** {_kant_tekst(self.vraag)}"
+            ),
+            color=discord.Color.blurple(),
+        )
+
+    async def _on_geef_select(self, interaction: discord.Interaction) -> None:
+        self.geef_waarde = _parse_optie(self.geef_select.values[0])
+        await interaction.response.edit_message(embed=self._bouw_embed(), view=self)
+
+    async def _on_vraag_select(self, interaction: discord.Interaction) -> None:
+        self.vraag_waarde = _parse_optie(self.vraag_select.values[0])
+        await interaction.response.edit_message(embed=self._bouw_embed(), view=self)
+
+    async def _open_geef_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AantalCoinsModal(self, "geef"))
+
+    async def _open_vraag_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AantalCoinsModal(self, "vraag"))
+
+    async def _versturen(self, interaction: discord.Interaction) -> None:
+        geef, vraag = self.geef, self.vraag
+        if geef[0] is None and geef[2] is None and not geef[3]:
+            await interaction.response.send_message("Je moet minstens iets aanbieden.", ephemeral=True)
+            return
+        if vraag[0] is None and vraag[2] is None and not vraag[3]:
+            await interaction.response.send_message("Je moet minstens iets terugvragen.", ephemeral=True)
+            return
+
+        async with async_session() as session:
+            probleem = await _bezit_kant(session, self.voorsteller_id, geef)
+        if probleem is not None:
+            await interaction.response.send_message(f"❌ {probleem}", ephemeral=True)
+            return
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content="✅ Voorstel verstuurd.", embed=None, view=self)
+
+        voorstel_view = TradeVoorstelView(self.cog, self.voorsteller_id, self.ontvanger_id, geef, vraag, self.guild_id)
+        embed = discord.Embed(
+            title="🔄 Ruilvoorstel",
+            description=(
+                f"<@{self.voorsteller_id}> stelt een ruil voor aan <@{self.ontvanger_id}>.\n\n"
+                f"<@{self.voorsteller_id}> geeft: {_kant_tekst(geef)}\n"
+                f"<@{self.ontvanger_id}> geeft: {_kant_tekst(vraag)}"
+            ),
+            color=discord.Color.blurple(),
+        )
+        bericht = await interaction.channel.send(content=f"<@{self.ontvanger_id}>", embed=embed, view=voorstel_view)
+        voorstel_view.message = bericht
+        await send_log(
+            self.cog.bot, self.guild_id, "trade",
+            fmt_log(
+                "🟡", "trade",
+                f"<@{self.voorsteller_id}> stelde een ruil voor aan <@{self.ontvanger_id}>: "
+                f"geeft {_kant_tekst(geef)}, vraagt {_kant_tekst(vraag)}",
+            ),
+        )
+
+    async def _annuleren(self, interaction: discord.Interaction) -> None:
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content="❌ Geannuleerd.", embed=None, view=self)
+
+    async def on_timeout(self) -> None:
+        if self.message is None:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(content="⌛ Ruilvoorstel-opbouw verlopen.", embed=None, view=self)
+        except discord.HTTPException:
+            pass
+
+
 class TradingCog(commands.Cog):
     """Ruilen tussen spelers. Zie projectbrief sectie 11."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    async def _item_autocomplete(
-        self, interaction: discord.Interaction, huidig: str
-    ) -> list[app_commands.Choice[str]]:
-        async with async_session() as session:
-            namen = (await session.execute(select(Item.naam))).scalars().all()
-        huidig = huidig.lower()
-        return [app_commands.Choice(name=naam, value=naam) for naam in namen if huidig in naam.lower()][:25]
-
     @app_commands.command(name="trade", description="Stel een ruil voor aan een andere speler")
-    @app_commands.describe(
-        speler="De speler waarmee je wilt ruilen",
-        geef_item="Item dat jij aanbiedt (niet te combineren met geef_pet_id)",
-        geef_aantal="Aantal van het item dat jij aanbiedt (standaard 1)",
-        geef_pet_id="Jouw pet-nummer dat jij aanbiedt (niet te combineren met geef_item)",
-        geef_coins="Chaos Coins die jij aanbiedt (optioneel)",
-        vraag_item="Item dat je terugvraagt (niet te combineren met vraag_pet_id)",
-        vraag_aantal="Aantal van het item dat je terugvraagt (standaard 1)",
-        vraag_pet_id="Pet-nummer (van de ander) dat je terugvraagt (niet te combineren met vraag_item)",
-        vraag_coins="Chaos Coins die je terugvraagt (optioneel)",
-    )
-    @app_commands.autocomplete(geef_item=_item_autocomplete, vraag_item=_item_autocomplete)
-    async def trade(
-        self,
-        interaction: discord.Interaction,
-        speler: discord.Member,
-        geef_item: str | None = None,
-        geef_aantal: int = 1,
-        geef_pet_id: int | None = None,
-        geef_coins: int | None = None,
-        vraag_item: str | None = None,
-        vraag_aantal: int = 1,
-        vraag_pet_id: int | None = None,
-        vraag_coins: int | None = None,
-    ) -> None:
+    @app_commands.describe(speler="De speler waarmee je wilt ruilen")
+    async def trade(self, interaction: discord.Interaction, speler: discord.Member) -> None:
         if speler.id == interaction.user.id:
             await interaction.response.send_message("Je kan niet met jezelf ruilen.", ephemeral=True)
             return
         if speler.bot:
             await interaction.response.send_message("Je kan niet met een bot ruilen.", ephemeral=True)
             return
-        if geef_item and geef_pet_id is not None:
-            await interaction.response.send_message(
-                "Kies óf een item óf een pet om aan te bieden, niet allebei.", ephemeral=True
-            )
-            return
-        if vraag_item and vraag_pet_id is not None:
-            await interaction.response.send_message(
-                "Kies óf een item óf een pet om terug te vragen, niet allebei.", ephemeral=True
-            )
-            return
-
-        geef: TradeKant = (geef_item, geef_aantal, geef_pet_id, geef_coins or 0)
-        vraag: TradeKant = (vraag_item, vraag_aantal, vraag_pet_id, vraag_coins or 0)
-
-        if geef[0] is None and geef[2] is None and not geef[3]:
-            await interaction.response.send_message(
-                "Je moet minstens iets aanbieden (item, pet, en/of Chaos Coins).", ephemeral=True
-            )
-            return
-        if vraag[0] is None and vraag[2] is None and not vraag[3]:
-            await interaction.response.send_message(
-                "Je moet minstens iets terugvragen (item, pet, en/of Chaos Coins).", ephemeral=True
-            )
-            return
 
         async with async_session() as session:
             if await session.get(Speler, interaction.user.id) is None:
                 session.add(Speler(discord_id=interaction.user.id))
-                await session.commit()
+            if await session.get(Speler, speler.id) is None:
+                session.add(Speler(discord_id=speler.id))
+            await session.commit()
 
-            probleem = await _bezit_kant(session, interaction.user.id, geef)
-            if probleem is not None:
-                await interaction.response.send_message(f"❌ {probleem}", ephemeral=True)
-                return
+            eigen_opties = await _bouw_opties(session, interaction.user.id)
+            ontvanger_opties = await _bouw_opties(session, speler.id)
 
-        view = TradeVoorstelView(self, interaction.user.id, speler.id, geef, vraag, interaction.guild_id)
-        embed = discord.Embed(
-            title="🔄 Ruilvoorstel",
-            description=(
-                f"{interaction.user.mention} stelt een ruil voor aan {speler.mention}.\n\n"
-                f"{interaction.user.mention} geeft: {_kant_tekst(geef)}\n"
-                f"{speler.mention} geeft: {_kant_tekst(vraag)}"
-            ),
-            color=discord.Color.blurple(),
-        )
-        await interaction.response.send_message(content=speler.mention, embed=embed, view=view)
+        view = TradeBuilderView(self, interaction.user.id, speler.id, interaction.guild_id, eigen_opties, ontvanger_opties)
+        await interaction.response.send_message(embed=view._bouw_embed(), view=view, ephemeral=True)
         view.message = await interaction.original_response()
-        await send_log(
-            self.bot, interaction.guild_id, "trade",
-            fmt_log(
-                "🟡", "trade",
-                f"{interaction.user.mention} stelde een ruil voor aan {speler.mention}: "
-                f"geeft {_kant_tekst(geef)}, vraagt {_kant_tekst(vraag)}",
-            ),
-        )
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -95,7 +95,7 @@ class ReleaseBevestigView(discord.ui.View):
         embed = discord.Embed(title="Pet vrijgelaten", description=beschrijving, color=discord.Color.green())
         await interaction.response.edit_message(content=None, embed=embed, view=self)
         await send_log(
-            self.cog.bot, self.guild_id, "main",
+            self.cog.bot, self.guild_id, "vangst",
             fmt_log(
                 "🟢", "release",
                 f"<@{self.speler_id}> liet **{naam}** (pet #{self.pet_id}) vrij voor {coins} Chaos Coins"

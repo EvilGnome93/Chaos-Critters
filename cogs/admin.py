@@ -15,10 +15,11 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 NIEUW_OM_TE_TESTEN = [
     (
         "🔄 Trading & 🕊️ /release zijn live",
-        "Nieuw: `/trade speler ...` om items, pets en/of Chaos Coins direct met een andere speler "
-        "te ruilen. Jij geeft iets (item óf pet, plus optioneel coins) en vraagt iets terug — de "
-        "ander krijgt een Accepteren/Weigeren-knop, en jij moet daarna nog één keer definitief "
-        "bevestigen voor de ruil echt plaatsvindt (dubbele check tegen typefouten).\n\n"
+        "Nieuw: `/trade speler` opent een paneel om een ruil samen te stellen — dropdowns voor wat "
+        "je aanbiedt en terugvraagt (gevuld met jouw en hun items/pets), knoppen om aantal en Chaos "
+        "Coins in te stellen. Daarna krijgt de ander een Accepteren/Weigeren-knop, en jij moet "
+        "daarna nog één keer definitief bevestigen voor de ruil echt plaatsvindt (dubbele check "
+        "tegen typefouten).\n\n"
         "Ook nieuw: `/release pet_id` om een pet vrij te laten in ruil voor Chaos Coins (schaalt met "
         "tier + level) plus een kleine kans op een bonus-grondstof. Eén bevestigingsknop, daarna is "
         "de pet echt weg.\n\n"
@@ -46,7 +47,7 @@ TEST_COMMANDOS = [
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/team", "Stel je team van 3 pets samen voor gevechten."),
     ("/vecht [tegenstander] [inzet_coins] [inzet_item] [inzet_aantal]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit (optioneel met inzet)."),
-    ("/trade speler [geef_item/geef_pet_id] [geef_aantal] [geef_coins] [vraag_item/vraag_pet_id] [vraag_aantal] [vraag_coins]", "Stel een ruil voor aan een andere speler: item of pet plus optioneel Chaos Coins, in beide richtingen."),
+    ("/trade speler", "Open een paneel om een ruil samen te stellen: dropdowns voor wat je aanbiedt/terugvraagt (items/pets van jou en de ander), knoppen voor aantal + Chaos Coins."),
     ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),

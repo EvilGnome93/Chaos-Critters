@@ -1,7 +1,7 @@
-"""Handmatige check van de trading-flow (voorstel -> accepteren ->
-definitief bevestigen) en de release-flow, met gesimuleerde
-Discord-interacties, zonder de bot te starten. Ruimt zijn eigen
-testdata op aan het eind.
+"""Handmatige check van de trading-flow (paneel samenstellen -> voorstel ->
+accepteren -> definitief bevestigen) en de release-flow, met gesimuleerde
+Discord-interacties, zonder de bot te starten. Ruimt zijn eigen testdata
+op aan het eind.
 """
 
 import asyncio
@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select
 
 from cogs.release import ReleaseCog, _release_beloning
-from cogs.trading import TradingCog
+from cogs.trading import AantalCoinsModal, TradingCog
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler, Tier
@@ -31,6 +31,8 @@ def fake_interaction(user_id: int, guild_id: int | None = None) -> MagicMock:
     bericht = MagicMock()
     bericht.edit = AsyncMock()
     interaction.original_response = AsyncMock(return_value=bericht)
+    interaction.channel = MagicMock()
+    interaction.channel.send = AsyncMock(return_value=MagicMock())
     return interaction
 
 
@@ -40,6 +42,40 @@ def fake_member(user_id: int) -> MagicMock:
     member.bot = False
     member.mention = f"<@{user_id}>"
     return member
+
+
+async def stel_voor_via_paneel(
+    cog: TradingCog, van_id: int, naar_id: int,
+    geef_waarde: str | None, geef_aantal: int, geef_coins: int,
+    vraag_waarde: str | None, vraag_aantal: int, vraag_coins: int,
+):
+    """Simuleert het hele /trade-paneel: command -> dropdowns kiezen ->
+    aantal/coins via modal -> versturen. Geeft de verstuurde
+    TradeVoorstelView terug."""
+    open_interactie = fake_interaction(van_id)
+    await cog.trade.callback(cog, open_interactie, fake_member(naar_id))
+    view = open_interactie.response.send_message.call_args.kwargs["view"]
+
+    if geef_waarde is not None:
+        view.geef_select._values = [geef_waarde]
+        await view._on_geef_select(fake_interaction(van_id))
+    if vraag_waarde is not None:
+        view.vraag_select._values = [vraag_waarde]
+        await view._on_vraag_select(fake_interaction(van_id))
+
+    modal_geef = AantalCoinsModal(view, "geef")
+    modal_geef.aantal_input._value = str(geef_aantal)
+    modal_geef.coins_input._value = str(geef_coins)
+    await modal_geef.on_submit(fake_interaction(van_id))
+
+    modal_vraag = AantalCoinsModal(view, "vraag")
+    modal_vraag.aantal_input._value = str(vraag_aantal)
+    modal_vraag.coins_input._value = str(vraag_coins)
+    await modal_vraag.on_submit(fake_interaction(van_id))
+
+    verstuur_interactie = fake_interaction(van_id)
+    await view._versturen(verstuur_interactie)
+    return verstuur_interactie.channel.send.call_args.kwargs["view"]
 
 
 async def main() -> None:
@@ -65,15 +101,15 @@ async def main() -> None:
         pet_b_volgnummer = pet_b.volgnummer
 
     try:
-        # -- Test 1: item-voor-coins ruil, volledig geaccepteerd --
-        print("-- Test 1: item-voor-coins --")
-        interaction1 = fake_interaction(SPELER_A)
-        await cog.trade.callback(
-            cog, interaction1, fake_member(SPELER_B),
-            geef_item="Basis brokjes", geef_aantal=3, vraag_coins=20,
+        # -- Test 1: paneel, item-voor-coins ruil, volledig geaccepteerd --
+        print("-- Test 1: item-voor-coins via paneel --")
+        voorstel_view = await stel_voor_via_paneel(
+            cog, SPELER_A, SPELER_B,
+            geef_waarde="item::Basis brokjes", geef_aantal=3, geef_coins=0,
+            vraag_waarde=None, vraag_aantal=1, vraag_coins=20,
         )
-        interaction1.response.send_message.assert_awaited()
-        voorstel_view = interaction1.response.send_message.call_args.kwargs["view"]
+        assert voorstel_view.geef == ("Basis brokjes", 3, None, 0)
+        assert voorstel_view.vraag == (None, 1, None, 20)
 
         interaction2 = fake_interaction(SPELER_B)
         await voorstel_view.accepteren.callback(interaction2)
@@ -99,14 +135,14 @@ async def main() -> None:
             assert speler_b.currency == 80
             assert inv_b.aantal == 3
 
-        # -- Test 2: pet-voor-coins ruil (pet van B naar A), pet krijgt nieuw volgnummer --
-        print("\n-- Test 2: pet-voor-coins --")
-        interaction4 = fake_interaction(SPELER_B)
-        await cog.trade.callback(
-            cog, interaction4, fake_member(SPELER_A),
-            geef_pet_id=pet_b_volgnummer, vraag_coins=15,
+        # -- Test 2: paneel, pet-voor-coins ruil (pet van B naar A) --
+        print("\n-- Test 2: pet-voor-coins via paneel --")
+        voorstel_view2 = await stel_voor_via_paneel(
+            cog, SPELER_B, SPELER_A,
+            geef_waarde=f"pet::{pet_b_volgnummer}", geef_aantal=1, geef_coins=0,
+            vraag_waarde=None, vraag_aantal=1, vraag_coins=15,
         )
-        voorstel_view2 = interaction4.response.send_message.call_args.kwargs["view"]
+        assert voorstel_view2.geef == (None, 1, pet_b_volgnummer, 0)
 
         interaction5 = fake_interaction(SPELER_A)
         await voorstel_view2.accepteren.callback(interaction5)
@@ -128,19 +164,23 @@ async def main() -> None:
 
         # -- Test 3: weigeren --
         print("\n-- Test 3: weigeren --")
-        interaction7 = fake_interaction(SPELER_A)
-        await cog.trade.callback(cog, interaction7, fake_member(SPELER_B), geef_coins=10, vraag_coins=10)
-        voorstel_view3 = interaction7.response.send_message.call_args.kwargs["view"]
+        voorstel_view3 = await stel_voor_via_paneel(
+            cog, SPELER_A, SPELER_B,
+            geef_waarde=None, geef_aantal=1, geef_coins=10,
+            vraag_waarde=None, vraag_aantal=1, vraag_coins=10,
+        )
         interaction8 = fake_interaction(SPELER_B)
         await voorstel_view3.weigeren.callback(interaction8)
         interaction8.response.edit_message.assert_awaited_with(content="❌ Ruilvoorstel geweigerd.", embed=None, view=voorstel_view3)
-        print("Weigeren werkt, geen resources verplaatst (niet apart geverifieerd, geen transfer-code aangeroepen).")
+        print("Weigeren werkt.")
 
         # -- Test 4: accepteren zonder voldoende coins moet falen --
         print("\n-- Test 4: accepteren met te weinig coins --")
-        interaction9 = fake_interaction(SPELER_A)
-        await cog.trade.callback(cog, interaction9, fake_member(SPELER_B), geef_coins=1, vraag_coins=99999)
-        voorstel_view4 = interaction9.response.send_message.call_args.kwargs["view"]
+        voorstel_view4 = await stel_voor_via_paneel(
+            cog, SPELER_A, SPELER_B,
+            geef_waarde=None, geef_aantal=1, geef_coins=1,
+            vraag_waarde=None, vraag_aantal=1, vraag_coins=99999,
+        )
         interaction10 = fake_interaction(SPELER_B)
         await voorstel_view4.accepteren.callback(interaction10)
         content = interaction10.response.edit_message.call_args.kwargs["content"]
@@ -196,8 +236,7 @@ async def main() -> None:
 
         interaction13 = fake_interaction(SPELER_A)
         await release_cog.release.callback(release_cog, interaction13, werkende_pet_id)
-        content13 = interaction13.response.send_message.call_args.kwargs.get("content") or interaction13.response.send_message.call_args.args
-        print(content13)
+        print(interaction13.response.send_message.call_args)
         interaction13.response.send_message.assert_awaited_once()
         assert "aan het werk" in str(interaction13.response.send_message.call_args)
 
