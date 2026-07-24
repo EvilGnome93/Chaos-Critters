@@ -160,12 +160,12 @@ PET_SOORTEN = [
     # Uncommon (2) en Epic (4), zelf verzonnen (naam+stats+beschrijving) op
     # verzoek van de gebruiker. Afbeeldingen komen later — tot dan gebruikt
     # /vang de placeholder-afbeelding voor deze 30 soorten.
-    ("Kip", 2, LAAG, GEMIDDELD, "Moestuin", "Onvermoeibare pikker, scharrelt de hele dag door de Moestuin"),
+    ("Hamster", 2, ZEER_LAAG, LAAG, None, "Verzamelt stiekem extra voorraad, kleine kans op bonus grondstof"),
     ("Varken", 2, LAAG, HOOG, "Mijnschacht", "Wroet met de snuit dieper dan de meeste pets, sterk in de Mijnschacht"),
     ("Ezel", 2, LAAG, HOOG, "Bos", "Onvermoeibaar lastdier, houdt het langst vol op zware klussen in het Bos"),
     ("Wezel", 2, GEMIDDELD, HOOG, "Werkbank", "Rap en behendig, glipt overal tussendoor op de Werkbank"),
     ("Bunzing", 2, GEMIDDELD, GEMIDDELD, "Bos", "Familie van de Wezel, jaagt liever alleen door het Bos"),
-    ("Buizerd", 2, GEMIDDELD, GEMIDDELD, "Bos", "Cirkelt boven het Bos, scherp oog voor grondstoffen"),
+    ("Zeepaardje", 2, ZEER_LAAG, LAAG, "Vijver", "Verlegen maar sierlijk, moeilijk te vangen tussen het riet"),
     ("Kraanvogel", 2, LAAG, GEMIDDELD, "Vijver", "Elegante wadervogel, geduldig en efficiënt op de Vijver"),
     ("Alpaca", 2, LAAG, GEMIDDELD, "Moestuin", "Kalmeert de rest van het team, kleine blijdschap-bonus"),
     ("Lama", 2, LAAG, HOOG, "Bos", "Sterker familielid van de Alpaca, uitstekend pakdier in het Bos"),
