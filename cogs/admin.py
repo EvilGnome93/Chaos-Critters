@@ -18,7 +18,7 @@ NIEUW_OM_TE_TESTEN = [
         "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars), "
         "qua zeldzaamheid tussen hun buren in. 30 nieuwe soorten om te vangen: Hamster, Varken, Ezel, "
         "Wezel, Bunzing, Zeepaardje, Kraanvogel, Alpaca, Lama, Kwartel, Parkiet, Faisant, Stokstaartje, "
-        "Chaos Kangoeroe, Chaos Toekan (Uncommon), Jaguar, Luipaard, Poema, Krokodil, Anaconda, "
+        "Chaos Kangoeroe, Chaos Toekan (Uncommon), IJsbeer, Luipaard, Poema, Krokodil, Anaconda, "
         "Condor, Gier, Walrus, Zeekoe, Haai, Veelvraat, Griffioen, Nijlpaard, Chaos Octopus, "
         "Chaos Basilisk (Epic). Deze 30 hebben nog geen eigen afbeelding (placeholder).",
     ),
