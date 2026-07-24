@@ -220,7 +220,7 @@ PET_SOORTEN = [
     ("Libelle", 1, LAAG, LAAG, "Vijver", "Zweeft en schiet vliegensvlug heen en weer boven het water"),
     ("Bij", 1, LAAG, HOOG, "Moestuin", "Onvermoeibare bestuiver, harde werker ondanks het formaat"),
     ("Zeester", 1, ZEER_LAAG, ZEER_LAAG, "Vijver", "Doet vrijwel niets, maar wel op een charmante manier"),
-    ("Sprinkhaan", 1, LAAG, GEMIDDELD, "Moestuin", "Springt onvoorspelbaar door het veld, lastig te grijpen"),
+    ("Chaos Sprinkhaan", 1, GEMIDDELD, GEMIDDELD, "Moestuin", "Onvoorspelbare stats die dagelijks licht wisselen, springt onvoorspelbaar door het veld"),
     ("Garnaal", 1, ZEER_LAAG, LAAG, "Vijver", "Piepklein bewonertje van de Vijver, bijna onzichtbaar"),
     ("Pinguin", 2, LAAG, GEMIDDELD, "Vijver", "Onhandig op het land, verrassend soepel in het water"),
     ("Schildpad", 2, GEMIDDELD, LAAG, None, "Trage maar taaie verdediger, kruipt bij gevaar in zijn schild"),
@@ -232,10 +232,10 @@ PET_SOORTEN = [
     ("Bizon", 3, HOOG, GEMIDDELD, None, "Fors en onverzettelijk, moeilijk om tegen te houden"),
     ("Dolfijn", 3, GEMIDDELD, HOOG, "Vijver", "Intelligent en snel, geniet zichtbaar van het werk in de Vijver"),
     ("Orang oetan", 3, GEMIDDELD, HOOG, "Bos", "Slimme boombewoner, lost problemen vindingrijk op"),
-    ("Papegaai", 3, LAAG, GEMIDDELD, None, "Praat de tegenstander in de war tijdens een gevecht"),
+    ("Chaos Papegaai", 3, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, praat de tegenstander in de war tijdens een gevecht"),
     ("Panda", 3, GEMIDDELD, LAAG, "Bos", "Ontspannen en sterk, maar het liefst zo min mogelijk moeite doen"),
     ("Zwaardvis", 3, HOOG, LAAG, "Vijver", "Scherpe, snelle aanvaller met een gevaarlijke punt"),
-    ("Wasbeerhond", 3, GEMIDDELD, GEMIDDELD, "Bos", "Sluwe bosbewoner met een ondoorgrondelijke uitstraling"),
+    ("Chaos Wasbeerhond", 3, GEMIDDELD, GEMIDDELD, "Bos", "Onvoorspelbare stats die dagelijks licht wisselen, sluwe bosbewoner met een ondoorgrondelijke uitstraling"),
     ("Walvis", 4, HOOG, LAAG, "Vijver", "Enorme, kalme reus die de hele Vijver lijkt te vullen"),
 ]
 

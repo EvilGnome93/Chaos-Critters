@@ -133,7 +133,7 @@ SOORT_SLUGS = {
     "Libelle": "libelle",
     "Bij": "bij",
     "Zeester": "zeester",
-    "Sprinkhaan": "sprinkhaan",
+    "Chaos Sprinkhaan": "chaos_sprinkhaan",
     "Garnaal": "garnaal",
     "Pinguin": "pinguin",
     "Schildpad": "schildpad",
@@ -145,10 +145,10 @@ SOORT_SLUGS = {
     "Bizon": "bizon",
     "Dolfijn": "dolfijn",
     "Orang oetan": "orang_oetan",
-    "Papegaai": "papegaai",
+    "Chaos Papegaai": "chaos_papegaai",
     "Panda": "panda",
     "Zwaardvis": "zwaardvis",
-    "Wasbeerhond": "wasbeerhond",
+    "Chaos Wasbeerhond": "chaos_wasbeerhond",
     "Walvis": "walvis",
 }
 
