@@ -338,37 +338,51 @@ async def _bouw_opties(session, speler_id: int) -> tuple[list[discord.SelectOpti
     return opties[:25], pet_namen
 
 
-class AantalCoinsModal(discord.ui.Modal):
+class AantalModal(discord.ui.Modal):
+    """Alleen relevant als de gekozen kant een item is."""
+
     def __init__(self, view: "TradeBuilderView", kant: str):
-        super().__init__(title="Aanbod aanpassen" if kant == "geef" else "Vraag aanpassen")
+        super().__init__(title="Aantal instellen (aanbod)" if kant == "geef" else "Aantal instellen (vraag)")
         self.view_ref = view
         self.kant = kant
-        huidig_aantal = view.geef_aantal if kant == "geef" else view.vraag_aantal
-        huidige_coins = view.geef_coins if kant == "geef" else view.vraag_coins
+        huidig = view.geef_aantal if kant == "geef" else view.vraag_aantal
         self.aantal_input = discord.ui.TextInput(
-            label="Aantal (alleen relevant bij een item)", default=str(huidig_aantal), required=False, max_length=5
-        )
-        self.coins_input = discord.ui.TextInput(
-            label="Chaos Coins", default=str(huidige_coins), required=False, max_length=8
+            label="Aantal (alleen relevant bij een item)", default=str(huidig), required=False, max_length=5
         )
         self.add_item(self.aantal_input)
-        self.add_item(self.coins_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
             aantal = max(1, int(self.aantal_input.value or 1))
         except ValueError:
             aantal = 1
+
+        if self.kant == "geef":
+            self.view_ref.geef_aantal = aantal
+        else:
+            self.view_ref.vraag_aantal = aantal
+
+        await interaction.response.edit_message(embed=self.view_ref._bouw_embed(), view=self.view_ref)
+
+
+class CoinsModal(discord.ui.Modal):
+    def __init__(self, view: "TradeBuilderView", kant: str):
+        super().__init__(title="Chaos Coins instellen (aanbod)" if kant == "geef" else "Chaos Coins instellen (vraag)")
+        self.view_ref = view
+        self.kant = kant
+        huidig = view.geef_coins if kant == "geef" else view.vraag_coins
+        self.coins_input = discord.ui.TextInput(label="Chaos Coins", default=str(huidig), required=False, max_length=8)
+        self.add_item(self.coins_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
             coins = max(0, int(self.coins_input.value or 0))
         except ValueError:
             coins = 0
 
         if self.kant == "geef":
-            self.view_ref.geef_aantal = aantal
             self.view_ref.geef_coins = coins
         else:
-            self.view_ref.vraag_aantal = aantal
             self.view_ref.vraag_coins = coins
 
         await interaction.response.edit_message(embed=self.view_ref._bouw_embed(), view=self.view_ref)
@@ -416,19 +430,27 @@ class TradeBuilderView(discord.ui.View):
         self.vraag_select.callback = self._on_vraag_select
         self.add_item(self.vraag_select)
 
-        aanbod_knop = discord.ui.Button(label="✏️ Aanbod bewerken (aantal/coins)", style=discord.ButtonStyle.secondary, row=2)
-        aanbod_knop.callback = self._open_geef_modal
-        self.add_item(aanbod_knop)
+        aanbod_aantal_knop = discord.ui.Button(label="🔢 Aanbod: aantal", style=discord.ButtonStyle.secondary, row=2)
+        aanbod_aantal_knop.callback = self._open_geef_aantal_modal
+        self.add_item(aanbod_aantal_knop)
 
-        vraag_knop = discord.ui.Button(label="✏️ Vraag bewerken (aantal/coins)", style=discord.ButtonStyle.secondary, row=2)
-        vraag_knop.callback = self._open_vraag_modal
-        self.add_item(vraag_knop)
+        aanbod_coins_knop = discord.ui.Button(label="💰 Aanbod: coins", style=discord.ButtonStyle.secondary, row=2)
+        aanbod_coins_knop.callback = self._open_geef_coins_modal
+        self.add_item(aanbod_coins_knop)
 
-        versturen_knop = discord.ui.Button(label="✅ Versturen", style=discord.ButtonStyle.success, row=3)
+        vraag_aantal_knop = discord.ui.Button(label="🔢 Vraag: aantal", style=discord.ButtonStyle.secondary, row=3)
+        vraag_aantal_knop.callback = self._open_vraag_aantal_modal
+        self.add_item(vraag_aantal_knop)
+
+        vraag_coins_knop = discord.ui.Button(label="💰 Vraag: coins", style=discord.ButtonStyle.secondary, row=3)
+        vraag_coins_knop.callback = self._open_vraag_coins_modal
+        self.add_item(vraag_coins_knop)
+
+        versturen_knop = discord.ui.Button(label="✅ Versturen", style=discord.ButtonStyle.success, row=4)
         versturen_knop.callback = self._versturen
         self.add_item(versturen_knop)
 
-        annuleren_knop = discord.ui.Button(label="❌ Annuleren", style=discord.ButtonStyle.danger, row=3)
+        annuleren_knop = discord.ui.Button(label="❌ Annuleren", style=discord.ButtonStyle.danger, row=4)
         annuleren_knop.callback = self._annuleren
         self.add_item(annuleren_knop)
 
@@ -475,11 +497,17 @@ class TradeBuilderView(discord.ui.View):
         self.vraag_waarde = _parse_optie(self.vraag_select.values[0])
         await interaction.response.edit_message(embed=self._bouw_embed(), view=self)
 
-    async def _open_geef_modal(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_modal(AantalCoinsModal(self, "geef"))
+    async def _open_geef_aantal_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AantalModal(self, "geef"))
 
-    async def _open_vraag_modal(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_modal(AantalCoinsModal(self, "vraag"))
+    async def _open_geef_coins_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(CoinsModal(self, "geef"))
+
+    async def _open_vraag_aantal_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AantalModal(self, "vraag"))
+
+    async def _open_vraag_coins_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(CoinsModal(self, "vraag"))
 
     async def _versturen(self, interaction: discord.Interaction) -> None:
         geef, vraag = self.geef, self.vraag

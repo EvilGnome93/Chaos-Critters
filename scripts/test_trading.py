@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select
 
 from cogs.release import ReleaseCog, _release_beloning
-from cogs.trading import AantalCoinsModal, TradingCog
+from cogs.trading import AantalModal, CoinsModal, TradingCog
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler, Tier
@@ -63,15 +63,19 @@ async def stel_voor_via_paneel(
         view.vraag_select._values = [vraag_waarde]
         await view._on_vraag_select(fake_interaction(van_id))
 
-    modal_geef = AantalCoinsModal(view, "geef")
-    modal_geef.aantal_input._value = str(geef_aantal)
-    modal_geef.coins_input._value = str(geef_coins)
-    await modal_geef.on_submit(fake_interaction(van_id))
+    geef_aantal_modal = AantalModal(view, "geef")
+    geef_aantal_modal.aantal_input._value = str(geef_aantal)
+    await geef_aantal_modal.on_submit(fake_interaction(van_id))
+    geef_coins_modal = CoinsModal(view, "geef")
+    geef_coins_modal.coins_input._value = str(geef_coins)
+    await geef_coins_modal.on_submit(fake_interaction(van_id))
 
-    modal_vraag = AantalCoinsModal(view, "vraag")
-    modal_vraag.aantal_input._value = str(vraag_aantal)
-    modal_vraag.coins_input._value = str(vraag_coins)
-    await modal_vraag.on_submit(fake_interaction(van_id))
+    vraag_aantal_modal = AantalModal(view, "vraag")
+    vraag_aantal_modal.aantal_input._value = str(vraag_aantal)
+    await vraag_aantal_modal.on_submit(fake_interaction(van_id))
+    vraag_coins_modal = CoinsModal(view, "vraag")
+    vraag_coins_modal.coins_input._value = str(vraag_coins)
+    await vraag_coins_modal.on_submit(fake_interaction(van_id))
 
     verstuur_interactie = fake_interaction(van_id)
     await view._versturen(verstuur_interactie)
