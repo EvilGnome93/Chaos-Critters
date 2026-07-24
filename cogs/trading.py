@@ -8,8 +8,9 @@ from sqlalchemy import select
 
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
-from db.models import Huisdier, InventarisItem, Item, PetStatus, Speler
+from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
 from utils.discord_log import fmt_log, send_log
+from utils.trade_image import bouw_ruil_afbeelding
 
 TradeKant = tuple[str | None, int, int | None, int, str | None]
 """(item_naam, item_aantal, pet_id, coins, pet_naam) — item_naam en pet_id zijn
@@ -61,6 +62,16 @@ async def _bezit_kant(session, speler_id: int, kant: TradeKant) -> str | None:
             return f"<@{speler_id}> heeft niet (meer) genoeg Chaos Coins."
 
     return None
+
+
+async def _pet_afbeelding_url(session, eigenaar_id: int, pet_id: int) -> str | None:
+    pet = await session.scalar(
+        select(Huisdier).where(Huisdier.eigenaar_id == eigenaar_id, Huisdier.volgnummer == pet_id)
+    )
+    if pet is None:
+        return None
+    soort = await session.get(PetSoort, pet.soort_id)
+    return soort.afbeelding_url if soort else None
 
 
 async def _voer_kant_uit(session, van_speler_id: int, naar_speler_id: int, kant: TradeKant) -> None:
@@ -499,7 +510,24 @@ class TradeBuilderView(discord.ui.View):
             ),
             color=discord.Color.blurple(),
         )
-        bericht = await interaction.channel.send(content=f"<@{self.ontvanger_id}>", embed=embed, view=voorstel_view)
+
+        bestand = None
+        if geef[2] is not None and vraag[2] is not None:
+            async with async_session() as session:
+                geef_url = await _pet_afbeelding_url(session, self.voorsteller_id, geef[2])
+                vraag_url = await _pet_afbeelding_url(session, self.ontvanger_id, vraag[2])
+            if geef_url and vraag_url:
+                buffer = await bouw_ruil_afbeelding(geef_url, vraag_url)
+                if buffer is not None:
+                    bestand = discord.File(buffer, filename="ruil.png")
+                    embed.set_image(url="attachment://ruil.png")
+
+        if bestand is not None:
+            bericht = await interaction.channel.send(
+                content=f"<@{self.ontvanger_id}>", embed=embed, view=voorstel_view, file=bestand
+            )
+        else:
+            bericht = await interaction.channel.send(content=f"<@{self.ontvanger_id}>", embed=embed, view=voorstel_view)
         voorstel_view.message = bericht
         await send_log(
             self.cog.bot, self.guild_id, "trade",

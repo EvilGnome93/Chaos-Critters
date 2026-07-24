@@ -162,6 +162,46 @@ async def main() -> None:
             assert speler_a.currency == 105
             assert speler_b.currency == 95
 
+        # -- Test 2b: pet-voor-pet ruil moet een samengestelde afbeelding meesturen --
+        print("\n-- Test 2b: pet-voor-pet met ruil-afbeelding --")
+        async with async_session() as session:
+            soort_met_afbeelding = await session.scalar(
+                select(PetSoort).where(PetSoort.afbeelding_url.isnot(None)).limit(1)
+            )
+            speler_a_ref = await session.get(Speler, SPELER_A)
+            speler_b_ref = await session.get(Speler, SPELER_B)
+            pet_a2 = Huisdier(
+                eigenaar_id=SPELER_A, soort_id=soort_met_afbeelding.id, tier_id=soort_met_afbeelding.tier_id,
+                naam="RuilAfbeeldingA", volgnummer=speler_a_ref.volgend_pet_nummer,
+                gevecht_genen=10, werk_genen=10, status=PetStatus.rust,
+            )
+            speler_a_ref.volgend_pet_nummer += 1
+            pet_b2 = Huisdier(
+                eigenaar_id=SPELER_B, soort_id=soort_met_afbeelding.id, tier_id=soort_met_afbeelding.tier_id,
+                naam="RuilAfbeeldingB", volgnummer=speler_b_ref.volgend_pet_nummer,
+                gevecht_genen=10, werk_genen=10, status=PetStatus.rust,
+            )
+            speler_b_ref.volgend_pet_nummer += 1
+            session.add_all([pet_a2, pet_b2])
+            await session.commit()
+            await session.refresh(pet_a2)
+            await session.refresh(pet_b2)
+            pet_a2_volgnummer = pet_a2.volgnummer
+            pet_b2_volgnummer = pet_b2.volgnummer
+
+        open_interactie = fake_interaction(SPELER_A)
+        await cog.trade.callback(cog, open_interactie, fake_member(SPELER_B))
+        builder_view = open_interactie.response.send_message.call_args.kwargs["view"]
+        builder_view.geef_select._values = [f"pet::{pet_a2_volgnummer}"]
+        await builder_view._on_geef_select(fake_interaction(SPELER_A))
+        builder_view.vraag_select._values = [f"pet::{pet_b2_volgnummer}"]
+        await builder_view._on_vraag_select(fake_interaction(SPELER_A))
+        verstuur_interactie = fake_interaction(SPELER_A)
+        await builder_view._versturen(verstuur_interactie)
+        stuur_kwargs = verstuur_interactie.channel.send.call_args.kwargs
+        print(f"file meegestuurd: {'file' in stuur_kwargs}")
+        assert "file" in stuur_kwargs
+
         # -- Test 3: weigeren --
         print("\n-- Test 3: weigeren --")
         voorstel_view3 = await stel_voor_via_paneel(
