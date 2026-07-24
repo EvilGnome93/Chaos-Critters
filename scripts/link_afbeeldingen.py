@@ -105,16 +105,16 @@ SOORT_SLUGS = {
     "Poema": "poema",
     "Krokodil": "krokodil",
     "Anaconda": "anaconda",
-    "Condor": "condor",
+    "Hyena": "hyena",
     "Gier": "gier",
     "Walrus": "walrus",
     "Zeekoe": "zeekoe",
     "Haai": "haai",
     "Veelvraat": "veelvraat",
-    "Griffioen": "griffioen",
+    "Gorilla": "gorilla",
     "Nijlpaard": "nijlpaard",
     "Chaos Octopus": "chaos_octopus",
-    "Chaos Basilisk": "chaos_basilisk",
+    "Chaos Stier": "chaos_stier",
 }
 
 

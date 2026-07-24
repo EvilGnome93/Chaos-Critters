@@ -19,8 +19,8 @@ NIEUW_OM_TE_TESTEN = [
         "qua zeldzaamheid tussen hun buren in. 30 nieuwe soorten om te vangen: Hamster, Varken, Ezel, "
         "Wezel, Bunzing, Zeepaardje, Kraanvogel, Alpaca, Lama, Kwartel, Parkiet, Faisant, Stokstaartje, "
         "Chaos Kangoeroe, Chaos Toekan (Uncommon), IJsbeer, Luipaard, Poema, Krokodil, Anaconda, "
-        "Condor, Gier, Walrus, Zeekoe, Haai, Veelvraat, Griffioen, Nijlpaard, Chaos Octopus, "
-        "Chaos Basilisk (Epic). Deze 30 hebben nog geen eigen afbeelding (placeholder).",
+        "Hyena, Gier, Walrus, Zeekoe, Haai, Veelvraat, Gorilla, Nijlpaard, Chaos Octopus, "
+        "Chaos Stier (Epic). Deze 30 hebben nog geen eigen afbeelding (placeholder).",
     ),
     (
         "🐾 20 nieuwe pet-soorten (totaal was 60)",

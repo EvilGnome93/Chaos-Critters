@@ -180,16 +180,16 @@ PET_SOORTEN = [
     ("Poema", 4, ZEER_HOOG, LAAG, None, "Bijna geruisloze jager, kleine kans op een ongeschonden overwinning"),
     ("Krokodil", 4, HOOG, LAAG, "Vijver", "Verpletterende bijtkracht, sterke verdediger op de Vijver"),
     ("Anaconda", 4, HOOG, LAAG, "Vijver", "Verstikkende greep vermindert de macht van de tegenstander"),
-    ("Condor", 4, GEMIDDELD, GEMIDDELD, None, "Cirkelt hoog boven zijn kanaal, verhoogt de zeldzame spawnkans daar"),
+    ("Hyena", 4, HOOG, GEMIDDELD, None, "Jaagt in groepen, wordt sterker wanneer meerdere Hyena's tegelijk vechten"),
     ("Gier", 4, LAAG, GEMIDDELD, None, "Herstelt sneller van een blessure dan andere pets"),
     ("Walrus", 4, HOOG, LAAG, "Vijver", "Dikke huid vermindert opgelopen schade in elk gevecht"),
     ("Zeekoe", 4, GEMIDDELD, LAAG, "Vijver", "Kalmerende reus, blijdschap-bonus voor het hele team"),
     ("Haai", 4, ZEER_HOOG, LAAG, "Vijver", "Ruikt zwakte: extra schade tegen een tegenstander onder de halve HP"),
     ("Veelvraat", 4, ZEER_HOOG, GEMIDDELD, None, "Vecht feller naarmate de eigen HP lager wordt"),
-    ("Griffioen", 4, HOOGSTE, GEMIDDELD, None, "Mythisch roofdier, imponeert elk team van een lagere tier"),
+    ("Gorilla", 4, HOOGSTE, GEMIDDELD, None, "Slaat zich op de borst vóór het gevecht, verzwakt de tegenstander in de eerste ronde"),
     ("Nijlpaard", 4, ZEER_HOOG, LAAG, "Vijver", "Verrassend agressief ondanks de logge indruk"),
     ("Chaos Octopus", 4, GEMIDDELD, GEMIDDELD, "Vijver", "Onvoorspelbare stats die dagelijks licht wisselen, tentakel-verwarring op de Vijver"),
-    ("Chaos Basilisk", 4, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, verlammende blik houdt de tegenstander soms een ronde stil"),
+    ("Chaos Stier", 4, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, charge-aanval met wisselende kracht"),
 ]
 
 # (naam, type, prijs, beschrijving)
