@@ -6,11 +6,9 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🔄 Trading", "Items en pets ruilen met andere spelers."),
-    ("🕊️ /release", "Pets vrijlaten in ruil voor items of Chaos Coins."),
     ("🌪️ Elementen & contra's", "Elk pet-soort krijgt een element (Grond/Water/Lucht/Vuur/Chaos) met contra's, zodat een Common met het juiste element een Rare kan verslaan."),
     ("👷 Werkplekken uitbreiden", "Gedeelde capaciteit-limiet per werkplek (over alle spelers heen) + een tweede grondstof per werkplek."),
-    ("🏠 Automatisering-items", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect."),
+    ("🎒 Item-overhaul", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect, én: wat doe je eigenlijk met de grondstoffen/materialen die je verdient via werken? Daar kan nu nog niets mee."),
     ("🐣 Fokken", "Nieuwe pets kweken van je bestaande pets."),
     ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),

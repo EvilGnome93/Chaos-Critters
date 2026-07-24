@@ -14,63 +14,22 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "🐾 10 nieuwe pet-soorten (totaal nu 100)",
-        "Krekel, Vlinder, Worm, Kakkerlak, Vlo (Common), Stinkdier, Kolibrie, Buidelrat (Uncommon), "
-        "Axolotl (Rare), Struisvogel (Epic). Toegevoegd om de vangkans per soort tussen tiers "
-        "gelijkmatiger te maken. Deze 10 hebben nog geen eigen afbeelding (placeholder).",
+        "🔄 Trading & 🕊️ /release zijn live",
+        "Nieuw: `/trade speler ...` om items, pets en/of Chaos Coins direct met een andere speler "
+        "te ruilen. Jij geeft iets (item óf pet, plus optioneel coins) en vraagt iets terug — de "
+        "ander krijgt een Accepteren/Weigeren-knop, en jij moet daarna nog één keer definitief "
+        "bevestigen voor de ruil echt plaatsvindt (dubbele check tegen typefouten).\n\n"
+        "Ook nieuw: `/release pet_id` om een pet vrij te laten in ruil voor Chaos Coins (schaalt met "
+        "tier + level) plus een kleine kans op een bonus-grondstof. Eén bevestigingsknop, daarna is "
+        "de pet echt weg.\n\n"
+        "Wat te testen: item-voor-item en pet-voor-coins ruilen, een ruil weigeren/laten verlopen, "
+        "en een paar pets vrijlaten (ook een werkende pet proberen — dat hoort geweigerd te worden).",
     ),
     (
-        "🆕 2 nieuwe tiers: Uncommon & Epic",
-        "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars), "
-        "qua zeldzaamheid tussen hun buren in. 30 nieuwe soorten om te vangen: Hamster, Varken, Ezel, "
-        "Wezel, Bunzing, Zeepaardje, Kraanvogel, Alpaca, Lama, Kwartel, Parkiet, Faisant, Stokstaartje, "
-        "Chaos Kangoeroe, Chaos Toekan (Uncommon), IJsbeer, Luipaard, Poema, Krokodil, Anaconda, "
-        "Hyena, Gier, Walrus, Zeekoe, Haai, Veelvraat, Gorilla, Nijlpaard, Chaos Octopus, "
-        "Chaos Stier (Epic).",
-    ),
-    (
-        "🐾 20 nieuwe pet-soorten (totaal was 60)",
-        "Fret, Schaap, Geit, Kikker, Pauw, Goudvis, Muis, Mus, Chaos Spin (Common), Kraai, Pelikaan, "
-        "Flamingo, Stekelvarken, Kwal, Zwaan, Chaos Kameleon (Rare), Tijger, Panter, Neushoorn, "
-        "Chaos Giraffe (Legendary).",
-    ),
-    (
-        "🐾 14 nieuwe pet-soorten (totaal was 40)",
-        "Duif, Cavia, Krab, Mier, Chaos Mol, Specht, Slak (Common), Das, Zeehond, Havik, Vleermuis, "
-        "Chaos Reiger (Rare), Beer, Chaos Olifant (Legendary). Nieuw: de **Mijnschacht**-werkplek "
-        "(6e werkplek, levert Erts), gekoppeld aan Das en Chaos Mol.",
-    ),
-    (
-        "🧹 Database is gereset",
-        "Alle spelers, pets en inventarissen zijn gewist voor deze testronde — iedereen begint "
-        "weer bij nul. **Ook `/setlog` en `/setspawnkanaal` moeten opnieuw ingesteld worden** "
-        "door een admin, die stonden ook op nul.",
-    ),
-    (
-        "🔢 Pet-nummers zijn nu per speler",
-        "Je pets heten nu #1, #2, #3, ... geteld vanaf jouw eigen eerste vangst, i.p.v. een "
-        "doorlopend nummer over alle spelers heen (dus geen 'pet #1546' meer na een week spelen).",
-    ),
-    (
-        "⚔️ Team & gevechten",
-        "Nieuw: `/team` om een team van 3 pets samen te stellen, en `/vecht` om te vechten — "
-        "tegen een gesimuleerde tegenstander (op basis van je MMR), of een echte speler "
-        "uitdagen met optioneel een inzet (Chaos Coins en/of een item).\n\n"
-        "Een gevecht is een best-of-3: je pet 1 vs hun pet 1, dan pet 2, dan pet 3. Per matchup "
-        "kies je een tactiek (🗡️ Aggressief / ⚖️ Gebalanceerd / 🛡️ Voorzichtig, elk een ander "
-        "risicoprofiel) of je rent weg (🏃, telt als verlies). Een verslagen pet krijgt 0 energie "
-        "en is even geblesseerd (niet inzetbaar).",
-    ),
-    (
-        "⚔️ Wat te testen bij gevechten",
-        "1. `/team` — stel een team van 3 pets samen via de dropdown.\n"
-        "2. `/vecht` zonder tegenstander — vecht tegen een gesimuleerde tegenstander, probeer "
-        "verschillende tactieken en ook een keer wegrennen.\n"
-        "3. `/vecht tegenstander:@iemand inzet_coins:10` — daag iemand uit met een inzet, laat "
-        "die persoon accepteren, check dat de winnaar de pot krijgt.\n"
-        "4. Check `/lijst` na een verlies — is de verslagen pet echt geblesseerd/niet inzetbaar?\n"
-        "5. Check of je MMR en Chaos Coins kloppen na afloop, en of je dagelijkse ranked-pogingen "
-        "opraken na een paar gevechten (`ranked_gratis_per_dag`).",
+        "🐾 2 nieuwe tiers + 74 nieuwe pet-soorten (totaal nu 100)",
+        "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars). "
+        "Sinds de vorige testronde zijn er in totaal 74 nieuwe pet-soorten bijgekomen, verdeeld over "
+        "alle vijf tiers — gebruik `/vang` om ze tegen te komen, of vraag de volledige lijst op.",
     ),
 ]
 
@@ -87,6 +46,8 @@ TEST_COMMANDOS = [
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/team", "Stel je team van 3 pets samen voor gevechten."),
     ("/vecht [tegenstander] [inzet_coins] [inzet_item] [inzet_aantal]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit (optioneel met inzet)."),
+    ("/trade speler [geef_item/geef_pet_id] [geef_aantal] [geef_coins] [vraag_item/vraag_pet_id] [vraag_aantal] [vraag_coins]", "Stel een ruil voor aan een andere speler: item of pet plus optioneel Chaos Coins, in beide richtingen."),
+    ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
 ]
@@ -111,6 +72,7 @@ class AdminCog(commands.Cog):
             app_commands.Choice(name="Vangst (catches + geforceerde spawns)", value="vangst"),
             app_commands.Choice(name="Werk (shifts starten/opbrengst)", value="werk"),
             app_commands.Choice(name="Gevecht (team/vecht-gerelateerd)", value="gevecht"),
+            app_commands.Choice(name="Trade (ruilvoorstellen)", value="trade"),
         ]
     )
     @app_commands.check(is_admin)
