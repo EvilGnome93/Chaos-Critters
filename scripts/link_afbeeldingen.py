@@ -115,6 +115,16 @@ SOORT_SLUGS = {
     "Nijlpaard": "nijlpaard",
     "Chaos Octopus": "chaos_octopus",
     "Chaos Stier": "chaos_stier",
+    "Krekel": "krekel",
+    "Vlinder": "vlinder",
+    "Worm": "worm",
+    "Kakkerlak": "kakkerlak",
+    "Vlo": "vlo",
+    "Stinkdier": "stinkdier",
+    "Kolibrie": "kolibrie",
+    "Buidelrat": "buidelrat",
+    "Axolotl": "axolotl",
+    "Struisvogel": "struisvogel",
 }
 
 

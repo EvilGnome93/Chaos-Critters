@@ -14,13 +14,19 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
+        "🐾 10 nieuwe pet-soorten (totaal nu 100)",
+        "Krekel, Vlinder, Worm, Kakkerlak, Vlo (Common), Stinkdier, Kolibrie, Buidelrat (Uncommon), "
+        "Axolotl (Rare), Struisvogel (Epic). Toegevoegd om de vangkans per soort tussen tiers "
+        "gelijkmatiger te maken. Deze 10 hebben nog geen eigen afbeelding (placeholder).",
+    ),
+    (
         "🆕 2 nieuwe tiers: Uncommon & Epic",
         "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars), "
         "qua zeldzaamheid tussen hun buren in. 30 nieuwe soorten om te vangen: Hamster, Varken, Ezel, "
         "Wezel, Bunzing, Zeepaardje, Kraanvogel, Alpaca, Lama, Kwartel, Parkiet, Faisant, Stokstaartje, "
         "Chaos Kangoeroe, Chaos Toekan (Uncommon), IJsbeer, Luipaard, Poema, Krokodil, Anaconda, "
         "Hyena, Gier, Walrus, Zeekoe, Haai, Veelvraat, Gorilla, Nijlpaard, Chaos Octopus, "
-        "Chaos Stier (Epic). Deze 30 hebben nog geen eigen afbeelding (placeholder).",
+        "Chaos Stier (Epic).",
     ),
     (
         "🐾 20 nieuwe pet-soorten (totaal was 60)",

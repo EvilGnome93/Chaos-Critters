@@ -190,6 +190,21 @@ PET_SOORTEN = [
     ("Nijlpaard", 4, ZEER_HOOG, LAAG, "Vijver", "Verrassend agressief ondanks de logge indruk"),
     ("Chaos Octopus", 4, GEMIDDELD, GEMIDDELD, "Vijver", "Onvoorspelbare stats die dagelijks licht wisselen, tentakel-verwarring op de Vijver"),
     ("Chaos Stier", 4, GEMIDDELD, GEMIDDELD, None, "Onvoorspelbare stats die dagelijks licht wisselen, charge-aanval met wisselende kracht"),
+    # Zesde lichting (2026-07-24): 10 soorten om van 90 naar 100 te gaan,
+    # verdeeld als 5 Common/3 Uncommon/1 Rare/1 Epic om de kans-per-soort
+    # tussen tiers iets gelijkmatiger te maken (was een knik tussen Uncommon
+    # ~1,67% en Rare ~0,86% per soort). Bewust een nieuwe dierhoek (insecten/
+    # ongedierte) voor Common, geen overlap met bestaande dierfamilies.
+    ("Krekel", 1, ZEER_LAAG, LAAG, "Moestuin", "Onopvallend en makkelijk over het hoofd te zien, kleine ontsnappingskans bij vangst"),
+    ("Vlinder", 1, ZEER_LAAG, LAAG, "Moestuin", "Fladdert vrolijk rond, kleine blijdschap-bonus voor het team"),
+    ("Worm", 1, ZEER_LAAG, GEMIDDELD, "Moestuin", "Onopvallende bodembewoner, moeilijk te vangen tussen de aarde"),
+    ("Kakkerlak", 1, LAAG, HOOG, "Werkbank", "Overleeft bijna alles, nooit ziek en zelden vermoeid"),
+    ("Vlo", 1, ZEER_LAAG, LAAG, None, "Piepklein en lastig te vangen, springt weg bij de minste beweging"),
+    ("Stinkdier", 2, GEMIDDELD, LAAG, None, "Verspreidt een afschrikkende geur, verkleint de kans op een tweede aanval van de tegenstander"),
+    ("Kolibrie", 2, LAAG, GEMIDDELD, "Moestuin", "Razendsnelle vleugelslag, bijna nooit als eerste geraakt in een gevecht"),
+    ("Buidelrat", 2, LAAG, GEMIDDELD, "Bos", "Speelt dood bij gevaar, kleine kans om een verloren gevecht toch te overleven"),
+    ("Axolotl", 3, GEMIDDELD, LAAG, "Vijver", "Regenereert razendsnel, kortere blessure-duur na een gevecht"),
+    ("Struisvogel", 4, HOOG, GEMIDDELD, None, "Krachtige trap-aanval en indrukwekkende snelheid ondanks het formaat"),
 ]
 
 # (naam, type, prijs, beschrijving)
