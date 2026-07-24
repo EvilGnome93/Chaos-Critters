@@ -434,13 +434,13 @@ class TradeBuilderView(discord.ui.View):
         aanbod_aantal_knop.callback = self._open_geef_aantal_modal
         self.add_item(aanbod_aantal_knop)
 
-        aanbod_coins_knop = discord.ui.Button(label="💰 Aanbod: coins", style=discord.ButtonStyle.secondary, row=2)
-        aanbod_coins_knop.callback = self._open_geef_coins_modal
-        self.add_item(aanbod_coins_knop)
-
-        vraag_aantal_knop = discord.ui.Button(label="🔢 Vraag: aantal", style=discord.ButtonStyle.secondary, row=3)
+        vraag_aantal_knop = discord.ui.Button(label="🔢 Vraag: aantal", style=discord.ButtonStyle.secondary, row=2)
         vraag_aantal_knop.callback = self._open_vraag_aantal_modal
         self.add_item(vraag_aantal_knop)
+
+        aanbod_coins_knop = discord.ui.Button(label="💰 Aanbod: coins", style=discord.ButtonStyle.secondary, row=3)
+        aanbod_coins_knop.callback = self._open_geef_coins_modal
+        self.add_item(aanbod_coins_knop)
 
         vraag_coins_knop = discord.ui.Button(label="💰 Vraag: coins", style=discord.ButtonStyle.secondary, row=3)
         vraag_coins_knop.callback = self._open_vraag_coins_modal
