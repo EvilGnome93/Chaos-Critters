@@ -205,6 +205,38 @@ PET_SOORTEN = [
     ("Buidelrat", 2, LAAG, GEMIDDELD, "Bos", "Speelt dood bij gevaar, kleine kans om een verloren gevecht toch te overleven"),
     ("Axolotl", 3, GEMIDDELD, LAAG, "Vijver", "Regenereert razendsnel, kortere blessure-duur na een gevecht"),
     ("Struisvogel", 4, HOOG, GEMIDDELD, None, "Krachtige trap-aanval en indrukwekkende snelheid ondanks het formaat"),
+    # Zevende lichting (2026-07-24): 19 namen van de gebruiker, zelf verdeeld
+    # over tiers + 6 eigen soorten aangevuld tot 25 (Walvis, Antilope,
+    # Zwaardvis, Garnaal, Kiwi, Wasbeerhond). De gebruikerslijst heeft zelf
+    # wat familie-overlap met bestaand werk (Panda/Beer/IJsbeer,
+    # Orang oetan+Chimpansee/Gorilla, Papegaai/Parkiet, Naaktslak/Slak) —
+    # bewust niet gecorrigeerd op expliciet verzoek, wel over verschillende
+    # tiers verdeeld om het iets te verzachten.
+    ("Luiaard", 1, ZEER_LAAG, ZEER_LAAG, None, "Trager dan traag, doet het minimale en dat met plezier"),
+    ("Koala", 1, ZEER_LAAG, LAAG, "Bos", "Slaapt het grootste deel van de dag in de boomtoppen"),
+    ("Kalkoen", 1, LAAG, GEMIDDELD, "Moestuin", "Statige boerenerf-bewoner, laat zich niet gek maken"),
+    ("Lieveheersbeestje", 1, ZEER_LAAG, LAAG, "Moestuin", "Eet ongedierte op, geliefd bij tuiniers"),
+    ("Naaktslak", 1, ZEER_LAAG, LAAG, None, "Kwetsbaarder dan de Slak zonder huisje, maar wel iets vlotter"),
+    ("Libelle", 1, LAAG, LAAG, "Vijver", "Zweeft en schiet vliegensvlug heen en weer boven het water"),
+    ("Bij", 1, LAAG, HOOG, "Moestuin", "Onvermoeibare bestuiver, harde werker ondanks het formaat"),
+    ("Zeester", 1, ZEER_LAAG, ZEER_LAAG, "Vijver", "Doet vrijwel niets, maar wel op een charmante manier"),
+    ("Sprinkhaan", 1, LAAG, GEMIDDELD, "Moestuin", "Springt onvoorspelbaar door het veld, lastig te grijpen"),
+    ("Garnaal", 1, ZEER_LAAG, LAAG, "Vijver", "Piepklein bewonertje van de Vijver, bijna onzichtbaar"),
+    ("Pinguin", 2, LAAG, GEMIDDELD, "Vijver", "Onhandig op het land, verrassend soepel in het water"),
+    ("Schildpad", 2, GEMIDDELD, LAAG, None, "Trage maar taaie verdediger, kruipt bij gevaar in zijn schild"),
+    ("Rog", 2, LAAG, GEMIDDELD, "Vijver", "Glijdt sierlijk over de bodem van de Vijver"),
+    ("Vogelbekdier", 2, LAAG, GEMIDDELD, "Vijver", "Uniek en moeilijk te categoriseren, verrassend behendig"),
+    ("Chimpansee", 2, GEMIDDELD, HOOG, "Bos", "Slim en behendig, gebruikt gereedschap om efficiënter te werken"),
+    ("Antilope", 2, LAAG, HOOG, "Bos", "Razendsnelle hardloper, moeilijk bij te houden"),
+    ("Kiwi", 2, LAAG, GEMIDDELD, None, "Schuwe nachtdier, vliegt niet maar is verrassend rap te voet"),
+    ("Bizon", 3, HOOG, GEMIDDELD, None, "Fors en onverzettelijk, moeilijk om tegen te houden"),
+    ("Dolfijn", 3, GEMIDDELD, HOOG, "Vijver", "Intelligent en snel, geniet zichtbaar van het werk in de Vijver"),
+    ("Orang oetan", 3, GEMIDDELD, HOOG, "Bos", "Slimme boombewoner, lost problemen vindingrijk op"),
+    ("Papegaai", 3, LAAG, GEMIDDELD, None, "Praat de tegenstander in de war tijdens een gevecht"),
+    ("Panda", 3, GEMIDDELD, LAAG, "Bos", "Ontspannen en sterk, maar het liefst zo min mogelijk moeite doen"),
+    ("Zwaardvis", 3, HOOG, LAAG, "Vijver", "Scherpe, snelle aanvaller met een gevaarlijke punt"),
+    ("Wasbeerhond", 3, GEMIDDELD, GEMIDDELD, "Bos", "Sluwe bosbewoner met een ondoorgrondelijke uitstraling"),
+    ("Walvis", 4, HOOG, LAAG, "Vijver", "Enorme, kalme reus die de hele Vijver lijkt te vullen"),
 ]
 
 # (naam, type, prijs, beschrijving)

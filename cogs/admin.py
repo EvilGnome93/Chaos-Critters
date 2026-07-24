@@ -26,9 +26,9 @@ NIEUW_OM_TE_TESTEN = [
         "en een paar pets vrijlaten (ook een werkende pet proberen — dat hoort geweigerd te worden).",
     ),
     (
-        "🐾 2 nieuwe tiers + 74 nieuwe pet-soorten (totaal nu 100)",
+        "🐾 2 nieuwe tiers + 99 nieuwe pet-soorten (totaal nu 125)",
         "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars). "
-        "Sinds de vorige testronde zijn er in totaal 74 nieuwe pet-soorten bijgekomen, verdeeld over "
+        "Sinds de vorige testronde zijn er in totaal 99 nieuwe pet-soorten bijgekomen, verdeeld over "
         "alle vijf tiers — gebruik `/vang` om ze tegen te komen, of vraag de volledige lijst op.",
     ),
 ]
