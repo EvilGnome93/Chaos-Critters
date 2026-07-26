@@ -453,6 +453,7 @@ class VechtView(discord.ui.View):
         await self.message.edit(
             embed=discord.Embed(title=f"🏃 {vlucht_tekst}", color=discord.Color.dark_grey()),
             view=None,
+            attachments=[],
         )
         await asyncio.sleep(1)
         await self._verwerk_einde(gevlucht_id=gevlucht_id)
@@ -533,6 +534,7 @@ class VechtView(discord.ui.View):
                 title=titel, description=beschrijving, color=discord.Color.gold() if gewonnen else discord.Color.dark_red()
             ),
             view=None,
+            attachments=[],
         )
         await send_log(
             self.bot,
