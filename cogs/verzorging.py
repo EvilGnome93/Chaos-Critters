@@ -244,6 +244,7 @@ class VerzorgingCog(commands.Cog):
     @app_commands.describe(
         pet_id="Het ID van je pet",
         item="Voeding om te gebruiken (optioneel, laat leeg om alleen de stats te bekijken)",
+        aantal="Hoeveel stuks in één keer geven (standaard 1)",
     )
     @app_commands.choices(
         item=[app_commands.Choice(name=naam, value=naam) for naam in VOEDING_ITEMS]
@@ -253,6 +254,7 @@ class VerzorgingCog(commands.Cog):
         interaction: discord.Interaction,
         pet_id: int,
         item: app_commands.Choice[str] | None = None,
+        aantal: int = 1,
     ) -> None:
         async with async_session() as session:
             huisdier = await session.scalar(
@@ -277,6 +279,10 @@ class VerzorgingCog(commands.Cog):
                 )
                 return
 
+            if aantal < 1:
+                await interaction.response.send_message("`aantal` moet minstens 1 zijn.", ephemeral=True)
+                return
+
             item_obj = await session.scalar(select(Item).where(Item.naam == item.value))
             inventaris_item = await session.scalar(
                 select(InventarisItem).where(
@@ -284,19 +290,25 @@ class VerzorgingCog(commands.Cog):
                     InventarisItem.item_id == item_obj.id,
                 )
             )
-            if inventaris_item is None or inventaris_item.aantal < 1:
+            if inventaris_item is None or inventaris_item.aantal < aantal:
+                in_bezit = inventaris_item.aantal if inventaris_item else 0
                 await interaction.response.send_message(
-                    f"Je hebt geen **{item.value}** in je inventaris. Koop het via `/shop`.", ephemeral=True
+                    f"Je hebt maar {in_bezit}x **{item.value}** (van de {aantal} gevraagd). Koop meer via `/shop`.",
+                    ephemeral=True,
                 )
                 return
 
-            inventaris_item.aantal -= 1
-            gebruikt_item = _toepassen_voeding(huisdier, item.value)
+            inventaris_item.aantal -= aantal
+            gebruikte_items = [_toepassen_voeding(huisdier, item.value) for _ in range(aantal)]
             await session.commit()
 
-            extra = f" (bleek **{gebruikt_item}**)" if item.value == _MYSTERIE_VOEDSEL else ""
+            if item.value == _MYSTERIE_VOEDSEL:
+                extra = f" (bleek: {', '.join(gebruikte_items)})"
+            else:
+                extra = ""
+            aantal_tekst = f"{aantal}x " if aantal > 1 else ""
             await interaction.response.send_message(
-                f"🍽️ **{huisdier.naam}** kreeg **{item.value}**{extra}. Honger is nu {huisdier.honger}/100.",
+                f"🍽️ **{huisdier.naam}** kreeg {aantal_tekst}**{item.value}**{extra}. Honger is nu {huisdier.honger}/100.",
                 ephemeral=True,
             )
 
