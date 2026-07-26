@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
-from db.models import Item, Speler
+from db.models import Huisdier, Item, PetStatus, Speler
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log, set_log_channel
 
@@ -18,32 +18,26 @@ NIEUW_OM_TE_TESTEN = [
         "Elke pet heeft nu een element: ⛰️ Grond, 🌊 Water, 🌪️ Lucht, 🔥 Vuur, of 🌀 Chaos. Contra-cirkel "
         "Vuur > Lucht > Grond > Water > Vuur: heb je het gunstige element tegen de tegenstander, dan "
         "krijg je +15% macht in die matchup; heb je het ongunstige, dan -10%. Chaos-pets (en tegen "
-        "Chaos-pets) geven een willekeurige uitkomst. Zichtbaar bij `/lijst`, `/team`, en in de "
-        "matchup-titel tijdens `/vecht`.\n\n"
-        "Ook nieuw: tijdens PvP-gevechten zie je nu de twee vechtende pets naast elkaar met een "
-        "VS-badge, net als bij een ruilvoorstel.\n\n"
-        "Wat te testen: een team met bewust een gunstig/ongunstig element tegen een tegenstander, "
-        "en kijken of de uitkomst vaker de juiste kant op valt (het blijft kansspel, dus niet elke "
-        "keer).",
+        "Chaos-pets) geven een willekeurige uitkomst. Zichtbaar bij `/lijst`, `/verzorg`, `/team`, en "
+        "in de matchup-titel tijdens `/vecht`.\n\n"
+        "Ook nieuw tijdens gevechten: je ziet nu de twee vechtende pets naast elkaar met een VS-badge, "
+        "net als bij een ruilvoorstel — óók tegen een gesimuleerde tegenstander. Die heet voortaan niet "
+        "meer gewoon 'de tegenstander': elke matchup krijg je een echt wild dier voorgeschoteld (bijv. "
+        "'Wilde Wolf') met zijn eigen naam, element én afbeelding, zodat je vooraf weet waar je tegenaan "
+        "loopt. Het plaatje verdwijnt weer zodra het gevecht is afgelopen.\n\n"
+        "Wat te testen: een team met bewust een gunstig/ongunstig element tegen een tegenstander, en "
+        "kijken of de uitkomst vaker de juiste kant op valt (het blijft kansspel, dus niet elke keer).",
     ),
     (
-        "🔄 Trading & 🕊️ /release zijn live",
-        "Nieuw: `/trade speler` opent een paneel om een ruil samen te stellen — dropdowns voor wat "
-        "je aanbiedt en terugvraagt (gevuld met jouw en hun items/pets), knoppen om aantal en Chaos "
-        "Coins in te stellen. Daarna krijgt de ander een Accepteren/Weigeren-knop, en jij moet "
-        "daarna nog één keer definitief bevestigen voor de ruil echt plaatsvindt (dubbele check "
-        "tegen typefouten).\n\n"
-        "Ook nieuw: `/release pet_id` om een pet vrij te laten in ruil voor Chaos Coins (schaalt met "
-        "tier + level) plus een kleine kans op een bonus-grondstof. Eén bevestigingsknop, daarna is "
-        "de pet echt weg.\n\n"
-        "Wat te testen: item-voor-item en pet-voor-coins ruilen, een ruil weigeren/laten verlopen, "
-        "en een paar pets vrijlaten (ook een werkende pet proberen — dat hoort geweigerd te worden).",
+        "🐛 Bugfix: /team liet je niet meer je team aanpassen",
+        "Als je teamleden een tijdje niet verzorgd waren (energie te laag of honger op) verdwenen ze uit "
+        "de `/team`-dropdown, waardoor je je team niet meer kon wijzigen of leeghalen. Teamleden blijven "
+        "nu altijd zichtbaar in de lijst, ook als ze tijdelijk niet inzetbaar zijn.",
     ),
     (
-        "🐾 2 nieuwe tiers + 99 nieuwe pet-soorten (totaal nu 125)",
-        "Naast Common/Rare/Legendary bestaan nu ook **Uncommon** (groen) en **Epic** (paars). "
-        "Sinds de vorige testronde zijn er in totaal 99 nieuwe pet-soorten bijgekomen, verdeeld over "
-        "alle vijf tiers — gebruik `/vang` om ze tegen te komen, of vraag de volledige lijst op.",
+        "🍽️ /verzorg: meerdere stuks voeding in 1 keer",
+        "`/verzorg pet_id item aantal` — geef bijvoorbeeld in 1 keer 3x Basis brokjes i.p.v. steeds "
+        "los te moeten voeren.",
     ),
 ]
 
@@ -64,6 +58,7 @@ TEST_COMMANDOS = [
     ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
+    ("/herstel [speler] [pet_id] [scope]", "(admin) Herstel honger + energie naar 100: 1 pet, een heel team, of alle pets — handig om niet steeds te hoeven wachten tijdens het testen."),
 ]
 
 
@@ -153,6 +148,58 @@ class AdminCog(commands.Cog):
                 f"{interaction.user.mention} gaf {aantal}x **{item}** aan {speler.mention} (admin/test)",
             ),
         )
+
+    @app_commands.command(
+        name="herstel",
+        description="(admin/test) Herstel honger + energie: 1 pet, een team, of alle pets van een speler",
+    )
+    @app_commands.describe(
+        speler="Wiens pets herstellen (standaard jezelf)",
+        pet_id="Herstel alleen deze pet (optioneel, negeert 'scope' als gezet)",
+        scope="Herstel het hele team of alle pets (genegeerd als pet_id is gezet)",
+    )
+    @app_commands.choices(
+        scope=[
+            app_commands.Choice(name="Team", value="team"),
+            app_commands.Choice(name="Alle pets", value="alles"),
+        ]
+    )
+    @app_commands.check(is_admin)
+    async def herstel(
+        self,
+        interaction: discord.Interaction,
+        speler: discord.Member | None = None,
+        pet_id: int | None = None,
+        scope: app_commands.Choice[str] | None = None,
+    ) -> None:
+        doel = speler or interaction.user
+        async with async_session() as session:
+            if pet_id is not None:
+                pet = await session.scalar(
+                    select(Huisdier).where(Huisdier.eigenaar_id == doel.id, Huisdier.volgnummer == pet_id)
+                )
+                if pet is None:
+                    await interaction.response.send_message(f"Geen pet #{pet_id} gevonden bij {doel.mention}.", ephemeral=True)
+                    return
+                pets = [pet]
+            else:
+                stmt = select(Huisdier).where(Huisdier.eigenaar_id == doel.id)
+                if scope is not None and scope.value == "team":
+                    stmt = stmt.where(Huisdier.status == PetStatus.team)
+                pets = (await session.execute(stmt)).scalars().all()
+                if not pets:
+                    await interaction.response.send_message(f"Geen pets gevonden bij {doel.mention}.", ephemeral=True)
+                    return
+
+            for pet in pets:
+                pet.honger = 100
+                pet.energie = 100
+            await session.commit()
+
+        await interaction.response.send_message(
+            f"✅ {len(pets)} pet(s) van {doel.mention} hersteld naar volle honger + energie.", ephemeral=True
+        )
+
     @app_commands.command(
         name="tests", description="Stuur een @everyone-oproep met de huidige teststatus (admin)"
     )
