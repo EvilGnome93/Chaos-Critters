@@ -106,12 +106,18 @@ def speel_matchup(
     tegenstander_macht_basis: float,
     tactiek: str,
     tegenstander_tactiek: str = "gebalanceerd",
+    eigen_naam: str = "jij",
+    tegenstander_naam: str = "tegenstander",
 ) -> MatchupResultaat:
     """Lost één 1v1-matchup op: meerdere interne rondes tot een kant 0 HP heeft
     of de rondelimiet bereikt wordt (dan wint wie meer HP over heeft).
 
     `tegenstander_tactiek` is 'gebalanceerd' bij PvE (passieve simulatie) of
-    bij een PvP-tegenstander die zelf ook een tactiek koos."""
+    bij een PvP-tegenstander die zelf ook een tactiek koos. `eigen_naam`/
+    `tegenstander_naam` zijn puur voor het rondelog: bij PvE blijft "jij"
+    prima leesbaar, maar bij PvP kijken beide spelers naar hetzelfde
+    bericht, dus geeft de aanroeper daar de echte namen door (anders leest
+    "jij" voor de andere speler alsof het over hen gaat)."""
     eigen_hp = pet_hp(eigen_macht_basis)
     tegenstander_hp = pet_hp(tegenstander_macht_basis)
     log: list[str] = []
@@ -127,8 +133,8 @@ def speel_matchup(
         eigen_hp = max(0, eigen_hp - schade_aan_mij)
 
         log.append(
-            f"Ronde {ronde}: jij deelt {schade_aan_tegenstander} schade uit, "
-            f"tegenstander deelt {schade_aan_mij} schade uit."
+            f"Ronde {ronde}: {eigen_naam} deelt {schade_aan_tegenstander} schade uit, "
+            f"{tegenstander_naam} deelt {schade_aan_mij} schade uit."
         )
 
         if eigen_hp <= 0 or tegenstander_hp <= 0:

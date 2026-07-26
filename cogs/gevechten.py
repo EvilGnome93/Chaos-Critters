@@ -58,21 +58,6 @@ def _nu():
     return stats_nu()
 
 
-def _weergavenaam(bot, guild_id: int | None, user_id: int) -> str:
-    """Weergavenaam (server-nickname, anders globale naam) i.p.v. een @-tag —
-    verzoek van de gebruiker: een tag was niet nodig, alleen duidelijk wie
-    wint/verliest. Valt terug op een mention als de gebruiker niet in de
-    cache zit (zeldzaam, maar dan is een tag beter dan een leeg ID)."""
-    guild = bot.get_guild(guild_id) if guild_id else None
-    lid = guild.get_member(user_id) if guild else None
-    if lid is not None:
-        return lid.display_name
-    gebruiker = bot.get_user(user_id)
-    if gebruiker is not None:
-        return gebruiker.display_name
-    return f"<@{user_id}>"
-
-
 async def _haal_team_op(session, speler_id: int) -> list[Huisdier]:
     stmt = select(Huisdier).where(Huisdier.eigenaar_id == speler_id, Huisdier.status == PetStatus.team)
     return (await session.execute(stmt)).scalars().all()
@@ -204,6 +189,7 @@ class VechtInzetView(discord.ui.View):
         self,
         cog: "GevechtenCog",
         uitdager_id: int,
+        uitdager_naam: str,
         tegenstander: discord.Member,
         guild_id: int | None,
         item_opties: list[discord.SelectOption],
@@ -211,6 +197,11 @@ class VechtInzetView(discord.ui.View):
         super().__init__(timeout=180)
         self.cog = cog
         self.uitdager_id = uitdager_id
+        # Weergavenaam meteen vastleggen vanuit een vers Member-object i.p.v.
+        # 'm later op te zoeken via bot.get_guild().get_member() — dat werkt
+        # onbetrouwbaar zonder de (privileged) members-intent, en viel dan
+        # terug op een kale @-tag. Verzoek van de gebruiker: geen tag nodig.
+        self.uitdager_naam = uitdager_naam
         self.tegenstander = tegenstander
         self.guild_id = guild_id
         self.item_waarde: str | None = None
@@ -255,7 +246,7 @@ class VechtInzetView(discord.ui.View):
     def _bouw_embed(self) -> discord.Embed:
         return discord.Embed(
             title="⚔️ Uitdaging voorbereiden",
-            description=f"Tegenstander: {self.tegenstander.mention}\nInzet: {self._inzet_tekst()}",
+            description=f"Tegenstander: {self.tegenstander.display_name}\nInzet: {self._inzet_tekst()}",
             color=discord.Color.blurple(),
         )
 
@@ -307,23 +298,27 @@ class VechtInzetView(discord.ui.View):
             inzet_tekst += f"\n📦 Inzet: {inzet_item_getal[1]}x {inzet_item_getal[0]}"
 
         uitdaging_view = UitdagingView(
-            self.cog, self.uitdager_id, self.tegenstander.id, self.coins, inzet_item_getal, self.guild_id
+            self.cog, self.uitdager_id, self.uitdager_naam, self.tegenstander, self.coins,
+            inzet_item_getal, self.guild_id,
         )
         embed = discord.Embed(
             title="⚔️ Ranked uitdaging!",
             description=(
-                f"<@{self.uitdager_id}> daagt {self.tegenstander.mention} uit voor een gevecht.{inzet_tekst}\n\n"
+                f"{self.uitdager_naam} daagt {self.tegenstander.display_name} uit voor een gevecht.{inzet_tekst}\n\n"
                 "Beide teams moeten een volledig team van 3 hebben. Accepteren of weigeren?"
             ),
             color=discord.Color.orange(),
         )
+        # De ping (content=...) blijft een echte mention — dat is nodig om
+        # de tegenstander daadwerkelijk een notificatie te sturen. De
+        # embed-tekst zelf toont weergavenamen (verzoek van de gebruiker).
         bericht = await interaction.channel.send(content=self.tegenstander.mention, embed=embed, view=uitdaging_view)
         uitdaging_view.message = bericht
         await send_log(
             self.cog.bot, self.guild_id, "gevecht",
             fmt_log(
                 "🟡", "vecht",
-                f"<@{self.uitdager_id}> daagde {self.tegenstander.mention} uit voor een gevecht"
+                f"{self.uitdager_naam} daagde {self.tegenstander.display_name} uit voor een gevecht"
                 + (inzet_tekst.replace("\n", ", ") if inzet_tekst else ""),
             ),
         )
@@ -402,7 +397,8 @@ class UitdagingView(discord.ui.View):
         self,
         cog: "GevechtenCog",
         uitdager_id: int,
-        tegenstander_id: int,
+        uitdager_naam: str,
+        tegenstander: discord.Member,
         inzet_coins: int,
         inzet_item,
         guild_id: int | None,
@@ -410,7 +406,9 @@ class UitdagingView(discord.ui.View):
         super().__init__(timeout=180)
         self.cog = cog
         self.uitdager_id = uitdager_id
-        self.tegenstander_id = tegenstander_id
+        self.uitdager_naam = uitdager_naam
+        self.tegenstander_id = tegenstander.id
+        self.tegenstander_naam = tegenstander.display_name
         self.inzet_coins = inzet_coins
         self.inzet_item = inzet_item
         self.guild_id = guild_id
@@ -440,7 +438,7 @@ class UitdagingView(discord.ui.View):
             self.cog.bot,
             self.guild_id,
             "gevecht",
-            fmt_log("🟢", "vecht", f"<@{self.tegenstander_id}> accepteerde de uitdaging van <@{self.uitdager_id}>"),
+            fmt_log("🟢", "vecht", f"{self.tegenstander_naam} accepteerde de uitdaging van {self.uitdager_naam}"),
         )
         await self.cog.start_pvp_gevecht(interaction, self)
 
@@ -458,7 +456,7 @@ class UitdagingView(discord.ui.View):
             self.cog.bot,
             self.guild_id,
             "gevecht",
-            fmt_log("🔴", "vecht", f"<@{self.tegenstander_id}> weigerde de uitdaging van <@{self.uitdager_id}>"),
+            fmt_log("🔴", "vecht", f"{self.tegenstander_naam} weigerde de uitdaging van {self.uitdager_naam}"),
         )
 
     async def on_timeout(self) -> None:
@@ -474,7 +472,7 @@ class UitdagingView(discord.ui.View):
             self.cog.bot,
             self.guild_id,
             "gevecht",
-            fmt_log("🔴", "vecht", f"Uitdaging van <@{self.uitdager_id}> aan <@{self.tegenstander_id}> verliep zonder reactie"),
+            fmt_log("🔴", "vecht", f"Uitdaging van {self.uitdager_naam} aan {self.tegenstander_naam} verliep zonder reactie"),
         )
 
 
@@ -504,6 +502,7 @@ class VechtView(discord.ui.View):
         eigen_afbeeldingen: list,
         tegenstander_afbeeldingen: list,
         tegenstander_namen: list[str] | None = None,
+        eigen_naam: str | None = None,
     ):
         super().__init__(timeout=180)
         self.bot = bot
@@ -511,6 +510,12 @@ class VechtView(discord.ui.View):
         self.eigen_team = eigen_team
         self.eigen_macht = eigen_macht
         self.eigen_mmr = eigen_mmr
+        # Weergavenaam van de uitdager, alleen relevant bij PvP (zie
+        # _naam_van) — meteen vastgelegd vanuit een vers Member-object i.p.v.
+        # later opzoeken via bot.get_guild().get_member(), wat onbetrouwbaar
+        # is zonder de (privileged) members-intent en dan op een @-tag
+        # terugviel. Verzoek van de gebruiker: geen tag nodig.
+        self.eigen_naam = eigen_naam
         self.tegenstander_naam = tegenstander_naam
         self.tegenstander_team = tegenstander_team
         self.tegenstander_macht = tegenstander_macht
@@ -547,6 +552,15 @@ class VechtView(discord.ui.View):
     def is_pvp(self) -> bool:
         return self.tegenstander_id is not None
 
+    def _naam_van(self, user_id: int) -> str:
+        """Weergavenaam voor in embeds/logs. Bij PvE is er maar 1 echte
+        speler, dus blijft "Jij" prima leesbaar; bij PvP (waar beide spelers
+        naar hetzelfde bericht kijken) is dat dubbelzinnig, dus dan altijd de
+        echte naam van wie het ook is."""
+        if user_id == self.eigen_id:
+            return self.eigen_naam if self.is_pvp else "Jij"
+        return self.tegenstander_naam
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id not in (self.eigen_id, self.tegenstander_id):
             await interaction.response.send_message("Dit is niet jouw gevecht.", ephemeral=True)
@@ -564,8 +578,7 @@ class VechtView(discord.ui.View):
         )
         instructie = (
             f"Beide spelers kiezen een tactiek (of vluchten) — "
-            f"{_weergavenaam(self.bot, self.guild_id, self.eigen_id)} en "
-            f"{_weergavenaam(self.bot, self.guild_id, self.tegenstander_id)}:"
+            f"{self._naam_van(self.eigen_id)} en {self._naam_van(self.tegenstander_id)}:"
             if self.is_pvp
             else "Kies een tactiek voor deze matchup:"
         )
@@ -575,7 +588,8 @@ class VechtView(discord.ui.View):
                 f"{element_emoji(eigen_el)} {eigen_pet.naam} vs {element_emoji(tegen_el)} {tegen_naam}"
             ),
             description=(
-                f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n{instructie}"
+                f"Stand: {self._naam_van(self.eigen_id)} {self.eigen_wins} - {self.tegenstander_wins} "
+                f"{self.tegenstander_naam}\n{instructie}"
             ),
             color=discord.Color.orange(),
         )
@@ -595,7 +609,7 @@ class VechtView(discord.ui.View):
 
     def _wacht_embed(self) -> discord.Embed:
         wie_id = self.eigen_id if self.eigen_tactiek is not None else self.tegenstander_id
-        wie = _weergavenaam(self.bot, self.guild_id, wie_id)
+        wie = self._naam_van(wie_id)
         return discord.Embed(
             title=f"⏳ Matchup {self.matchup_index + 1}/3 — wachten...",
             description=f"{wie} heeft gekozen. Wachten op de andere speler.",
@@ -667,6 +681,8 @@ class VechtView(discord.ui.View):
                 tegenstander_macht_gemod,
                 eigen_tactiek,
                 tegenstander_tactiek,
+                self._naam_van(self.eigen_id),
+                self._naam_van(self.tegenstander_id),
             )
             if resultaat.eigen_wint:
                 self.eigen_wins += 1
@@ -676,7 +692,8 @@ class VechtView(discord.ui.View):
                 self.tegenstander_wins += 1
                 await self._blesseer(self.eigen_team[self.matchup_index].id)
 
-            uitslag_tekst = "✅ Jij wint deze matchup!" if resultaat.eigen_wint else "❌ Jij verliest deze matchup."
+            winnaar_naam = self._naam_van(self.eigen_id if resultaat.eigen_wint else self.tegenstander_id)
+            uitslag_tekst = f"✅ {winnaar_naam} wint deze matchup!"
             tactiek_tekst = (
                 f"{TACTIEK_LABELS[eigen_tactiek]} vs {TACTIEK_LABELS[tegenstander_tactiek]}"
                 if self.is_pvp
@@ -686,7 +703,8 @@ class VechtView(discord.ui.View):
                 title=f"Matchup {self.matchup_index + 1}/3 — {tactiek_tekst}",
                 description=(
                     f"{chr(10).join(resultaat.ronde_log)}\n\n{uitslag_tekst}\n"
-                    f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}"
+                    f"Stand: {self._naam_van(self.eigen_id)} {self.eigen_wins} - {self.tegenstander_wins} "
+                    f"{self.tegenstander_naam}"
                 ),
                 color=discord.Color.green() if resultaat.eigen_wint else discord.Color.red(),
             )
@@ -717,8 +735,7 @@ class VechtView(discord.ui.View):
         # 3-1 bij maar 3 pets als er al matchups gespeeld waren). Wie is
         # gewonnen wordt in _verwerk_einde bepaald via gevlucht_id, niet via
         # de win-tellers.
-        vlucht_naam = _weergavenaam(self.bot, self.guild_id, gevlucht_id)
-        vlucht_tekst = f"{vlucht_naam} is gevlucht uit het gevecht!"
+        vlucht_tekst = f"{self._naam_van(gevlucht_id)} is gevlucht uit het gevecht!"
         await self.message.edit(
             embed=discord.Embed(title=f"🏃 {vlucht_tekst}", color=discord.Color.dark_grey()),
             view=None,
@@ -782,12 +799,12 @@ class VechtView(discord.ui.View):
             await session.commit()
 
         # Bij PvP kijken beide spelers naar hetzelfde bericht — "jij" is dan
-        # dubbelzinnig (wint/verliest voor wie precies?). Expliciete mentions
-        # lossen dat op; bij PvE is er maar één speler, dus blijft "Jij" prima
-        # leesbaar. Feedback van de gebruiker: dit was verwarrend voor de
-        # niet-uitdagende speler.
-        eigen_ref = _weergavenaam(self.bot, self.guild_id, self.eigen_id) if self.is_pvp else "Jij"
-        tegen_ref = _weergavenaam(self.bot, self.guild_id, self.tegenstander_id) if self.is_pvp else self.tegenstander_naam
+        # dubbelzinnig (wint/verliest voor wie precies?). Expliciete
+        # weergavenamen lossen dat op; bij PvE is er maar één speler, dus
+        # blijft "Jij" prima leesbaar. Feedback van de gebruiker: dit was
+        # verwarrend voor de niet-uitdagende speler.
+        eigen_ref = self._naam_van(self.eigen_id)
+        tegen_ref = self._naam_van(self.tegenstander_id)
 
         if gevlucht_id is not None and gevlucht_id == self.eigen_id:
             titel = f"🏳️ {eigen_ref} is gevlucht"
@@ -944,7 +961,9 @@ class GevechtenCog(commands.Cog):
                 await interaction.response.send_message("Je kan geen bot uitdagen.", ephemeral=True)
                 return
 
-            view = VechtInzetView(self, interaction.user.id, tegenstander, interaction.guild_id, item_opties)
+            view = VechtInzetView(
+                self, interaction.user.id, interaction.user.display_name, tegenstander, interaction.guild_id, item_opties
+            )
             await interaction.response.send_message(embed=view._bouw_embed(), view=view, ephemeral=True)
             view.message = await interaction.original_response()
             return
@@ -999,6 +1018,7 @@ class GevechtenCog(commands.Cog):
             eigen_afbeeldingen,
             tegenstander_afbeeldingen,
             tegenstander_namen,
+            eigen_naam=interaction.user.display_name,
         )
         await view.start(interaction)
         await send_log(
@@ -1023,7 +1043,7 @@ class GevechtenCog(commands.Cog):
             fmt_log(
                 "🔴",
                 "vecht",
-                f"Uitdaging tussen <@{uitdaging.uitdager_id}> en <@{uitdaging.tegenstander_id}> geannuleerd: {reden}",
+                f"Uitdaging tussen {uitdaging.uitdager_naam} en {uitdaging.tegenstander_naam} geannuleerd: {reden}",
             ),
         )
 
@@ -1053,7 +1073,12 @@ class GevechtenCog(commands.Cog):
                 heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
                 if not heeft_poging:
                     await session.commit()
-                    await self._annuleer_uitdaging(interaction, uitdaging, f"<@{speler.discord_id}>: {poging_probleem}")
+                    naam = (
+                        uitdaging.uitdager_naam
+                        if speler.discord_id == uitdaging.uitdager_id
+                        else uitdaging.tegenstander_naam
+                    )
+                    await self._annuleer_uitdaging(interaction, uitdaging, f"{naam}: {poging_probleem}")
                     return
 
             if uitdaging.inzet_coins:
@@ -1074,8 +1099,13 @@ class GevechtenCog(commands.Cog):
                     )
                     if inv is None or inv.aantal < aantal:
                         await session.commit()
+                        naam = (
+                            uitdaging.uitdager_naam
+                            if speler_id == uitdaging.uitdager_id
+                            else uitdaging.tegenstander_naam
+                        )
                         await self._annuleer_uitdaging(
-                            interaction, uitdaging, f"<@{speler_id}> heeft niet meer genoeg **{item_naam}** voor de inzet."
+                            interaction, uitdaging, f"{naam} heeft niet meer genoeg **{item_naam}** voor de inzet."
                         )
                         return
 
@@ -1094,7 +1124,10 @@ class GevechtenCog(commands.Cog):
             await session.commit()
 
         await interaction.response.edit_message(
-            content=f"⚔️ Uitdaging geaccepteerd! {interaction.user.mention} kijkt toe terwijl <@{uitdaging.uitdager_id}> vecht.",
+            content=(
+                f"⚔️ Uitdaging geaccepteerd! {interaction.user.display_name} kijkt toe terwijl "
+                f"{uitdaging.uitdager_naam} vecht."
+            ),
             embed=None,
             view=uitdaging,
         )
@@ -1105,7 +1138,7 @@ class GevechtenCog(commands.Cog):
             eigen_team,
             eigen_macht,
             eigen_mmr,
-            f"<@{uitdaging.tegenstander_id}>",
+            uitdaging.tegenstander_naam,
             tegenstander_team,
             tegenstander_macht,
             tegenstander_mmr,
@@ -1117,6 +1150,7 @@ class GevechtenCog(commands.Cog):
             [elementen_bij_soort.get(pet.soort_id) for pet in tegenstander_team],
             [afbeeldingen_bij_soort.get(pet.soort_id) for pet in eigen_team],
             [afbeeldingen_bij_soort.get(pet.soort_id) for pet in tegenstander_team],
+            eigen_naam=uitdaging.uitdager_naam,
         )
         embed, bestand = await view._bouw_intro()
         if bestand is not None:
