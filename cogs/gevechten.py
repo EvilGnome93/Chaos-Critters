@@ -122,6 +122,213 @@ async def _verbruik_ranked_poging(session, speler: Speler) -> None:
     inv.aantal -= 1
 
 
+async def _inzet_item_opties(session, speler_id: int) -> list[discord.SelectOption]:
+    """Dropdown-opties voor het item dat je optioneel inzet bij een
+    /vecht-uitdaging: eigen items met voorraad, plus 'Geen item'."""
+    opties = [discord.SelectOption(label="Geen item", value="none", default=True)]
+    inv_rows = (
+        await session.execute(
+            select(InventarisItem).where(InventarisItem.speler_id == speler_id, InventarisItem.aantal > 0)
+        )
+    ).scalars().all()
+    if inv_rows:
+        item_ids = [r.item_id for r in inv_rows]
+        items_bij_id = {
+            i.id: i for i in (await session.execute(select(Item).where(Item.id.in_(item_ids)))).scalars().all()
+        }
+        for r in inv_rows:
+            item = items_bij_id[r.item_id]
+            opties.append(
+                discord.SelectOption(label=f"{item.naam} ({r.aantal}x in bezit)"[:100], value=item.naam[:100])
+            )
+    return opties[:25]
+
+
+class VechtAantalModal(discord.ui.Modal):
+    def __init__(self, view: "VechtInzetView"):
+        super().__init__(title="Aantal instellen")
+        self.view_ref = view
+        self.aantal_input = discord.ui.TextInput(
+            label="Aantal (alleen relevant bij een item)", default=str(view.aantal), required=False, max_length=5
+        )
+        self.add_item(self.aantal_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            aantal = max(1, int(self.aantal_input.value or 1))
+        except ValueError:
+            aantal = 1
+        self.view_ref.aantal = aantal
+        await interaction.response.edit_message(embed=self.view_ref._bouw_embed(), view=self.view_ref)
+
+
+class VechtCoinsModal(discord.ui.Modal):
+    def __init__(self, view: "VechtInzetView"):
+        super().__init__(title="Chaos Coins instellen")
+        self.view_ref = view
+        self.coins_input = discord.ui.TextInput(
+            label="Chaos Coins", default=str(view.coins), required=False, max_length=8
+        )
+        self.add_item(self.coins_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            coins = max(0, int(self.coins_input.value or 0))
+        except ValueError:
+            coins = 0
+        self.view_ref.coins = coins
+        await interaction.response.edit_message(embed=self.view_ref._bouw_embed(), view=self.view_ref)
+
+
+class VechtInzetView(discord.ui.View):
+    """Paneel om de inzet (item + Chaos Coins) voor een PvP-uitdaging samen
+    te stellen, i.p.v. losse command-parameters (2026-07-26, feedback van de
+    gebruiker: zelfde reden als de /trade-herbouw naar een paneel)."""
+
+    def __init__(
+        self,
+        cog: "GevechtenCog",
+        uitdager_id: int,
+        tegenstander: discord.Member,
+        guild_id: int | None,
+        item_opties: list[discord.SelectOption],
+    ):
+        super().__init__(timeout=180)
+        self.cog = cog
+        self.uitdager_id = uitdager_id
+        self.tegenstander = tegenstander
+        self.guild_id = guild_id
+        self.item_waarde: str | None = None
+        self.aantal = 1
+        self.coins = 0
+        self.message: discord.Message | None = None
+
+        self.item_select = discord.ui.Select(placeholder="Item inzetten? (optioneel)", options=item_opties, row=0)
+        self.item_select.callback = self._on_item_select
+        self.add_item(self.item_select)
+
+        aantal_knop = discord.ui.Button(label="🔢 Aantal instellen", style=discord.ButtonStyle.secondary, row=1)
+        aantal_knop.callback = self._open_aantal_modal
+        self.add_item(aantal_knop)
+
+        coins_knop = discord.ui.Button(label="💰 Coins instellen", style=discord.ButtonStyle.secondary, row=1)
+        coins_knop.callback = self._open_coins_modal
+        self.add_item(coins_knop)
+
+        uitdagen_knop = discord.ui.Button(label="⚔️ Uitdagen", style=discord.ButtonStyle.success, row=2)
+        uitdagen_knop.callback = self._uitdagen
+        self.add_item(uitdagen_knop)
+
+        annuleren_knop = discord.ui.Button(label="❌ Annuleren", style=discord.ButtonStyle.danger, row=2)
+        annuleren_knop.callback = self._annuleren
+        self.add_item(annuleren_knop)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.uitdager_id:
+            await interaction.response.send_message("Dit is niet jouw uitdaging om samen te stellen.", ephemeral=True)
+            return False
+        return True
+
+    def _inzet_tekst(self) -> str:
+        delen = []
+        if self.item_waarde:
+            delen.append(f"{self.aantal}x {self.item_waarde}")
+        if self.coins:
+            delen.append(f"{self.coins} Chaos Coins")
+        return " + ".join(delen) if delen else "geen inzet"
+
+    def _bouw_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title="⚔️ Uitdaging voorbereiden",
+            description=f"Tegenstander: {self.tegenstander.mention}\nInzet: {self._inzet_tekst()}",
+            color=discord.Color.blurple(),
+        )
+
+    async def _on_item_select(self, interaction: discord.Interaction) -> None:
+        waarde = self.item_select.values[0]
+        self.item_waarde = None if waarde == "none" else waarde
+        await interaction.response.edit_message(embed=self._bouw_embed(), view=self)
+
+    async def _open_aantal_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(VechtAantalModal(self))
+
+    async def _open_coins_modal(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(VechtCoinsModal(self))
+
+    async def _uitdagen(self, interaction: discord.Interaction) -> None:
+        async with async_session() as session:
+            speler = await session.get(Speler, self.uitdager_id)
+            if self.item_waarde:
+                item_obj = await session.scalar(select(Item).where(Item.naam == self.item_waarde))
+                if item_obj is None:
+                    await interaction.response.send_message(f"Onbekend item: **{self.item_waarde}**.", ephemeral=True)
+                    return
+                eigen_inv = await session.scalar(
+                    select(InventarisItem).where(
+                        InventarisItem.speler_id == self.uitdager_id, InventarisItem.item_id == item_obj.id
+                    )
+                )
+                if eigen_inv is None or eigen_inv.aantal < self.aantal:
+                    await interaction.response.send_message(
+                        f"Je hebt geen {self.aantal}x **{self.item_waarde}** (meer) om in te zetten.", ephemeral=True
+                    )
+                    return
+            if self.coins and (speler is None or speler.currency < self.coins):
+                await interaction.response.send_message(
+                    "Je hebt niet (meer) genoeg Chaos Coins voor die inzet.", ephemeral=True
+                )
+                return
+
+        inzet_item_getal = (self.item_waarde, self.aantal) if self.item_waarde else None
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content="✅ Uitdaging verstuurd.", embed=None, view=self)
+
+        inzet_tekst = ""
+        if self.coins:
+            inzet_tekst += f"\n💰 Inzet: {self.coins} Chaos Coins"
+        if inzet_item_getal:
+            inzet_tekst += f"\n📦 Inzet: {inzet_item_getal[1]}x {inzet_item_getal[0]}"
+
+        uitdaging_view = UitdagingView(
+            self.cog, self.uitdager_id, self.tegenstander.id, self.coins, inzet_item_getal, self.guild_id
+        )
+        embed = discord.Embed(
+            title="⚔️ Ranked uitdaging!",
+            description=(
+                f"<@{self.uitdager_id}> daagt {self.tegenstander.mention} uit voor een gevecht.{inzet_tekst}\n\n"
+                "Beide teams moeten een volledig team van 3 hebben. Accepteren of weigeren?"
+            ),
+            color=discord.Color.orange(),
+        )
+        bericht = await interaction.channel.send(content=self.tegenstander.mention, embed=embed, view=uitdaging_view)
+        uitdaging_view.message = bericht
+        await send_log(
+            self.cog.bot, self.guild_id, "gevecht",
+            fmt_log(
+                "🟡", "vecht",
+                f"<@{self.uitdager_id}> daagde {self.tegenstander.mention} uit voor een gevecht"
+                + (inzet_tekst.replace("\n", ", ") if inzet_tekst else ""),
+            ),
+        )
+
+    async def _annuleren(self, interaction: discord.Interaction) -> None:
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content="❌ Geannuleerd.", embed=None, view=self)
+
+    async def on_timeout(self) -> None:
+        if self.message is None:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(content="⌛ Uitdaging-opbouw verlopen.", embed=None, view=self)
+        except discord.HTTPException:
+            pass
+
+
 class TeamSelectView(discord.ui.View):
     def __init__(
         self, eigenaar_id: int, opties: list[Huisdier], huidige_team_ids: set[int], soort_elementen: dict[int, str]
@@ -608,31 +815,16 @@ class GevechtenCog(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         view.message = await interaction.original_response()
 
-    async def _item_autocomplete(
-        self, interaction: discord.Interaction, huidig: str
-    ) -> list[app_commands.Choice[str]]:
-        async with async_session() as session:
-            namen = (await session.execute(select(Item.naam))).scalars().all()
-        huidig = huidig.lower()
-        return [app_commands.Choice(name=naam, value=naam) for naam in namen if huidig in naam.lower()][:25]
-
     @app_commands.command(
         name="vecht", description="Start een ranked gevecht: gesimuleerde tegenstander, of daag een speler uit"
     )
     @app_commands.describe(
         tegenstander="Daag deze speler uit (optioneel; zonder dit vecht je tegen een gesimuleerde tegenstander)",
-        inzet_coins="Chaos Coins om in te zetten bij een uitdaging (optioneel, alleen bij tegenstander)",
-        inzet_item="Item om in te zetten bij een uitdaging (optioneel, alleen bij tegenstander)",
-        inzet_aantal="Aantal van het ingezette item (standaard 1)",
     )
-    @app_commands.autocomplete(inzet_item=_item_autocomplete)
     async def vecht(
         self,
         interaction: discord.Interaction,
         tegenstander: discord.Member | None = None,
-        inzet_coins: int | None = None,
-        inzet_item: str | None = None,
-        inzet_aantal: int = 1,
     ) -> None:
         async with async_session() as session:
             eigen_team = await _haal_team_op(session, interaction.user.id)
@@ -658,40 +850,8 @@ class GevechtenCog(commands.Cog):
                 await interaction.response.send_message(poging_probleem, ephemeral=True)
                 return
 
-            inzet_item_getal = None
-            if inzet_item:
-                if tegenstander is None:
-                    await interaction.response.send_message(
-                        "Inzetten kan alleen bij het uitdagen van een speler.", ephemeral=True
-                    )
-                    return
-                item_obj = await session.scalar(select(Item).where(Item.naam == inzet_item))
-                if item_obj is None:
-                    await interaction.response.send_message(f"Onbekend item: **{inzet_item}**.", ephemeral=True)
-                    return
-                eigen_inv = await session.scalar(
-                    select(InventarisItem).where(
-                        InventarisItem.speler_id == interaction.user.id, InventarisItem.item_id == item_obj.id
-                    )
-                )
-                if eigen_inv is None or eigen_inv.aantal < inzet_aantal:
-                    await interaction.response.send_message(
-                        f"Je hebt geen {inzet_aantal}x **{inzet_item}** om in te zetten.", ephemeral=True
-                    )
-                    return
-                inzet_item_getal = (inzet_item, inzet_aantal)
-
-            if inzet_coins is not None:
-                if tegenstander is None:
-                    await interaction.response.send_message(
-                        "Inzetten kan alleen bij het uitdagen van een speler.", ephemeral=True
-                    )
-                    return
-                if inzet_coins < 0 or inzet_coins > speler.currency:
-                    await interaction.response.send_message(
-                        "Je hebt niet genoeg Chaos Coins voor die inzet.", ephemeral=True
-                    )
-                    return
+            if tegenstander is not None:
+                item_opties = await _inzet_item_opties(session, interaction.user.id)
 
             await session.commit()
 
@@ -699,37 +859,13 @@ class GevechtenCog(commands.Cog):
             if tegenstander.id == interaction.user.id:
                 await interaction.response.send_message("Je kan jezelf niet uitdagen.", ephemeral=True)
                 return
+            if tegenstander.bot:
+                await interaction.response.send_message("Je kan geen bot uitdagen.", ephemeral=True)
+                return
 
-            inzet_tekst = ""
-            if inzet_coins:
-                inzet_tekst += f"\n💰 Inzet: {inzet_coins} Chaos Coins"
-            if inzet_item_getal:
-                inzet_tekst += f"\n📦 Inzet: {inzet_item_getal[1]}x {inzet_item_getal[0]}"
-
-            view = UitdagingView(
-                self, interaction.user.id, tegenstander.id, inzet_coins or 0, inzet_item_getal, interaction.guild_id
-            )
-            embed = discord.Embed(
-                title="⚔️ Ranked uitdaging!",
-                description=(
-                    f"{interaction.user.mention} daagt {tegenstander.mention} uit voor een gevecht.{inzet_tekst}\n\n"
-                    "Beide teams moeten een volledig team van 3 hebben. Accepteren of weigeren?"
-                ),
-                color=discord.Color.orange(),
-            )
-            await interaction.response.send_message(content=tegenstander.mention, embed=embed, view=view)
+            view = VechtInzetView(self, interaction.user.id, tegenstander, interaction.guild_id, item_opties)
+            await interaction.response.send_message(embed=view._bouw_embed(), view=view, ephemeral=True)
             view.message = await interaction.original_response()
-            await send_log(
-                self.bot,
-                interaction.guild_id,
-                "gevecht",
-                fmt_log(
-                    "🟡",
-                    "vecht",
-                    f"{interaction.user.mention} daagde {tegenstander.mention} uit voor een gevecht"
-                    + (inzet_tekst.replace("\n", ", ") if inzet_tekst else ""),
-                ),
-            )
             return
 
         # PvE: gesimuleerde tegenstander, per matchup gespiegeld op de macht

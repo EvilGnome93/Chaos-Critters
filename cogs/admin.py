@@ -32,6 +32,13 @@ NIEUW_OM_TE_TESTEN = [
         "tegenaan loopt. Het plaatje verdwijnt weer zodra het gevecht is afgelopen.",
     ),
     (
+        "⚔️ /vecht: inzet nu via een paneel i.p.v. losse opties",
+        "`/vecht tegenstander` opent bij een uitdaging een paneel om optioneel een item en/of Chaos "
+        "Coins in te zetten (dropdown + knoppen), i.p.v. de losse `inzet_coins`/`inzet_item`/"
+        "`inzet_aantal`-opties die je in het command moest onthouden. PvE (zonder tegenstander) blijft "
+        "gewoon direct starten.",
+    ),
+    (
         "🐛 Bugfix: /team liet je niet meer je team aanpassen",
         "Als je teamleden een tijdje niet verzorgd waren (energie te laag of honger op) verdwenen ze uit "
         "de `/team`-dropdown, waardoor je je team niet meer kon wijzigen of leeghalen. Teamleden blijven "
@@ -62,7 +69,7 @@ TEST_COMMANDOS = [
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/team", "Stel je team van 3 pets samen voor gevechten."),
-    ("/vecht [tegenstander] [inzet_coins] [inzet_item] [inzet_aantal]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit (optioneel met inzet)."),
+    ("/vecht [tegenstander]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit — bij een uitdaging opent een paneel om optioneel een item/Chaos Coins in te zetten."),
     ("/trade speler", "Open een paneel om een ruil samen te stellen: dropdowns voor wat je aanbiedt/terugvraagt (items/pets van jou en de ander), knoppen voor aantal + Chaos Coins."),
     ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
