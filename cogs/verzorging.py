@@ -9,8 +9,8 @@ from sqlalchemy import select
 from cogs.vangen import TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
-from db.models import Huisdier, InventarisItem, Item, ItemType, PetStatus, Speler
-from utils.elementen import soort_element_emojis
+from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
+from utils.elementen import emoji as element_emoji, soort_element_emojis
 from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
 from utils.stats import SLAAP_COOLDOWN_UUR, SLAAP_HONGER_KOST, sync_stats
 
@@ -267,9 +267,10 @@ class VerzorgingCog(commands.Cog):
             sync_stats(huisdier)
 
             if item is None:
+                soort = await session.get(PetSoort, huisdier.soort_id)
                 await session.commit()
                 await interaction.response.send_message(
-                    f"**{huisdier.naam}** — {_level_status(huisdier)}\n"
+                    f"**{huisdier.naam}** {element_emoji(soort.element if soort else None)} — {_level_status(huisdier)}\n"
                     f"🍖 Honger: {huisdier.honger}/100, "
                     f"⚡ Energie: {huisdier.energie}/100",
                     ephemeral=True,

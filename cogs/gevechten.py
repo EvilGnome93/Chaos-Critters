@@ -561,8 +561,13 @@ class GevechtenCog(commands.Cog):
             return
 
         huidige_team = [p for p in pets if p.status == PetStatus.team]
+        # Pets die al in het team zitten blijven altijd in de lijst staan, ook
+        # als ze inmiddels niet meer inzetbaar zijn (bijv. energie weggezakt) —
+        # anders verdwijnen ze uit de dropdown en kan je je team niet meer
+        # aanpassen/leeghalen. Nieuwe pets moeten wel gewoon inzetbaar zijn.
         beschikbaar = [
-            p for p in pets if p.status != PetStatus.werkplek and inzetbaarheid_probleem(p) is None
+            p for p in pets
+            if p.status != PetStatus.werkplek and (p.status == PetStatus.team or inzetbaarheid_probleem(p) is None)
         ]
 
         embed = discord.Embed(
