@@ -58,6 +58,21 @@ def _nu():
     return stats_nu()
 
 
+def _weergavenaam(bot, guild_id: int | None, user_id: int) -> str:
+    """Weergavenaam (server-nickname, anders globale naam) i.p.v. een @-tag —
+    verzoek van de gebruiker: een tag was niet nodig, alleen duidelijk wie
+    wint/verliest. Valt terug op een mention als de gebruiker niet in de
+    cache zit (zeldzaam, maar dan is een tag beter dan een leeg ID)."""
+    guild = bot.get_guild(guild_id) if guild_id else None
+    lid = guild.get_member(user_id) if guild else None
+    if lid is not None:
+        return lid.display_name
+    gebruiker = bot.get_user(user_id)
+    if gebruiker is not None:
+        return gebruiker.display_name
+    return f"<@{user_id}>"
+
+
 async def _haal_team_op(session, speler_id: int) -> list[Huisdier]:
     stmt = select(Huisdier).where(Huisdier.eigenaar_id == speler_id, Huisdier.status == PetStatus.team)
     return (await session.execute(stmt)).scalars().all()
@@ -400,6 +415,11 @@ class UitdagingView(discord.ui.View):
         self.inzet_item = inzet_item
         self.guild_id = guild_id
         self.message: discord.Message | None = None
+        # Voorkomt dat op_timeout nog een "verliep zonder reactie"-log stuurt
+        # nadat de uitdaging allang geaccepteerd/geweigerd is (View blijft tot
+        # zijn timeout "actief" tenzij expliciet gestopt), en beschermt tegen
+        # een dubbelklik op Accepteren die 2x start_pvp_gevecht zou starten.
+        self._verwerkt = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.tegenstander_id:
@@ -409,6 +429,11 @@ class UitdagingView(discord.ui.View):
 
     @discord.ui.button(label="✅ Accepteren", style=discord.ButtonStyle.success)
     async def accepteren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Deze uitdaging is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
+        self.stop()
         for item in self.children:
             item.disabled = True
         await send_log(
@@ -421,6 +446,11 @@ class UitdagingView(discord.ui.View):
 
     @discord.ui.button(label="❌ Weigeren", style=discord.ButtonStyle.danger)
     async def weigeren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Deze uitdaging is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
+        self.stop()
         for item in self.children:
             item.disabled = True
         await interaction.response.edit_message(content="❌ Uitdaging geweigerd.", embed=None, view=self)
@@ -432,7 +462,7 @@ class UitdagingView(discord.ui.View):
         )
 
     async def on_timeout(self) -> None:
-        if self.message is None:
+        if self._verwerkt or self.message is None:
             return
         for item in self.children:
             item.disabled = True
@@ -504,6 +534,14 @@ class VechtView(discord.ui.View):
         self.eigen_tactiek: str | None = None
         self.tegenstander_tactiek: str | None = None
         self.message: discord.Message | None = None
+        # Voorkomt dat 1 matchup dubbel verwerkt wordt als beide spelers
+        # (bij PvP) hun tactiek zo kort na elkaar kiezen dat de resolutie van
+        # de een nog bezig is (async DB-call in _blesseer) terwijl de ander
+        # ook al "allebei gekozen" ziet en zelf ook gaat resolven — gaf
+        # dubbele MMR/beloning en een onmogelijke eindstand (bijv. 3-1 bij
+        # maar 3 pets). Gemeld door de gebruiker met bewijs uit de logs.
+        self._resolve_lock = asyncio.Lock()
+        self._afgerond = False
 
     @property
     def is_pvp(self) -> bool:
@@ -525,7 +563,9 @@ class VechtView(discord.ui.View):
             else f"Wilde {self.tegenstander_namen[self.matchup_index]}"
         )
         instructie = (
-            f"Beide spelers kiezen een tactiek (of vluchten) — <@{self.eigen_id}> en <@{self.tegenstander_id}>:"
+            f"Beide spelers kiezen een tactiek (of vluchten) — "
+            f"{_weergavenaam(self.bot, self.guild_id, self.eigen_id)} en "
+            f"{_weergavenaam(self.bot, self.guild_id, self.tegenstander_id)}:"
             if self.is_pvp
             else "Kies een tactiek voor deze matchup:"
         )
@@ -554,7 +594,8 @@ class VechtView(discord.ui.View):
         return embed, bestand
 
     def _wacht_embed(self) -> discord.Embed:
-        wie = f"<@{self.eigen_id}>" if self.eigen_tactiek is not None else f"<@{self.tegenstander_id}>"
+        wie_id = self.eigen_id if self.eigen_tactiek is not None else self.tegenstander_id
+        wie = _weergavenaam(self.bot, self.guild_id, wie_id)
         return discord.Embed(
             title=f"⏳ Matchup {self.matchup_index + 1}/3 — wachten...",
             description=f"{wie} heeft gekozen. Wachten op de andere speler.",
@@ -577,6 +618,10 @@ class VechtView(discord.ui.View):
             await session.commit()
 
     async def _kies_tactiek(self, interaction: discord.Interaction, tactiek: str) -> None:
+        if self._afgerond:
+            await interaction.response.send_message("Dit gevecht is al afgelopen.", ephemeral=True)
+            return
+
         if interaction.user.id == self.eigen_id:
             if self.eigen_tactiek is not None:
                 await interaction.response.send_message(
@@ -594,69 +639,86 @@ class VechtView(discord.ui.View):
 
         await interaction.response.defer()
 
-        if self.is_pvp and (self.eigen_tactiek is None or self.tegenstander_tactiek is None):
-            await self.message.edit(embed=self._wacht_embed(), view=self)
-            return
+        # Alles hierna staat achter een lock: bij PvP kunnen beide spelers
+        # bijna gelijktijdig klikken, en zonder lock kon de resolutie van de
+        # een (die zelf ook async DB-calls doet, zie _blesseer) overlappen
+        # met een tweede resolutie-poging van de ander die ook "allebei
+        # gekozen" zag — dat gaf een matchup die dubbel werd verwerkt (dubbele
+        # MMR/beloning, een onmogelijke eindstand zoals 3-1 bij 3 pets).
+        async with self._resolve_lock:
+            if self._afgerond:
+                return
+            if self.is_pvp and (self.eigen_tactiek is None or self.tegenstander_tactiek is None):
+                await self.message.edit(embed=self._wacht_embed(), view=self)
+                return
 
-        eigen_tactiek = self.eigen_tactiek
-        tegenstander_tactiek = self.tegenstander_tactiek if self.is_pvp else "gebalanceerd"
+            eigen_tactiek = self.eigen_tactiek
+            tegenstander_tactiek = self.tegenstander_tactiek if self.is_pvp else "gebalanceerd"
 
-        eigen_el = self.eigen_elementen[self.matchup_index]
-        tegen_el = self.tegenstander_elementen[self.matchup_index]
-        eigen_macht_gemod = self.eigen_macht[self.matchup_index] * elementen_modifier(eigen_el, tegen_el)
-        tegenstander_macht_gemod = self.tegenstander_macht[self.matchup_index] * elementen_modifier(tegen_el, eigen_el)
+            eigen_el = self.eigen_elementen[self.matchup_index]
+            tegen_el = self.tegenstander_elementen[self.matchup_index]
+            eigen_macht_gemod = self.eigen_macht[self.matchup_index] * elementen_modifier(eigen_el, tegen_el)
+            tegenstander_macht_gemod = (
+                self.tegenstander_macht[self.matchup_index] * elementen_modifier(tegen_el, eigen_el)
+            )
 
-        resultaat = speel_matchup(
-            eigen_macht_gemod,
-            tegenstander_macht_gemod,
-            eigen_tactiek,
-            tegenstander_tactiek,
-        )
-        if resultaat.eigen_wint:
-            self.eigen_wins += 1
-            if self.tegenstander_team is not None:
-                await self._blesseer(self.tegenstander_team[self.matchup_index].id)
-        else:
-            self.tegenstander_wins += 1
-            await self._blesseer(self.eigen_team[self.matchup_index].id)
+            resultaat = speel_matchup(
+                eigen_macht_gemod,
+                tegenstander_macht_gemod,
+                eigen_tactiek,
+                tegenstander_tactiek,
+            )
+            if resultaat.eigen_wint:
+                self.eigen_wins += 1
+                if self.tegenstander_team is not None:
+                    await self._blesseer(self.tegenstander_team[self.matchup_index].id)
+            else:
+                self.tegenstander_wins += 1
+                await self._blesseer(self.eigen_team[self.matchup_index].id)
 
-        uitslag_tekst = "✅ Jij wint deze matchup!" if resultaat.eigen_wint else "❌ Jij verliest deze matchup."
-        tactiek_tekst = (
-            f"{TACTIEK_LABELS[eigen_tactiek]} vs {TACTIEK_LABELS[tegenstander_tactiek]}"
-            if self.is_pvp
-            else TACTIEK_LABELS[eigen_tactiek]
-        )
-        resultaat_embed = discord.Embed(
-            title=f"Matchup {self.matchup_index + 1}/3 — {tactiek_tekst}",
-            description=(
-                f"{chr(10).join(resultaat.ronde_log)}\n\n{uitslag_tekst}\n"
-                f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}"
-            ),
-            color=discord.Color.green() if resultaat.eigen_wint else discord.Color.red(),
-        )
-        await self.message.edit(embed=resultaat_embed, view=None)
+            uitslag_tekst = "✅ Jij wint deze matchup!" if resultaat.eigen_wint else "❌ Jij verliest deze matchup."
+            tactiek_tekst = (
+                f"{TACTIEK_LABELS[eigen_tactiek]} vs {TACTIEK_LABELS[tegenstander_tactiek]}"
+                if self.is_pvp
+                else TACTIEK_LABELS[eigen_tactiek]
+            )
+            resultaat_embed = discord.Embed(
+                title=f"Matchup {self.matchup_index + 1}/3 — {tactiek_tekst}",
+                description=(
+                    f"{chr(10).join(resultaat.ronde_log)}\n\n{uitslag_tekst}\n"
+                    f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}"
+                ),
+                color=discord.Color.green() if resultaat.eigen_wint else discord.Color.red(),
+            )
+            await self.message.edit(embed=resultaat_embed, view=None)
 
-        if self.eigen_wins == 2 or self.tegenstander_wins == 2 or self.matchup_index == 2:
-            await asyncio.sleep(1.5)
-            await self._verwerk_einde()
-            return
+            if self.eigen_wins == 2 or self.tegenstander_wins == 2 or self.matchup_index == 2:
+                self._afgerond = True
+                await asyncio.sleep(1.5)
+                await self._verwerk_einde()
+                return
 
-        self.matchup_index += 1
-        self.eigen_tactiek = None
-        self.tegenstander_tactiek = None
-        await asyncio.sleep(2)
-        embed, bestand = await self._bouw_intro()
-        await self.message.edit(embed=embed, view=self, attachments=[bestand] if bestand else [])
+            self.matchup_index += 1
+            self.eigen_tactiek = None
+            self.tegenstander_tactiek = None
+            await asyncio.sleep(2)
+            embed, bestand = await self._bouw_intro()
+            await self.message.edit(embed=embed, view=self, attachments=[bestand] if bestand else [])
 
     async def _wegrennen(self, interaction: discord.Interaction) -> None:
+        if self._afgerond:
+            await interaction.response.send_message("Dit gevecht is al afgelopen.", ephemeral=True)
+            return
+        self._afgerond = True
         await interaction.response.defer()
         gevlucht_id = interaction.user.id
-        if gevlucht_id == self.eigen_id:
-            self.tegenstander_wins = 3
-            vlucht_tekst = f"<@{self.eigen_id}> is gevlucht uit het gevecht!"
-        else:
-            self.eigen_wins = 3
-            vlucht_tekst = f"<@{self.tegenstander_id}> is gevlucht uit het gevecht!"
+        # De echte, tot dusver behaalde stand blijft staan (niet meer
+        # kunstmatig naar 3 zetten — dat gaf een onmogelijke eindstand zoals
+        # 3-1 bij maar 3 pets als er al matchups gespeeld waren). Wie is
+        # gewonnen wordt in _verwerk_einde bepaald via gevlucht_id, niet via
+        # de win-tellers.
+        vlucht_naam = _weergavenaam(self.bot, self.guild_id, gevlucht_id)
+        vlucht_tekst = f"{vlucht_naam} is gevlucht uit het gevecht!"
         await self.message.edit(
             embed=discord.Embed(title=f"🏃 {vlucht_tekst}", color=discord.Color.dark_grey()),
             view=None,
@@ -666,7 +728,11 @@ class VechtView(discord.ui.View):
         await self._verwerk_einde(gevlucht_id=gevlucht_id)
 
     async def _verwerk_einde(self, gevlucht_id: int | None = None) -> None:
-        gewonnen = self.eigen_wins > self.tegenstander_wins
+        # Bij een vlucht bepaalt gevlucht_id de winnaar (forfeit), niet de
+        # win-tellers — die geven bij een vlucht midden in het gevecht de
+        # daadwerkelijke (mogelijk gelijke of tegen de vluchter gunstige)
+        # tussenstand weer, niet wie er wint.
+        gewonnen = gevlucht_id != self.eigen_id if gevlucht_id is not None else self.eigen_wins > self.tegenstander_wins
         nieuwe_levels_eigen: list[tuple[str, int]] = []
 
         tegen_delta = None
@@ -720,8 +786,8 @@ class VechtView(discord.ui.View):
         # lossen dat op; bij PvE is er maar één speler, dus blijft "Jij" prima
         # leesbaar. Feedback van de gebruiker: dit was verwarrend voor de
         # niet-uitdagende speler.
-        eigen_ref = f"<@{self.eigen_id}>" if self.is_pvp else "Jij"
-        tegen_ref = f"<@{self.tegenstander_id}>" if self.is_pvp else self.tegenstander_naam
+        eigen_ref = _weergavenaam(self.bot, self.guild_id, self.eigen_id) if self.is_pvp else "Jij"
+        tegen_ref = _weergavenaam(self.bot, self.guild_id, self.tegenstander_id) if self.is_pvp else self.tegenstander_naam
 
         if gevlucht_id is not None and gevlucht_id == self.eigen_id:
             titel = f"🏳️ {eigen_ref} is gevlucht"
