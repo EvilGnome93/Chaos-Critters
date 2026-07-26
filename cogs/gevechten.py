@@ -10,7 +10,10 @@ from sqlalchemy import select
 from cogs.werk import _format_duur, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Tier
+from utils.afbeeldingen import soort_afbeeldingen
 from utils.discord_log import fmt_log, send_log
+from utils.elementen import elementen_modifier, emoji as element_emoji, soort_element_emojis, soort_elementen, willekeurig_element
+from utils.vecht_afbeelding import bouw_vs_afbeelding
 from utils.gevechten import (
     ENERGIE_KOST_MAX,
     ENERGIE_KOST_MIN,
@@ -100,14 +103,17 @@ async def _verbruik_ranked_poging(session, speler: Speler) -> None:
 
 
 class TeamSelectView(discord.ui.View):
-    def __init__(self, eigenaar_id: int, opties: list[Huisdier], huidige_team_ids: set[int]):
+    def __init__(
+        self, eigenaar_id: int, opties: list[Huisdier], huidige_team_ids: set[int], soort_elementen: dict[int, str]
+    ):
         super().__init__(timeout=120)
         self.eigenaar_id = eigenaar_id
         self.message: discord.Message | None = None
 
         select_opties = [
             discord.SelectOption(
-                label=f"#{p.volgnummer} {p.naam} (lvl {p.level})", value=str(p.id), default=p.id in huidige_team_ids
+                label=f"{soort_elementen.get(p.soort_id, '❓')} #{p.volgnummer} {p.naam} (lvl {p.level})",
+                value=str(p.id), default=p.id in huidige_team_ids,
             )
             for p in opties[:25]
         ]
@@ -236,6 +242,10 @@ class VechtView(discord.ui.View):
         inzet_coins: int,
         inzet_item: tuple[str, int] | None,
         tegenstander_id: int | None,
+        eigen_elementen: list,
+        tegenstander_elementen: list,
+        eigen_afbeeldingen: list,
+        tegenstander_afbeeldingen: list,
     ):
         super().__init__(timeout=180)
         self.bot = bot
@@ -251,6 +261,10 @@ class VechtView(discord.ui.View):
         self.inzet_coins = inzet_coins
         self.inzet_item = inzet_item
         self.tegenstander_id = tegenstander_id
+        self.eigen_elementen = eigen_elementen
+        self.tegenstander_elementen = tegenstander_elementen
+        self.eigen_afbeeldingen = eigen_afbeeldingen
+        self.tegenstander_afbeeldingen = tegenstander_afbeeldingen
 
         self.matchup_index = 0
         self.eigen_wins = 0
@@ -269,8 +283,10 @@ class VechtView(discord.ui.View):
             return False
         return True
 
-    def _intro_embed(self) -> discord.Embed:
+    async def _bouw_intro(self) -> tuple[discord.Embed, discord.File | None]:
         eigen_pet = self.eigen_team[self.matchup_index]
+        eigen_el = self.eigen_elementen[self.matchup_index]
+        tegen_el = self.tegenstander_elementen[self.matchup_index]
         tegen_naam = (
             self.tegenstander_team[self.matchup_index].naam
             if self.tegenstander_team
@@ -281,13 +297,30 @@ class VechtView(discord.ui.View):
             if self.is_pvp
             else "Kies een tactiek voor deze matchup:"
         )
-        return discord.Embed(
-            title=f"⚔️ Matchup {self.matchup_index + 1}/3: {eigen_pet.naam} vs {tegen_naam}",
+        embed = discord.Embed(
+            title=(
+                f"⚔️ Matchup {self.matchup_index + 1}/3: "
+                f"{element_emoji(eigen_el)} {eigen_pet.naam} vs {element_emoji(tegen_el)} {tegen_naam}"
+            ),
             description=(
                 f"Stand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n{instructie}"
             ),
             color=discord.Color.orange(),
         )
+
+        bestand = None
+        eigen_url = self.eigen_afbeeldingen[self.matchup_index]
+        if self.tegenstander_team is not None:
+            tegen_url = self.tegenstander_afbeeldingen[self.matchup_index]
+            if eigen_url and tegen_url:
+                buffer = await bouw_vs_afbeelding(eigen_url, tegen_url)
+                if buffer is not None:
+                    bestand = discord.File(buffer, filename="vs.png")
+                    embed.set_image(url="attachment://vs.png")
+        elif eigen_url:
+            embed.set_image(url=eigen_url)
+
+        return embed, bestand
 
     def _wacht_embed(self) -> discord.Embed:
         wie = f"<@{self.eigen_id}>" if self.eigen_tactiek is not None else f"<@{self.tegenstander_id}>"
@@ -298,7 +331,11 @@ class VechtView(discord.ui.View):
         )
 
     async def start(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message(embed=self._intro_embed(), view=self)
+        embed, bestand = await self._bouw_intro()
+        if bestand is not None:
+            await interaction.response.send_message(embed=embed, view=self, file=bestand)
+        else:
+            await interaction.response.send_message(embed=embed, view=self)
         self.message = await interaction.original_response()
 
     async def _blesseer(self, pet_id: int) -> None:
@@ -333,9 +370,14 @@ class VechtView(discord.ui.View):
         eigen_tactiek = self.eigen_tactiek
         tegenstander_tactiek = self.tegenstander_tactiek if self.is_pvp else "gebalanceerd"
 
+        eigen_el = self.eigen_elementen[self.matchup_index]
+        tegen_el = self.tegenstander_elementen[self.matchup_index]
+        eigen_macht_gemod = self.eigen_macht[self.matchup_index] * elementen_modifier(eigen_el, tegen_el)
+        tegenstander_macht_gemod = self.tegenstander_macht[self.matchup_index] * elementen_modifier(tegen_el, eigen_el)
+
         resultaat = speel_matchup(
-            self.eigen_macht[self.matchup_index],
-            self.tegenstander_macht[self.matchup_index],
+            eigen_macht_gemod,
+            tegenstander_macht_gemod,
             eigen_tactiek,
             tegenstander_tactiek,
         )
@@ -372,7 +414,8 @@ class VechtView(discord.ui.View):
         self.eigen_tactiek = None
         self.tegenstander_tactiek = None
         await asyncio.sleep(2)
-        await self.message.edit(embed=self._intro_embed(), view=self)
+        embed, bestand = await self._bouw_intro()
+        await self.message.edit(embed=embed, view=self, attachments=[bestand] if bestand else [])
 
     async def _wegrennen(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
@@ -511,6 +554,7 @@ class GevechtenCog(commands.Cog):
             for pet in pets:
                 sync_stats(pet)
             await session.commit()
+            elementen = await soort_element_emojis(session)
 
         if not pets:
             await interaction.response.send_message("Je hebt nog geen pets gevangen.", ephemeral=True)
@@ -524,11 +568,12 @@ class GevechtenCog(commands.Cog):
         embed = discord.Embed(
             title="⚔️ Jouw team",
             description=(
-                ", ".join(f"#{p.volgnummer} {p.naam}" for p in huidige_team) if huidige_team else "Nog geen team samengesteld."
+                ", ".join(f"{elementen.get(p.soort_id, '❓')} #{p.volgnummer} {p.naam}" for p in huidige_team)
+                if huidige_team else "Nog geen team samengesteld."
             ),
             color=discord.Color.blurple(),
         )
-        view = TeamSelectView(interaction.user.id, beschikbaar, {p.id for p in huidige_team})
+        view = TeamSelectView(interaction.user.id, beschikbaar, {p.id for p in huidige_team}, elementen)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         view.message = await interaction.original_response()
 
@@ -667,6 +712,8 @@ class GevechtenCog(commands.Cog):
                 pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
             eigen_macht = await _team_macht_lijst(session, eigen_team)
             eigen_mmr = speler.mmr
+            elementen_bij_soort = await soort_elementen(session)
+            afbeeldingen_bij_soort = await soort_afbeeldingen(session)
             await session.commit()
 
         tegenstander_mmr = eigen_mmr
@@ -674,6 +721,11 @@ class GevechtenCog(commands.Cog):
             synthetische_tegenstander_macht(macht, eigen_mmr) * random.uniform(0.85, 1.15)
             for macht in eigen_macht
         ]
+        eigen_elementen = [elementen_bij_soort.get(pet.soort_id) for pet in eigen_team]
+        eigen_afbeeldingen = [afbeeldingen_bij_soort.get(pet.soort_id) for pet in eigen_team]
+        # Gesimuleerde tegenstander heeft geen echte soort: willekeurig element
+        # per matchup, geen afbeelding (dus geen VS-render, alleen de eigen pet).
+        tegenstander_elementen = [willekeurig_element() for _ in eigen_team]
 
         view = VechtView(
             self.bot,
@@ -689,6 +741,10 @@ class GevechtenCog(commands.Cog):
             0,
             None,
             None,
+            eigen_elementen,
+            tegenstander_elementen,
+            eigen_afbeeldingen,
+            [None] * len(eigen_team),
         )
         await view.start(interaction)
         await send_log(
@@ -775,6 +831,8 @@ class GevechtenCog(commands.Cog):
             tegenstander_macht = await _team_macht_lijst(session, tegenstander_team)
             eigen_mmr = uitdager.mmr
             tegenstander_mmr = tegenstander_speler.mmr
+            elementen_bij_soort = await soort_elementen(session)
+            afbeeldingen_bij_soort = await soort_afbeeldingen(session)
             await session.commit()
 
         await interaction.response.edit_message(
@@ -797,8 +855,16 @@ class GevechtenCog(commands.Cog):
             uitdaging.inzet_coins,
             uitdaging.inzet_item,
             uitdaging.tegenstander_id,
+            [elementen_bij_soort.get(pet.soort_id) for pet in eigen_team],
+            [elementen_bij_soort.get(pet.soort_id) for pet in tegenstander_team],
+            [afbeeldingen_bij_soort.get(pet.soort_id) for pet in eigen_team],
+            [afbeeldingen_bij_soort.get(pet.soort_id) for pet in tegenstander_team],
         )
-        bericht = await interaction.channel.send(embed=view._intro_embed(), view=view)
+        embed, bestand = await view._bouw_intro()
+        if bestand is not None:
+            bericht = await interaction.channel.send(embed=embed, view=view, file=bestand)
+        else:
+            bericht = await interaction.channel.send(embed=embed, view=view)
         view.message = bericht
 
 

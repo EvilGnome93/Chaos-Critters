@@ -10,6 +10,7 @@ from cogs.vangen import TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetStatus, Speler
+from utils.elementen import soort_element_emojis
 from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
 from utils.stats import SLAAP_COOLDOWN_UUR, SLAAP_HONGER_KOST, sync_stats
 
@@ -119,10 +120,11 @@ def _werk_status(pet: Huisdier) -> str:
 
 
 class PetLijstView(discord.ui.View):
-    def __init__(self, pets: list[Huisdier], eigenaar_id: int, sortering: str = "id"):
+    def __init__(self, pets: list[Huisdier], eigenaar_id: int, soort_elementen: dict[int, str], sortering: str = "id"):
         super().__init__(timeout=120)
         self.pets = _sorteer(pets, sortering)
         self.eigenaar_id = eigenaar_id
+        self.soort_elementen = soort_elementen
         self.sortering = sortering
         self.pagina = 0
         self.message: discord.Message | None = None
@@ -158,8 +160,9 @@ class PetLijstView(discord.ui.View):
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
             stats = f"🍖 {pet.honger} ⚡ {pet.energie}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
+            element = self.soort_elementen.get(pet.soort_id, "❓")
             embed.add_field(
-                name=f"{emoji} #{pet.volgnummer} {pet.naam} (lvl {pet.level})",
+                name=f"{emoji} {element} #{pet.volgnummer} {pet.naam} (lvl {pet.level})",
                 value=f"{_level_status(pet)}\n{status}\n{stats}",
                 inline=False,
             )
@@ -447,12 +450,13 @@ class VerzorgingCog(commands.Cog):
     async def lijst(self, interaction: discord.Interaction) -> None:
         async with async_session() as session:
             pets = await _haal_pets_op(session, interaction.user.id)
+            soort_elementen = await soort_element_emojis(session)
 
         if not pets:
             await interaction.response.send_message("Je hebt nog geen pets gevangen.", ephemeral=True)
             return
 
-        view = PetLijstView(pets, interaction.user.id)
+        view = PetLijstView(pets, interaction.user.id, soort_elementen)
         await interaction.response.send_message(embed=view.huidige_embed(), view=view)
         view.message = await interaction.original_response()
 

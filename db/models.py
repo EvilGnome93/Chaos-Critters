@@ -23,6 +23,18 @@ class ItemType(str, enum.Enum):
     overig = "overig"
 
 
+class Element(str, enum.Enum):
+    """Contra-cirkel Vuur > Lucht > Grond > Water > Vuur (zie
+    utils/elementen.py). Chaos is een 5e, grillig element zonder vaste
+    contra: geeft per matchup willekeurig een bonus of malus."""
+
+    grond = "grond"
+    water = "water"
+    lucht = "lucht"
+    vuur = "vuur"
+    chaos = "chaos"
+
+
 class Tier(Base):
     """Zeldzaamheidstiers. Nummers liggen bewust uit elkaar (1, 3, 5, ...)
     zodat er later tussenliggende tiers (2, 4, ...) toegevoegd kunnen worden
@@ -68,6 +80,7 @@ class PetSoort(Base):
     werkplek_voorkeur_id: Mapped[int | None] = mapped_column(ForeignKey("werkplekken.id"), nullable=True)
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
     afbeelding_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    element: Mapped[Element | None] = mapped_column(Enum(Element, name="element"), nullable=True)
 
     tier: Mapped["Tier"] = relationship(back_populates="pet_soorten")
     werkplek_voorkeur: Mapped["Werkplek | None"] = relationship(back_populates="pet_soorten")

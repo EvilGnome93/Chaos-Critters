@@ -17,10 +17,56 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from db.engine import async_session
-from db.models import Instelling, Item, ItemType, PetSoort, Tier, Werkplek
+from db.models import Element, Instelling, Item, ItemType, PetSoort, Tier, Werkplek
 
 # Kwalitatieve schaal -> placeholder-getal, later bij te stellen via admin panel.
 ZEER_LAAG, LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 10, 20, 40, 60, 80, 95
+
+# Element per pet-soort (2026-07-26, backlog "Elementen & contra's"), zelf
+# toegewezen op thema: waterdieren -> water, vliegende dieren -> lucht,
+# felle/agressieve roofdieren -> vuur, alle Chaos-soorten -> chaos, de rest
+# -> grond. Zie utils/elementen.py voor de contra-cirkel.
+ELEMENT_MAP: dict[str, Element] = {
+    # Grond
+    "Hond (Zwerfhond)": Element.grond, "Kat (Steegkat)": Element.grond, "Konijn": Element.grond,
+    "Egel": Element.grond, "Wasbeer": Element.grond, "Marter": Element.grond, "Eekhoorn": Element.grond,
+    "Hagedis": Element.grond, "Kever": Element.grond, "Hert": Element.grond, "Hermelijn": Element.grond,
+    "Slang": Element.grond, "Cavia": Element.grond, "Mier": Element.grond, "Slak": Element.grond,
+    "Beer": Element.grond, "Fret": Element.grond, "Schaap": Element.grond, "Geit": Element.grond,
+    "Muis": Element.grond, "Stekelvarken": Element.grond, "Hamster": Element.grond, "Varken": Element.grond,
+    "Ezel": Element.grond, "Wezel": Element.grond, "Bunzing": Element.grond, "Alpaca": Element.grond,
+    "Lama": Element.grond, "Kwartel": Element.grond, "Faisant": Element.grond, "Stokstaartje": Element.grond,
+    "Gorilla": Element.grond, "Krekel": Element.grond, "Worm": Element.grond, "Kakkerlak": Element.grond,
+    "Vlo": Element.grond, "Stinkdier": Element.grond, "Buidelrat": Element.grond, "Struisvogel": Element.grond,
+    "Luiaard": Element.grond, "Koala": Element.grond, "Kalkoen": Element.grond, "Gordeldier": Element.grond,
+    "Chimpansee": Element.grond, "Antilope": Element.grond, "Kiwi": Element.grond, "Bizon": Element.grond,
+    "Orang oetan": Element.grond, "Panda": Element.grond, "Rode Panda": Element.grond,
+    # Water
+    "Eend": Element.water, "Otter": Element.water, "Gans": Element.water, "Krab": Element.water,
+    "Zeehond": Element.water, "Kikker": Element.water, "Goudvis": Element.water, "Pelikaan": Element.water,
+    "Flamingo": Element.water, "Kwal": Element.water, "Zwaan": Element.water, "Zeepaardje": Element.water,
+    "IJsbeer": Element.water, "Krokodil": Element.water, "Anaconda": Element.water, "Walrus": Element.water,
+    "Zeekoe": Element.water, "Haai": Element.water, "Axolotl": Element.water, "Garnaal": Element.water,
+    "Pinguin": Element.water, "Schildpad": Element.water, "Rog": Element.water, "Vogelbekdier": Element.water,
+    "Dolfijn": Element.water, "Zwaardvis": Element.water,
+    # Lucht
+    "Uil": Element.lucht, "Steenarend": Element.lucht, "Valk": Element.lucht, "Duif": Element.lucht,
+    "Specht": Element.lucht, "Havik": Element.lucht, "Vleermuis": Element.lucht, "Pauw": Element.lucht,
+    "Mus": Element.lucht, "Kraai": Element.lucht, "Kraanvogel": Element.lucht, "Parkiet": Element.lucht,
+    "Gier": Element.lucht, "Vlinder": Element.lucht, "Kolibrie": Element.lucht, "Ekster": Element.lucht,
+    "Libelle": Element.lucht, "Bij": Element.lucht, "Lieveheersbeestje": Element.lucht,
+    # Vuur (felle/agressieve dieren)
+    "Vos": Element.vuur, "Wolf": Element.vuur, "Lynx": Element.vuur, "Das": Element.vuur,
+    "Tijger": Element.vuur, "Panter": Element.vuur, "Neushoorn": Element.vuur, "Luipaard": Element.vuur,
+    "Poema": Element.vuur, "Hyena": Element.vuur, "Veelvraat": Element.vuur, "Nijlpaard": Element.vuur,
+    # Chaos (alle Chaos-soorten)
+    "Chaos Kip": Element.chaos, "Chaos Eenhoorn": Element.chaos, "Chaos Rat": Element.chaos,
+    "Chaos Bever": Element.chaos, "Chaos Zwijn": Element.chaos, "Chaos Mol": Element.chaos,
+    "Chaos Reiger": Element.chaos, "Chaos Olifant": Element.chaos, "Chaos Spin": Element.chaos,
+    "Chaos Kameleon": Element.chaos, "Chaos Giraffe": Element.chaos, "Chaos Kangoeroe": Element.chaos,
+    "Chaos Toekan": Element.chaos, "Chaos Octopus": Element.chaos, "Chaos Stier": Element.chaos,
+    "Chaos Sprinkhaan": Element.chaos, "Chaos Papegaai": Element.chaos, "Chaos Wasbeerhond": Element.chaos,
+}
 
 TIERS = [
     {"id": 1, "naam": "Common", "spawnkans": 0.45, "stat_multiplier": 1.0},
@@ -334,12 +380,17 @@ async def seed() -> None:
                 "werk_basis": werk,
                 "werkplek_voorkeur_id": werkplek_ids[werkplek] if werkplek else None,
                 "beschrijving": beschrijving,
+                "element": ELEMENT_MAP.get(naam),
             }
             for naam, tier_id, gevecht, werk, werkplek, beschrijving in PET_SOORTEN
         ]
         await session.execute(
             insert(PetSoort).on_conflict_do_nothing(index_elements=["naam"]), pet_soorten_rows
         )
+        # Bestaande soorten (INSERT ON CONFLICT raakt ze niet aan) kregen op
+        # 2026-07-26 voor het eerst een element toegewezen — expliciet bijwerken.
+        for naam, element in ELEMENT_MAP.items():
+            await session.execute(update(PetSoort).where(PetSoort.naam == naam).values(element=element))
 
         item_rows = [
             {"naam": naam, "type": type_, "prijs": prijs, "beschrijving": beschrijving}

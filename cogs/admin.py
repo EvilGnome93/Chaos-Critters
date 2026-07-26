@@ -14,6 +14,19 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
+        "🌪️ Elementen & contra's",
+        "Elke pet heeft nu een element: ⛰️ Grond, 🌊 Water, 🌪️ Lucht, 🔥 Vuur, of 🌀 Chaos. Contra-cirkel "
+        "Vuur > Lucht > Grond > Water > Vuur: heb je het gunstige element tegen de tegenstander, dan "
+        "krijg je +15% macht in die matchup; heb je het ongunstige, dan -10%. Chaos-pets (en tegen "
+        "Chaos-pets) geven een willekeurige uitkomst. Zichtbaar bij `/lijst`, `/team`, en in de "
+        "matchup-titel tijdens `/vecht`.\n\n"
+        "Ook nieuw: tijdens PvP-gevechten zie je nu de twee vechtende pets naast elkaar met een "
+        "VS-badge, net als bij een ruilvoorstel.\n\n"
+        "Wat te testen: een team met bewust een gunstig/ongunstig element tegen een tegenstander, "
+        "en kijken of de uitkomst vaker de juiste kant op valt (het blijft kansspel, dus niet elke "
+        "keer).",
+    ),
+    (
         "🔄 Trading & 🕊️ /release zijn live",
         "Nieuw: `/trade speler` opent een paneel om een ruil samen te stellen — dropdowns voor wat "
         "je aanbiedt en terugvraagt (gevuld met jouw en hun items/pets), knoppen om aantal en Chaos "
