@@ -9,10 +9,10 @@ from sqlalchemy import select
 
 from cogs.werk import _format_duur, _voeg_toe_aan_inventaris
 from db.engine import async_session
-from db.models import Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Tier
+from db.models import Huisdier, Instelling, InventarisItem, Item, PetSoort, PetStatus, Speler, Tier
 from utils.afbeeldingen import soort_afbeeldingen
 from utils.discord_log import fmt_log, send_log
-from utils.elementen import elementen_modifier, emoji as element_emoji, soort_element_emojis, soort_elementen, willekeurig_element
+from utils.elementen import elementen_modifier, emoji as element_emoji, soort_element_emojis, soort_elementen
 from utils.vecht_afbeelding import bouw_vs_afbeelding
 from utils.gevechten import (
     ENERGIE_KOST_MAX,
@@ -30,6 +30,26 @@ from utils.leveling import voeg_xp_toe
 from utils.stats import BLESSURE_DUUR_UUR, inzetbaarheid_probleem, sync_stats
 
 TACTIEK_LABELS = {"aggressief": "🗡️ Aggressief", "gebalanceerd": "⚖️ Gebalanceerd", "voorzichtig": "🛡️ Voorzichtig"}
+
+# Namen voor de PvE-"gesimuleerde tegenstander" (2026-07-26, verzoek van de
+# gebruiker: eerlijker/duidelijker dan een naamloze tegenstander — je ziet nu
+# wélk wild dier je bevecht, met zijn echte element en afbeelding). Allemaal
+# bestaande soorten uit scripts/seed.py, verspreid over tiers/families.
+WILDE_NAMEN = [
+    "Wolf", "Vos", "Beer", "Das", "IJsbeer", "Neushoorn", "Krokodil", "Haai",
+    "Tijger", "Panter", "Poema", "Luipaard", "Hyena", "Wasbeer", "Otter", "Uil",
+    "Valk", "Havik", "Steenarend", "Slang", "Anaconda", "Lynx", "Gorilla",
+    "Chimpansee", "Bizon", "Nijlpaard", "Walrus", "Zwaardvis", "Struisvogel", "Kraai",
+]
+
+
+async def _kies_wilde_tegenstanders(session, aantal: int) -> list[PetSoort]:
+    """Kiest `aantal` unieke wilde tegenstanders (voor de PvE-matchups) uit
+    WILDE_NAMEN, met hun echte element + afbeelding erbij."""
+    namen = random.sample(WILDE_NAMEN, aantal)
+    soorten = (await session.execute(select(PetSoort).where(PetSoort.naam.in_(namen)))).scalars().all()
+    soorten_bij_naam = {s.naam: s for s in soorten}
+    return [soorten_bij_naam[naam] for naam in namen if naam in soorten_bij_naam]
 
 
 def _nu():
@@ -246,6 +266,7 @@ class VechtView(discord.ui.View):
         tegenstander_elementen: list,
         eigen_afbeeldingen: list,
         tegenstander_afbeeldingen: list,
+        tegenstander_namen: list[str] | None = None,
     ):
         super().__init__(timeout=180)
         self.bot = bot
@@ -265,6 +286,10 @@ class VechtView(discord.ui.View):
         self.tegenstander_elementen = tegenstander_elementen
         self.eigen_afbeeldingen = eigen_afbeeldingen
         self.tegenstander_afbeeldingen = tegenstander_afbeeldingen
+        # Per-matchup naam voor de PvE-tegenstander ("Wilde Wolf" i.p.v. het
+        # oude, naamloze "gesimuleerde tegenstander"). Bij PvP altijd de echte
+        # pet-naam (self.tegenstander_team), dus deze lijst blijft dan None.
+        self.tegenstander_namen = tegenstander_namen
 
         self.matchup_index = 0
         self.eigen_wins = 0
@@ -290,7 +315,7 @@ class VechtView(discord.ui.View):
         tegen_naam = (
             self.tegenstander_team[self.matchup_index].naam
             if self.tegenstander_team
-            else f"Wilde {self.tegenstander_naam}"
+            else f"Wilde {self.tegenstander_namen[self.matchup_index]}"
         )
         instructie = (
             f"Beide spelers kiezen een tactiek (of vluchten) — <@{self.eigen_id}> en <@{self.tegenstander_id}>:"
@@ -310,13 +335,12 @@ class VechtView(discord.ui.View):
 
         bestand = None
         eigen_url = self.eigen_afbeeldingen[self.matchup_index]
-        if self.tegenstander_team is not None:
-            tegen_url = self.tegenstander_afbeeldingen[self.matchup_index]
-            if eigen_url and tegen_url:
-                buffer = await bouw_vs_afbeelding(eigen_url, tegen_url)
-                if buffer is not None:
-                    bestand = discord.File(buffer, filename="vs.png")
-                    embed.set_image(url="attachment://vs.png")
+        tegen_url = self.tegenstander_afbeeldingen[self.matchup_index]
+        if eigen_url and tegen_url:
+            buffer = await bouw_vs_afbeelding(eigen_url, tegen_url)
+            if buffer is not None:
+                bestand = discord.File(buffer, filename="vs.png")
+                embed.set_image(url="attachment://vs.png")
         elif eigen_url:
             embed.set_image(url=eigen_url)
 
@@ -719,6 +743,7 @@ class GevechtenCog(commands.Cog):
             eigen_mmr = speler.mmr
             elementen_bij_soort = await soort_elementen(session)
             afbeeldingen_bij_soort = await soort_afbeeldingen(session)
+            wilde_soorten = await _kies_wilde_tegenstanders(session, len(eigen_team))
             await session.commit()
 
         tegenstander_mmr = eigen_mmr
@@ -728,9 +753,13 @@ class GevechtenCog(commands.Cog):
         ]
         eigen_elementen = [elementen_bij_soort.get(pet.soort_id) for pet in eigen_team]
         eigen_afbeeldingen = [afbeeldingen_bij_soort.get(pet.soort_id) for pet in eigen_team]
-        # Gesimuleerde tegenstander heeft geen echte soort: willekeurig element
-        # per matchup, geen afbeelding (dus geen VS-render, alleen de eigen pet).
-        tegenstander_elementen = [willekeurig_element() for _ in eigen_team]
+        # Gesimuleerde tegenstander heeft geen echte pet, maar leent naam +
+        # element + afbeelding van een echte, willekeurig gekozen wilde soort
+        # (2026-07-26, verzoek van de gebruiker: eerlijker als je vooraf weet
+        # tegen wat/welk element je vecht, i.p.v. een naamloze tegenstander).
+        tegenstander_namen = [soort.naam for soort in wilde_soorten]
+        tegenstander_elementen = [soort.element for soort in wilde_soorten]
+        tegenstander_afbeeldingen = [soort.afbeelding_url for soort in wilde_soorten]
 
         view = VechtView(
             self.bot,
@@ -738,7 +767,7 @@ class GevechtenCog(commands.Cog):
             eigen_team,
             eigen_macht,
             eigen_mmr,
-            "gesimuleerde tegenstander",
+            "de wilde dieren",
             None,
             tegenstander_macht,
             tegenstander_mmr,
@@ -749,14 +778,19 @@ class GevechtenCog(commands.Cog):
             eigen_elementen,
             tegenstander_elementen,
             eigen_afbeeldingen,
-            [None] * len(eigen_team),
+            tegenstander_afbeeldingen,
+            tegenstander_namen,
         )
         await view.start(interaction)
         await send_log(
             self.bot,
             interaction.guild_id,
             "gevecht",
-            fmt_log("🟡", "vecht", f"{interaction.user.mention} startte een gevecht tegen een gesimuleerde tegenstander (MMR {tegenstander_mmr})"),
+            fmt_log(
+                "🟡", "vecht",
+                f"{interaction.user.mention} startte een gevecht tegen wilde dieren "
+                f"({', '.join(tegenstander_namen)}, MMR {tegenstander_mmr})",
+            ),
         )
 
     async def _annuleer_uitdaging(
