@@ -1,6 +1,7 @@
 import asyncio
 import random
 from datetime import timedelta
+from typing import Literal
 
 import discord
 from discord import app_commands
@@ -402,6 +403,7 @@ class UitdagingView(discord.ui.View):
         inzet_coins: int,
         inzet_item,
         guild_id: int | None,
+        is_friendly: bool = False,
     ):
         super().__init__(timeout=180)
         self.cog = cog
@@ -412,6 +414,10 @@ class UitdagingView(discord.ui.View):
         self.inzet_coins = inzet_coins
         self.inzet_item = inzet_item
         self.guild_id = guild_id
+        # Vriendschappelijk gevecht (2026-07-26, verzoek van de gebruiker):
+        # altijd beschikbaar, telt niet mee voor de dagelijkse ranked-limiet,
+        # en geeft geen MMR/beloning/blessures — zie start_pvp_gevecht/VechtView.
+        self.is_friendly = is_friendly
         self.message: discord.Message | None = None
         # Voorkomt dat op_timeout nog een "verliep zonder reactie"-log stuurt
         # nadat de uitdaging allang geaccepteerd/geweigerd is (View blijft tot
@@ -503,9 +509,15 @@ class VechtView(discord.ui.View):
         tegenstander_afbeeldingen: list,
         tegenstander_namen: list[str] | None = None,
         eigen_naam: str | None = None,
+        is_friendly: bool = False,
     ):
         super().__init__(timeout=180)
         self.bot = bot
+        # Vriendschappelijk gevecht: geen MMR/beloning/XP en geen blessures,
+        # maar verder identieke flow (2026-07-26, verzoek van de gebruiker:
+        # een manier om altijd te kunnen vechten zonder van de dagelijkse
+        # ranked-limiet af te gaan).
+        self.is_friendly = is_friendly
         self.eigen_id = eigen_id
         self.eigen_team = eigen_team
         self.eigen_macht = eigen_macht
@@ -686,11 +698,12 @@ class VechtView(discord.ui.View):
             )
             if resultaat.eigen_wint:
                 self.eigen_wins += 1
-                if self.tegenstander_team is not None:
+                if not self.is_friendly and self.tegenstander_team is not None:
                     await self._blesseer(self.tegenstander_team[self.matchup_index].id)
             else:
                 self.tegenstander_wins += 1
-                await self._blesseer(self.eigen_team[self.matchup_index].id)
+                if not self.is_friendly:
+                    await self._blesseer(self.eigen_team[self.matchup_index].id)
 
             winnaar_naam = self._naam_van(self.eigen_id if resultaat.eigen_wint else self.tegenstander_id)
             uitslag_tekst = f"✅ {winnaar_naam} wint deze matchup!"
@@ -752,51 +765,55 @@ class VechtView(discord.ui.View):
         gewonnen = gevlucht_id != self.eigen_id if gevlucht_id is not None else self.eigen_wins > self.tegenstander_wins
         nieuwe_levels_eigen: list[tuple[str, int]] = []
 
+        delta = 0
         tegen_delta = None
-        async with async_session() as session:
-            speler = await session.get(Speler, self.eigen_id)
-            delta = elo_delta(self.eigen_mmr, self.tegenstander_mmr, gewonnen)
-            speler.mmr = max(0, speler.mmr + delta)
+        beloning = 0
+        # Vriendschappelijk: geen MMR/beloning/XP, dus ook helemaal geen
+        # DB-writes hier — puur voor de lol, geen invloed op ranked-stats.
+        if not self.is_friendly:
+            async with async_session() as session:
+                speler = await session.get(Speler, self.eigen_id)
+                delta = elo_delta(self.eigen_mmr, self.tegenstander_mmr, gewonnen)
+                speler.mmr = max(0, speler.mmr + delta)
 
-            beloning = 0
-            if gewonnen:
-                beloning = currency_beloning(self.tegenstander_mmr)
-                speler.currency += beloning
+                if gewonnen:
+                    beloning = currency_beloning(self.tegenstander_mmr)
+                    speler.currency += beloning
 
-            for pet in self.eigen_team:
-                pet_db = await session.get(Huisdier, pet.id)
-                for nieuw_level in voeg_xp_toe(pet_db, XP_WINST if gewonnen else XP_VERLIES):
-                    nieuwe_levels_eigen.append((pet_db.naam, nieuw_level))
-
-            if self.tegenstander_id is not None:
-                tegen_speler = await session.get(Speler, self.tegenstander_id)
-                tegen_delta = elo_delta(self.tegenstander_mmr, self.eigen_mmr, not gewonnen)
-                tegen_speler.mmr = max(0, tegen_speler.mmr + tegen_delta)
-                for pet in self.tegenstander_team:
+                for pet in self.eigen_team:
                     pet_db = await session.get(Huisdier, pet.id)
-                    voeg_xp_toe(pet_db, XP_VERLIES if gewonnen else XP_WINST)
+                    for nieuw_level in voeg_xp_toe(pet_db, XP_WINST if gewonnen else XP_VERLIES):
+                        nieuwe_levels_eigen.append((pet_db.naam, nieuw_level))
 
-                winnaar_id = self.eigen_id if gewonnen else self.tegenstander_id
-                verliezer_id = self.tegenstander_id if gewonnen else self.eigen_id
-                winnaar_speler = speler if gewonnen else tegen_speler
-                verliezer_speler = tegen_speler if gewonnen else speler
+                if self.tegenstander_id is not None:
+                    tegen_speler = await session.get(Speler, self.tegenstander_id)
+                    tegen_delta = elo_delta(self.tegenstander_mmr, self.eigen_mmr, not gewonnen)
+                    tegen_speler.mmr = max(0, tegen_speler.mmr + tegen_delta)
+                    for pet in self.tegenstander_team:
+                        pet_db = await session.get(Huisdier, pet.id)
+                        voeg_xp_toe(pet_db, XP_VERLIES if gewonnen else XP_WINST)
 
-                if self.inzet_coins:
-                    winnaar_speler.currency += self.inzet_coins
-                    verliezer_speler.currency -= self.inzet_coins
-                if self.inzet_item:
-                    item_naam, aantal = self.inzet_item
-                    item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
-                    verliezer_inv = await session.scalar(
-                        select(InventarisItem).where(
-                            InventarisItem.speler_id == verliezer_id, InventarisItem.item_id == item_obj.id
+                    winnaar_id = self.eigen_id if gewonnen else self.tegenstander_id
+                    verliezer_id = self.tegenstander_id if gewonnen else self.eigen_id
+                    winnaar_speler = speler if gewonnen else tegen_speler
+                    verliezer_speler = tegen_speler if gewonnen else speler
+
+                    if self.inzet_coins:
+                        winnaar_speler.currency += self.inzet_coins
+                        verliezer_speler.currency -= self.inzet_coins
+                    if self.inzet_item:
+                        item_naam, aantal = self.inzet_item
+                        item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
+                        verliezer_inv = await session.scalar(
+                            select(InventarisItem).where(
+                                InventarisItem.speler_id == verliezer_id, InventarisItem.item_id == item_obj.id
+                            )
                         )
-                    )
-                    if verliezer_inv:
-                        verliezer_inv.aantal = max(0, verliezer_inv.aantal - aantal)
-                    await _voeg_toe_aan_inventaris(session, winnaar_id, item_obj.id, aantal)
+                        if verliezer_inv:
+                            verliezer_inv.aantal = max(0, verliezer_inv.aantal - aantal)
+                        await _voeg_toe_aan_inventaris(session, winnaar_id, item_obj.id, aantal)
 
-            await session.commit()
+                await session.commit()
 
         # Bij PvP kijken beide spelers naar hetzelfde bericht — "jij" is dan
         # dubbelzinnig (wint/verliest voor wie precies?). Expliciete
@@ -813,7 +830,9 @@ class VechtView(discord.ui.View):
         else:
             titel = f"🏆 {eigen_ref} wint!" if gewonnen else f"💀 {eigen_ref} verliest"
         beschrijving = f"Eindstand: {eigen_ref} {self.eigen_wins} - {self.tegenstander_wins} {tegen_ref}\n"
-        if self.is_pvp:
+        if self.is_friendly:
+            beschrijving += "🤝 Vriendschappelijk gevecht — geen effect op MMR, coins, XP of blessures.\n"
+        elif self.is_pvp:
             beschrijving += (
                 f"MMR-verandering: {eigen_ref} {'+' if delta >= 0 else ''}{delta}, "
                 f"{tegen_ref} {'+' if tegen_delta >= 0 else ''}{tegen_delta}\n"
@@ -849,7 +868,8 @@ class VechtView(discord.ui.View):
                 "🟢" if gewonnen else "🔴",
                 "vecht",
                 f"{titel} — gevecht {eigen_ref} vs {tegen_ref} "
-                f"({self.eigen_wins}-{self.tegenstander_wins}), MMR {'+' if delta >= 0 else ''}{delta}",
+                f"({self.eigen_wins}-{self.tegenstander_wins}), "
+                + ("vriendschappelijk" if self.is_friendly else f"MMR {'+' if delta >= 0 else ''}{delta}"),
             ),
         )
 
@@ -914,16 +934,22 @@ class GevechtenCog(commands.Cog):
         view.message = await interaction.original_response()
 
     @app_commands.command(
-        name="vecht", description="Start een ranked gevecht: gesimuleerde tegenstander, of daag een speler uit"
+        name="vecht", description="Start een gevecht: ranked (telt mee) of vriendschappelijk (altijd beschikbaar)"
     )
     @app_commands.describe(
         tegenstander="Daag deze speler uit (optioneel; zonder dit vecht je tegen een gesimuleerde tegenstander)",
+        modus=(
+            "Ranked telt mee voor MMR/dagelijkse limiet (standaard). Vriendschappelijk is altijd beschikbaar, "
+            "maar geeft geen MMR, coins, XP of blessures en staat geen inzet toe."
+        ),
     )
     async def vecht(
         self,
         interaction: discord.Interaction,
         tegenstander: discord.Member | None = None,
+        modus: Literal["ranked", "vriendschappelijk"] = "ranked",
     ) -> None:
+        is_friendly = modus == "vriendschappelijk"
         async with async_session() as session:
             eigen_team = await _haal_team_op(session, interaction.user.id)
             for pet in eigen_team:
@@ -941,14 +967,15 @@ class GevechtenCog(commands.Cog):
                     await interaction.response.send_message(f"{probleem}", ephemeral=True)
                     return
 
-            speler = await session.get(Speler, interaction.user.id)
-            heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
-            if not heeft_poging:
-                await session.commit()
-                await interaction.response.send_message(poging_probleem, ephemeral=True)
-                return
+            if not is_friendly:
+                speler = await session.get(Speler, interaction.user.id)
+                heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
+                if not heeft_poging:
+                    await session.commit()
+                    await interaction.response.send_message(poging_probleem, ephemeral=True)
+                    return
 
-            if tegenstander is not None:
+            if tegenstander is not None and not is_friendly:
                 item_opties = await _inzet_item_opties(session, interaction.user.id)
 
             await session.commit()
@@ -959,6 +986,26 @@ class GevechtenCog(commands.Cog):
                 return
             if tegenstander.bot:
                 await interaction.response.send_message("Je kan geen bot uitdagen.", ephemeral=True)
+                return
+
+            if is_friendly:
+                # Geen inzet-paneel nodig (vriendschappelijk staat geen inzet
+                # toe) — de uitdaging gaat meteen de deur uit.
+                uitdaging_view = UitdagingView(
+                    self, interaction.user.id, interaction.user.display_name, tegenstander, 0, None,
+                    interaction.guild_id, is_friendly=True,
+                )
+                embed = discord.Embed(
+                    title="🤝 Vriendschappelijke uitdaging!",
+                    description=(
+                        f"{interaction.user.display_name} daagt {tegenstander.display_name} uit voor een "
+                        "vriendschappelijk gevecht (geen MMR, beloning, inzet of blessures).\n\n"
+                        "Beide teams moeten een volledig team van 3 hebben. Accepteren of weigeren?"
+                    ),
+                    color=discord.Color.blurple(),
+                )
+                await interaction.response.send_message(content=tegenstander.mention, embed=embed, view=uitdaging_view)
+                uitdaging_view.message = await interaction.original_response()
                 return
 
             view = VechtInzetView(
@@ -973,7 +1020,8 @@ class GevechtenCog(commands.Cog):
         # de eigen teamsamenstelling is), met een kleine MMR-modifier.
         async with async_session() as session:
             speler = await session.get(Speler, interaction.user.id)
-            await _verbruik_ranked_poging(session, speler)
+            if not is_friendly:
+                await _verbruik_ranked_poging(session, speler)
             for pet in eigen_team:
                 pet_db = await session.get(Huisdier, pet.id)
                 pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
@@ -1019,6 +1067,7 @@ class GevechtenCog(commands.Cog):
             tegenstander_afbeeldingen,
             tegenstander_namen,
             eigen_naam=interaction.user.display_name,
+            is_friendly=is_friendly,
         )
         await view.start(interaction)
         await send_log(
@@ -1027,8 +1076,9 @@ class GevechtenCog(commands.Cog):
             "gevecht",
             fmt_log(
                 "🟡", "vecht",
-                f"{interaction.user.mention} startte een gevecht tegen wilde dieren "
-                f"({', '.join(tegenstander_namen)}, MMR {tegenstander_mmr})",
+                f"{interaction.user.mention} startte een "
+                + ("vriendschappelijk " if is_friendly else "")
+                + f"gevecht tegen wilde dieren ({', '.join(tegenstander_namen)}, MMR {tegenstander_mmr})",
             ),
         )
 
@@ -1069,17 +1119,18 @@ class GevechtenCog(commands.Cog):
             uitdager = await session.get(Speler, uitdaging.uitdager_id)
             tegenstander_speler = await session.get(Speler, uitdaging.tegenstander_id)
 
-            for speler in (uitdager, tegenstander_speler):
-                heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
-                if not heeft_poging:
-                    await session.commit()
-                    naam = (
-                        uitdaging.uitdager_naam
-                        if speler.discord_id == uitdaging.uitdager_id
-                        else uitdaging.tegenstander_naam
-                    )
-                    await self._annuleer_uitdaging(interaction, uitdaging, f"{naam}: {poging_probleem}")
-                    return
+            if not uitdaging.is_friendly:
+                for speler in (uitdager, tegenstander_speler):
+                    heeft_poging, poging_probleem = await _heeft_ranked_poging(session, speler)
+                    if not heeft_poging:
+                        await session.commit()
+                        naam = (
+                            uitdaging.uitdager_naam
+                            if speler.discord_id == uitdaging.uitdager_id
+                            else uitdaging.tegenstander_naam
+                        )
+                        await self._annuleer_uitdaging(interaction, uitdaging, f"{naam}: {poging_probleem}")
+                        return
 
             if uitdaging.inzet_coins:
                 if uitdager.currency < uitdaging.inzet_coins or tegenstander_speler.currency < uitdaging.inzet_coins:
@@ -1109,8 +1160,9 @@ class GevechtenCog(commands.Cog):
                         )
                         return
 
-            await _verbruik_ranked_poging(session, uitdager)
-            await _verbruik_ranked_poging(session, tegenstander_speler)
+            if not uitdaging.is_friendly:
+                await _verbruik_ranked_poging(session, uitdager)
+                await _verbruik_ranked_poging(session, tegenstander_speler)
             for pet in [*eigen_team, *tegenstander_team]:
                 pet_db = await session.get(Huisdier, pet.id)
                 pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
@@ -1123,9 +1175,10 @@ class GevechtenCog(commands.Cog):
             afbeeldingen_bij_soort = await soort_afbeeldingen(session)
             await session.commit()
 
+        icoon = "🤝" if uitdaging.is_friendly else "⚔️"
         await interaction.response.edit_message(
             content=(
-                f"⚔️ Uitdaging geaccepteerd! {interaction.user.display_name} kijkt toe terwijl "
+                f"{icoon} Uitdaging geaccepteerd! {interaction.user.display_name} kijkt toe terwijl "
                 f"{uitdaging.uitdager_naam} vecht."
             ),
             embed=None,
@@ -1151,6 +1204,7 @@ class GevechtenCog(commands.Cog):
             [afbeeldingen_bij_soort.get(pet.soort_id) for pet in eigen_team],
             [afbeeldingen_bij_soort.get(pet.soort_id) for pet in tegenstander_team],
             eigen_naam=uitdaging.uitdager_naam,
+            is_friendly=uitdaging.is_friendly,
         )
         embed, bestand = await view._bouw_intro()
         if bestand is not None:
