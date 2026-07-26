@@ -39,6 +39,12 @@ NIEUW_OM_TE_TESTEN = [
         "`/verzorg pet_id item aantal` — geef bijvoorbeeld in 1 keer 3x Basis brokjes i.p.v. steeds "
         "los te moeten voeren.",
     ),
+    (
+        "🩹 /herstel (admin) — handig testgemak",
+        "Zet honger + energie in 1x terug naar 100: `/herstel pet_id:5` voor 1 pet, "
+        "`/herstel scope:Team` voor je hele team, of gewoon `/herstel` voor al je pets. "
+        "Scheelt steeds wachten op stat-verval of voeden tijdens het testen.",
+    ),
 ]
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een
