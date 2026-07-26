@@ -669,6 +669,7 @@ class VechtView(discord.ui.View):
         gewonnen = self.eigen_wins > self.tegenstander_wins
         nieuwe_levels_eigen: list[tuple[str, int]] = []
 
+        tegen_delta = None
         async with async_session() as session:
             speler = await session.get(Speler, self.eigen_id)
             delta = elo_delta(self.eigen_mmr, self.tegenstander_mmr, gewonnen)
@@ -714,19 +715,33 @@ class VechtView(discord.ui.View):
 
             await session.commit()
 
+        # Bij PvP kijken beide spelers naar hetzelfde bericht — "jij" is dan
+        # dubbelzinnig (wint/verliest voor wie precies?). Expliciete mentions
+        # lossen dat op; bij PvE is er maar één speler, dus blijft "Jij" prima
+        # leesbaar. Feedback van de gebruiker: dit was verwarrend voor de
+        # niet-uitdagende speler.
+        eigen_ref = f"<@{self.eigen_id}>" if self.is_pvp else "Jij"
+        tegen_ref = f"<@{self.tegenstander_id}>" if self.is_pvp else self.tegenstander_naam
+
         if gevlucht_id is not None and gevlucht_id == self.eigen_id:
-            titel = "🏳️ Gevlucht"
+            titel = f"🏳️ {eigen_ref} is gevlucht"
         elif gevlucht_id is not None and gevlucht_id == self.tegenstander_id:
-            titel = "🏆 Gewonnen! (tegenstander vluchtte)"
+            titel = f"🏆 {eigen_ref} wint! (tegenstander vluchtte)"
         else:
-            titel = "🏆 Gewonnen!" if gewonnen else "💀 Verloren"
-        beschrijving = f"Eindstand: jij {self.eigen_wins} - {self.tegenstander_wins} {self.tegenstander_naam}\n"
-        beschrijving += f"MMR-verandering: {'+' if delta >= 0 else ''}{delta}\n"
+            titel = f"🏆 {eigen_ref} wint!" if gewonnen else f"💀 {eigen_ref} verliest"
+        beschrijving = f"Eindstand: {eigen_ref} {self.eigen_wins} - {self.tegenstander_wins} {tegen_ref}\n"
+        if self.is_pvp:
+            beschrijving += (
+                f"MMR-verandering: {eigen_ref} {'+' if delta >= 0 else ''}{delta}, "
+                f"{tegen_ref} {'+' if tegen_delta >= 0 else ''}{tegen_delta}\n"
+            )
+        else:
+            beschrijving += f"MMR-verandering: {'+' if delta >= 0 else ''}{delta}\n"
         if beloning:
-            beschrijving += f"Beloning: {beloning} Chaos Coins\n"
+            beschrijving += f"Beloning voor {eigen_ref}: {beloning} Chaos Coins\n"
         if self.inzet_coins or self.inzet_item:
-            inzet_resultaat = "gewonnen" if gewonnen else "verloren"
-            beschrijving += f"Inzet {inzet_resultaat}: "
+            winnaar_ref = eigen_ref if gewonnen else tegen_ref
+            beschrijving += f"Inzet gaat naar {winnaar_ref}: "
             delen = []
             if self.inzet_coins:
                 delen.append(f"{self.inzet_coins} Chaos Coins")
@@ -750,7 +765,7 @@ class VechtView(discord.ui.View):
             fmt_log(
                 "🟢" if gewonnen else "🔴",
                 "vecht",
-                f"<@{self.eigen_id}> {titel.lower()} van gevecht tegen {self.tegenstander_naam} "
+                f"{titel} — gevecht {eigen_ref} vs {tegen_ref} "
                 f"({self.eigen_wins}-{self.tegenstander_wins}), MMR {'+' if delta >= 0 else ''}{delta}",
             ),
         )
