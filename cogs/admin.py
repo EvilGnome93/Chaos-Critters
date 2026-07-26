@@ -20,13 +20,16 @@ NIEUW_OM_TE_TESTEN = [
         "krijg je +15% macht in die matchup; heb je het ongunstige, dan -10%. Chaos-pets (en tegen "
         "Chaos-pets) geven een willekeurige uitkomst. Zichtbaar bij `/lijst`, `/verzorg`, `/team`, en "
         "in de matchup-titel tijdens `/vecht`.\n\n"
-        "Ook nieuw tijdens gevechten: je ziet nu de twee vechtende pets naast elkaar met een VS-badge, "
-        "net als bij een ruilvoorstel — óók tegen een gesimuleerde tegenstander. Die heet voortaan niet "
-        "meer gewoon 'de tegenstander': elke matchup krijg je een echt wild dier voorgeschoteld (bijv. "
-        "'Wilde Wolf') met zijn eigen naam, element én afbeelding, zodat je vooraf weet waar je tegenaan "
-        "loopt. Het plaatje verdwijnt weer zodra het gevecht is afgelopen.\n\n"
         "Wat te testen: een team met bewust een gunstig/ongunstig element tegen een tegenstander, en "
         "kijken of de uitkomst vaker de juiste kant op valt (het blijft kansspel, dus niet elke keer).",
+    ),
+    (
+        "⚔️ Gevechten: VS-afbeelding + echte wilde tegenstanders",
+        "Tijdens een matchup zie je nu de twee vechtende pets naast elkaar met een VS-badge, net als "
+        "bij een ruilvoorstel — óók tegen een gesimuleerde tegenstander. Die heet voortaan niet meer "
+        "gewoon 'de tegenstander': elke matchup krijg je een echt wild dier voorgeschoteld (bijv. "
+        "'Wilde Wolf') met zijn eigen naam, element én afbeelding, zodat je vooraf weet waar je "
+        "tegenaan loopt. Het plaatje verdwijnt weer zodra het gevecht is afgelopen.",
     ),
     (
         "🐛 Bugfix: /team liet je niet meer je team aanpassen",
