@@ -157,7 +157,7 @@ SOORT_SLUGS = {
     "Aardvarken": "aardvarken",
     "Kameel": "kameel",
     "Zebra": "zebra",
-    "Lemuur": "lemuur",
+    "Maki": "maki",
     "Walvis": "walvis",
     "Kwokka": "kwokka",
     "Klipdas": "klipdas",

@@ -47,7 +47,7 @@ ELEMENT_MAP: dict[str, Element] = {
     # naast de bestaande Chaos Mol te krijgen — Schotse hooglander bewust wél
     # toegevoegd ondanks overlap met Bizon/Chaos Stier, op verzoek).
     "Schotse hooglander": Element.grond, "Aardvarken": Element.grond, "Kameel": Element.grond,
-    "Zebra": Element.grond, "Lemuur": Element.grond, "Kwokka": Element.grond, "Klipdas": Element.grond,
+    "Zebra": Element.grond, "Maki": Element.grond, "Kwokka": Element.grond, "Klipdas": Element.grond,
     "Neusaap": Element.grond, "Okapi": Element.grond, "Wombat": Element.grond, "Rendier": Element.grond,
     "Pissebed": Element.grond,
     # Water
@@ -308,7 +308,7 @@ PET_SOORTEN = [
     ("Aardvarken", 3, LAAG, HOOG, "Mijnschacht", "Gravende specialist, wroet moeiteloos door de hardste grond"),
     ("Kameel", 3, GEMIDDELD, HOOG, "Bos", "Kan dagenlang doorwerken zonder klagen"),
     ("Zebra", 3, GEMIDDELD, GEMIDDELD, "Bos", "Verwarrend strepenpatroon, lastig scherp te krijgen voor een tegenstander"),
-    ("Lemuur", 3, LAAG, HOOG, "Bos", "Behendige klimmer met een opvallend geringde staart"),
+    ("Maki", 3, LAAG, HOOG, "Bos", "Behendige klimmer met een opvallend geringde staart"),
     ("Walvis", 5, ZEER_HOOG, LAAG, "Vijver", "Kolossale reus van de Vijver, macht die alles overstemt"),
     ("Kwokka", 2, LAAG, GEMIDDELD, "Bos", "Altijd vrolijk ogend, verrassend veerkrachtig in een gevecht"),
     ("Klipdas", 1, LAAG, GEMIDDELD, "Mijnschacht", "Klein rotsbewonertje, verrassend nauw verwant aan iets veel groters"),
