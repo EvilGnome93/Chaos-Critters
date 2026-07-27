@@ -55,6 +55,21 @@ VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
 # doel, zonder een volledig crafting-systeem te bouwen.
 RECEPT_KOSTEN: dict[str, list[tuple[str, int]]] = {
     "Slimme voerbak": [("Schroot", 5)],
+    # 2026-07-27, "Doel voor grondstoffen": geeft de resterende 11 nog-nutteloze
+    # grondstoffen een concreet doel door ze als recept-kosten aan bestaande
+    # shop-items te hangen, i.p.v. een nieuw crafting-systeem te bouwen.
+    # Hoeveelheden lager voor de zeldzamere bonus-grondstoffen (Water,
+    # Sterrenstof, Bladeren, Edelsteen — kleine kans per shift) dan voor de
+    # gegarandeerde hoofdgrondstoffen.
+    "Simpele voerbak": [("Water", 2)],
+    "Zelfreinigend systeem": [("Sterrenstof", 2)],
+    "Graanvrije premium voeding": [("Groente", 3)],
+    "Mysterie voedselzak": [("Fruit", 1)],
+    "Vers vlees/vis": [("Algen", 3)],
+    "Naamkaartje": [("Takken", 3)],
+    "Focus drankje": [("Bladeren", 2)],
+    "Werk-elixer": [("Erts", 3), ("Spijker", 2)],
+    "Extra match token": [("Maanschijnkristal", 2), ("Edelsteen", 1)],
 }
 
 # Koppelt de shop-itemnaam aan de interne uitrustings-waarde op Huisdier.

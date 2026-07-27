@@ -42,6 +42,18 @@ NIEUW_OM_TE_TESTEN = [
         "Zelfreinigend systeem uitrusten en kijken of energie oploopt terwijl een pet aan het werk is "
         "(normaal gebeurt dat alleen in rust).",
     ),
+    (
+        "💰 Alle grondstoffen hebben nu een doel + Extra match token duurder",
+        "De 11 grondstoffen die tot nu toe nutteloos waren, kosten nu wat in de shop: Water → Simpele "
+        "voerbak, Sterrenstof → Zelfreinigend systeem, Groente → Graanvrije premium voeding, Fruit → "
+        "Mysterie voedselzak, Algen → Vers vlees/vis, Takken → Naamkaartje, Bladeren → Focus drankje, "
+        "Erts+Spijker → Werk-elixer, Maanschijnkristal+Edelsteen → Extra match token. **Extra match "
+        "token ging ook van 50 naar 150 Chaos Coins** — was te makkelijk te herkopen van wat "
+        "gevecht-winst, dat mag nu meer moeite kosten.\n\n"
+        "Wat te testen: iets uit de shop kopen waar je de grondstof nog niet voor hebt (moet een "
+        "duidelijke foutmelding geven met hoeveel je te kort komt), en dan met genoeg grondstof "
+        "opnieuw proberen.",
+    ),
 ]
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een

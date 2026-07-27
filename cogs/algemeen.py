@@ -6,8 +6,7 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🌾 Doel voor grondstoffen", "Voerbakken/zelfreinigend systeem hebben nu hun effect (en Schroot heeft een doel via de Slimme voerbak), maar de overige 11 grondstof-soorten die je via werken verdient hebben nog geen enkel doel."),
-    ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
+    ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — de meeste placeholder-balanswaarden zijn tegen het licht gehouden. Het bekende ranked-daglimiet-lek is aangepakt (Extra match token duurder + kost nu ook grondstoffen). Nog open: is het XP-tempo naar max level te traag?"),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
     ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet. Inclusief een `/info <soort>` losse lookup: gevecht/werk-stats, werkplek-voorkeur en hoeveel je er zelf al hebt."),
     ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),

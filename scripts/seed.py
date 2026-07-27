@@ -335,14 +335,14 @@ ITEMS = [
         "Graanvrije premium voeding",
         ItemType.voeding,
         35,
-        "Groter honger-herstel + tijdelijke stat boost voor 1 match",
+        "Groter honger-herstel + tijdelijke stat boost voor 1 match. Kost ook 3x Groente",
     ),
-    ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur"),
+    ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur. Kost ook 3x Algen"),
     (
         "Simpele voerbak",
         ItemType.overig,
         100,
-        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult de helft van het verval aan",
+        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult de helft van het verval aan. Kost ook 2x Water",
     ),
     (
         "Slimme voerbak",
@@ -354,18 +354,18 @@ ITEMS = [
         "Zelfreinigend systeem",
         ItemType.overig,
         300,
-        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust (bijv. tijdens werk)",
+        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust (bijv. tijdens werk). Kost ook 2x Sterrenstof",
     ),
-    ("Focus drankje", ItemType.boost, 40, "Tijdelijke gevecht_genen boost voor 1 ranked match"),
-    ("Werk-elixer", ItemType.boost, 40, "Tijdelijke werk_genen boost voor 1 werk cyclus"),
+    ("Focus drankje", ItemType.boost, 40, "Tijdelijke gevecht_genen boost voor 1 ranked match. Kost ook 2x Bladeren"),
+    ("Werk-elixer", ItemType.boost, 40, "Tijdelijke werk_genen boost voor 1 werk cyclus. Kost ook 3x Erts + 2x Spijker"),
     (
         "Extra match token",
         ItemType.boost,
-        50,
-        "Koopt een ranked poging boven de dagelijkse gratis cooldown",
+        150,
+        "Koopt een ranked poging boven de dagelijkse gratis cooldown. Kost ook 2x Maanschijnkristal + 1x Edelsteen",
     ),
-    ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet"),
-    ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen"),
+    ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet. Kost ook 3x Takken"),
+    ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen. Kost ook 1x Fruit"),
     # Grondstoffen, verkregen via de werk-laag (sectie 6), niet los kopen in de shop.
     ("Groente", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Moestuin"),
     ("Algen", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Vijver"),
@@ -467,10 +467,13 @@ async def seed() -> None:
         await session.execute(insert(Item).on_conflict_do_nothing(index_elements=["naam"]), item_rows)
         await session.flush()
         # Bestaande items (INSERT ON CONFLICT raakt ze niet aan) kregen op
-        # 2026-07-27 een scherpere beschrijving voor de voerbakken/zelfreinigend
-        # systeem, nu ze een echt effect hebben — expliciet bijwerken.
-        for naam, _type_, _prijs, beschrijving in ITEMS:
-            await session.execute(update(Item).where(Item.naam == naam).values(beschrijving=beschrijving))
+        # 2026-07-27 scherpere beschrijvingen (voerbakken/zelfreinigend systeem
+        # effect, recept-kosten) en een prijsupdate (Extra match token, zie
+        # "Bekende balans-issues") — expliciet bijwerken.
+        for naam, _type_, prijs, beschrijving in ITEMS:
+            await session.execute(
+                update(Item).where(Item.naam == naam).values(beschrijving=beschrijving, prijs=prijs)
+            )
 
         item_ids = {naam: id_ for naam, id_ in (await session.execute(select(Item.naam, Item.id))).all()}
         for werkplek_naam, item_naam in WERKPLEK_OPBRENGSTEN.items():

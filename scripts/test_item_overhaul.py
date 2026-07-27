@@ -115,8 +115,11 @@ async def test_shop_en_uitrusten() -> None:
     try:
         async with async_session() as session:
             pet_id = await _maak_pet(session, SPELER, "UitrustingTest")
+            water = await session.scalar(select(Item).where(Item.naam == "Water"))
+            session.add(InventarisItem(speler_id=SPELER, item_id=water.id, aantal=5))
+            await session.commit()
 
-        # Simpele voerbak kopen (geen grondstof-eis) en uitrusten.
+        # Simpele voerbak kopen (kost ook Water sinds "Doel voor grondstoffen") en uitrusten.
         interactie = fake_interaction(SPELER)
         await cog.shop.callback(cog, interactie, item="Simpele voerbak", aantal=1)
         bericht = interactie.response.send_message.call_args.kwargs.get("embed") or \
