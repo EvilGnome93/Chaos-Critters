@@ -34,14 +34,18 @@ ENERGIE_MINIMUM = 20  # onder dit niveau kan een pet niet ingezet worden (brief 
 # Passieve uitrustings-effecten (2026-07-27, verzoek van de gebruiker:
 # Item-overhaul deel 1 — voerbakken/zelfreinigend systeem krijgen hun
 # beloofde effect). Placeholder balans-waarden, later bij te stellen.
-# Normaal herstelt energie alleen in rust; een voerbak laat 'm ook buiten
-# rust (bijv. tijdens werk) passief bijtrekken. Slimme voerbak: volle
-# snelheid; Simpele voerbak: half zo snel.
-SIMPELE_VOERBAK_FACTOR = 2  # energieherstel buiten rust is 2x zo traag als in rust
+# Een voerbak ís letterlijk een voerbak: geeft passief honger terug (vult
+# een deel van het normale verval aan), net als een automatische voerbak in
+# het echt. Slimme voerbak vult het volledige verval aan (netto stabiele
+# honger); Simpele voerbak vult de helft aan (verval gaat nog door, alleen
+# trager).
+SIMPELE_VOERBAK_FACTOR = 2  # honger-herstel is 2x zo traag als het verval
 # Zelfreinigend systeem beloofde origineel "verhoogt blijdschap automatisch",
 # maar blijdschap is bewust gepauzeerd (zie docstring hierboven) — effect
-# herdefinieerd naar de al wél actieve stat: honger verlaagt 2x zo traag.
-ZELFREINIGEND_HONGER_FACTOR = 2
+# herdefinieerd naar energie: laat energie ook buiten rust (bijv. tijdens
+# werk) passief herstellen, alsof het systeem de pet automatisch onderhoudt
+# zonder dat 'ie hoeft uit te rusten. Eén item, geen tiers, dus geen factor
+# nodig — vol tempo zodra actief.
 
 _SLAAP_COOLDOWN_UUR_ECHT = 24  # /slaap: instant volle energie, kost honger, max 1x per dag per pet
 SLAAP_COOLDOWN_UUR = (
@@ -66,19 +70,16 @@ def sync_stats(huisdier: Huisdier, nu: datetime | None = None) -> None:
     if verstreken_minuten <= 0:
         return
 
-    honger_verval_minuten = HONGER_VERVAL_MINUTEN
-    if huisdier.zelfreinigend_actief:
-        honger_verval_minuten *= ZELFREINIGEND_HONGER_FACTOR
-    huisdier.honger = max(0, huisdier.honger - int(verstreken_minuten // honger_verval_minuten))
-
-    if huisdier.status == PetStatus.rust:
-        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
-    elif huisdier.voerbak_niveau == "slim":
-        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
+    honger_verval = int(verstreken_minuten // HONGER_VERVAL_MINUTEN)
+    honger_herstel = 0
+    if huisdier.voerbak_niveau == "slim":
+        honger_herstel = int(verstreken_minuten // HONGER_VERVAL_MINUTEN)
     elif huisdier.voerbak_niveau == "simpel":
-        huisdier.energie = min(
-            100, huisdier.energie + int(verstreken_minuten // (ENERGIE_HERSTEL_MINUTEN * SIMPELE_VOERBAK_FACTOR))
-        )
+        honger_herstel = int(verstreken_minuten // (HONGER_VERVAL_MINUTEN * SIMPELE_VOERBAK_FACTOR))
+    huisdier.honger = max(0, min(100, huisdier.honger - honger_verval + honger_herstel))
+
+    if huisdier.status == PetStatus.rust or huisdier.zelfreinigend_actief:
+        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
     huisdier.laatste_verzorging_op = nu
 
 

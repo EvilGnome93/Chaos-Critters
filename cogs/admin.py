@@ -34,11 +34,13 @@ NIEUW_OM_TE_TESTEN = [
     (
         "🎒 Voerbakken & Zelfreinigend systeem hebben nu effect",
         "Deze shop-items deden nog niets — nu wel, en per pet uit te rusten met het nieuwe "
-        "`/uitrusten pet_id item` (en `afkoppelen:True` om het weer los te halen). Voerbakken laten "
-        "energie ook buiten rust herstellen (Slimme sneller dan Simpele); Zelfreinigend systeem "
-        "halveert honger-verval. Slimme voerbak kost er ook 5x Schroot bij in de shop.\n\n"
-        "Wat te testen: een voerbak kopen, uitrusten, en kijken of energie ook oploopt terwijl een pet "
-        "aan het werk is (normaal gebeurt dat alleen in rust).",
+        "`/uitrusten pet_id item` (en `afkoppelen:True` om het weer los te halen). Voerbakken geven "
+        "passief **honger** terug (Slimme vult het volledige verval aan, Simpele de helft); "
+        "Zelfreinigend systeem laat **energie** ook buiten rust herstellen (bijv. tijdens werk). "
+        "Slimme voerbak kost er ook 5x Schroot bij in de shop.\n\n"
+        "Wat te testen: een voerbak uitrusten en kijken of honger niet (of trager) daalt, en "
+        "Zelfreinigend systeem uitrusten en kijken of energie oploopt terwijl een pet aan het werk is "
+        "(normaal gebeurt dat alleen in rust).",
     ),
 ]
 

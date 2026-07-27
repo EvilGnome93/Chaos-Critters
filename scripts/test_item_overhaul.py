@@ -39,11 +39,15 @@ def fake_choice(value: str) -> MagicMock:
     return choice
 
 
+def _verstreken(minuten: float) -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=minuten)
+
+
 def _pet_stub(**overrides) -> Huisdier:
     basis = dict(
         status=PetStatus.werkplek, honger=50, energie=50,
         voerbak_niveau=None, zelfreinigend_actief=False,
-        laatste_verzorging_op=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=ENERGIE_HERSTEL_MINUTEN * 10),
+        laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10),
     )
     basis.update(overrides)
     return Huisdier(**basis)
@@ -52,35 +56,37 @@ def _pet_stub(**overrides) -> Huisdier:
 def test_sync_stats_passief_effect() -> None:
     print("-- sync_stats: passieve voerbak/zelfreinigend-effecten (pure unit-test) --")
 
-    geen = _pet_stub()
+    # Voerbak = voer -> geeft passief HONGER terug (2026-07-27, verzoek van
+    # de gebruiker: "voerbak geeft toch echt voer, niet energie" — logische
+    # correctie op de eerste versie hieronder).
+    geen = _pet_stub(honger=50, laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
     sync_stats(geen)
-    print(f"Zonder voerbak, buiten rust: energie bleef {geen.energie} (verwacht ongewijzigd, 50)")
-    assert geen.energie == 50, "energie hoort niet te herstellen buiten rust zonder voerbak"
+    print(f"Zonder voerbak: honger {geen.honger} (verwacht < 50, normaal verval)")
+    assert geen.honger < 50
 
-    simpel = _pet_stub(voerbak_niveau="simpel")
+    simpel = _pet_stub(honger=50, voerbak_niveau="simpel", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
     sync_stats(simpel)
-    print(f"Simpele voerbak, buiten rust: energie {simpel.energie} (verwacht > 50, half tempo)")
-    assert simpel.energie > 50
+    print(f"Simpele voerbak: honger {simpel.honger} (verwacht > zonder voerbak, vult helft van verval aan)")
+    assert simpel.honger > geen.honger
 
-    slim = _pet_stub(voerbak_niveau="slim")
+    slim = _pet_stub(honger=50, voerbak_niveau="slim", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
     sync_stats(slim)
-    print(f"Slimme voerbak, buiten rust: energie {slim.energie} (verwacht > simpel, vol tempo)")
-    assert slim.energie > simpel.energie
+    print(f"Slimme voerbak: honger {slim.honger} (verwacht == 50, vult volledig verval aan, netto stabiel)")
+    assert slim.honger == 50
 
-    zonder_zelfreinigend = _pet_stub(
-        status=PetStatus.rust, laatste_verzorging_op=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=HONGER_VERVAL_MINUTEN * 10)
-    )
+    # Zelfreinigend systeem: laat ENERGIE ook buiten rust herstellen (het
+    # effect dat voorheen aan de voerbak hing).
+    zonder_zelfreinigend = _pet_stub(energie=50, laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10))
     sync_stats(zonder_zelfreinigend)
+    print(f"Zonder zelfreinigend, buiten rust: energie bleef {zonder_zelfreinigend.energie} (verwacht ongewijzigd, 50)")
+    assert zonder_zelfreinigend.energie == 50
+
     met_zelfreinigend = _pet_stub(
-        status=PetStatus.rust, zelfreinigend_actief=True,
-        laatste_verzorging_op=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=HONGER_VERVAL_MINUTEN * 10),
+        energie=50, zelfreinigend_actief=True, laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10)
     )
     sync_stats(met_zelfreinigend)
-    print(
-        f"Honger zonder zelfreinigend: {zonder_zelfreinigend.honger}, met zelfreinigend: {met_zelfreinigend.honger} "
-        "(verwacht: met > zonder, verval 2x zo traag)"
-    )
-    assert met_zelfreinigend.honger > zonder_zelfreinigend.honger
+    print(f"Met zelfreinigend, buiten rust: energie {met_zelfreinigend.energie} (verwacht > 50)")
+    assert met_zelfreinigend.energie > 50
     print("Passieve effecten kloppen.")
 
 
