@@ -6,7 +6,7 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🎒 Item-overhaul", "Voerbakken en het zelfreinigend systeem krijgen hun beloofde passieve effect, én: wat doe je eigenlijk met de grondstoffen/materialen die je verdient via werken? Daar kan nu nog niets mee."),
+    ("🌾 Doel voor grondstoffen", "Voerbakken/zelfreinigend systeem hebben nu hun effect (en Schroot heeft een doel via de Slimme voerbak), maar de overige 11 grondstof-soorten die je via werken verdient hebben nog geen enkel doel."),
     ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
     ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet."),

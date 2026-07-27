@@ -295,18 +295,23 @@ ITEMS = [
         "Groter honger-herstel + tijdelijke stat boost voor 1 match",
     ),
     ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur"),
-    ("Simpele voerbak", ItemType.overig, 100, "Klein passief energie herstel, eenmalige aankoop"),
+    (
+        "Simpele voerbak",
+        ItemType.overig,
+        100,
+        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust (bijv. tijdens werk), op half tempo",
+    ),
     (
         "Slimme voerbak",
         ItemType.overig,
         250,
-        "Beter passief herstel, vereist grondstoffen + Chaos Coins",
+        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust, op vol tempo. Kost ook 5x Schroot",
     ),
     (
         "Zelfreinigend systeem",
         ItemType.overig,
         300,
-        "Verhoogt blijdschap automatisch, voorkomt stat verval bij afwezigheid",
+        "Per pet uit te rusten met /uitrusten. Honger verlaagt 2x zo traag",
     ),
     ("Focus drankje", ItemType.boost, 40, "Tijdelijke gevecht_genen boost voor 1 ranked match"),
     ("Werk-elixer", ItemType.boost, 40, "Tijdelijke werk_genen boost voor 1 werk cyclus"),
@@ -418,6 +423,11 @@ async def seed() -> None:
         ]
         await session.execute(insert(Item).on_conflict_do_nothing(index_elements=["naam"]), item_rows)
         await session.flush()
+        # Bestaande items (INSERT ON CONFLICT raakt ze niet aan) kregen op
+        # 2026-07-27 een scherpere beschrijving voor de voerbakken/zelfreinigend
+        # systeem, nu ze een echt effect hebben — expliciet bijwerken.
+        for naam, _type_, _prijs, beschrijving in ITEMS:
+            await session.execute(update(Item).where(Item.naam == naam).values(beschrijving=beschrijving))
 
         item_ids = {naam: id_ for naam, id_ in (await session.execute(select(Item.naam, Item.id))).all()}
         for werkplek_naam, item_naam in WERKPLEK_OPBRENGSTEN.items():

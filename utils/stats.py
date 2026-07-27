@@ -31,6 +31,18 @@ ENERGIE_HERSTEL_MINUTEN = (
 
 ENERGIE_MINIMUM = 20  # onder dit niveau kan een pet niet ingezet worden (brief sectie 6)
 
+# Passieve uitrustings-effecten (2026-07-27, verzoek van de gebruiker:
+# Item-overhaul deel 1 — voerbakken/zelfreinigend systeem krijgen hun
+# beloofde effect). Placeholder balans-waarden, later bij te stellen.
+# Normaal herstelt energie alleen in rust; een voerbak laat 'm ook buiten
+# rust (bijv. tijdens werk) passief bijtrekken. Slimme voerbak: volle
+# snelheid; Simpele voerbak: half zo snel.
+SIMPELE_VOERBAK_FACTOR = 2  # energieherstel buiten rust is 2x zo traag als in rust
+# Zelfreinigend systeem beloofde origineel "verhoogt blijdschap automatisch",
+# maar blijdschap is bewust gepauzeerd (zie docstring hierboven) — effect
+# herdefinieerd naar de al wél actieve stat: honger verlaagt 2x zo traag.
+ZELFREINIGEND_HONGER_FACTOR = 2
+
 _SLAAP_COOLDOWN_UUR_ECHT = 24  # /slaap: instant volle energie, kost honger, max 1x per dag per pet
 SLAAP_COOLDOWN_UUR = (
     _SLAAP_COOLDOWN_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _SLAAP_COOLDOWN_UUR_ECHT
@@ -54,9 +66,19 @@ def sync_stats(huisdier: Huisdier, nu: datetime | None = None) -> None:
     if verstreken_minuten <= 0:
         return
 
-    huisdier.honger = max(0, huisdier.honger - int(verstreken_minuten // HONGER_VERVAL_MINUTEN))
+    honger_verval_minuten = HONGER_VERVAL_MINUTEN
+    if huisdier.zelfreinigend_actief:
+        honger_verval_minuten *= ZELFREINIGEND_HONGER_FACTOR
+    huisdier.honger = max(0, huisdier.honger - int(verstreken_minuten // honger_verval_minuten))
+
     if huisdier.status == PetStatus.rust:
         huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
+    elif huisdier.voerbak_niveau == "slim":
+        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
+    elif huisdier.voerbak_niveau == "simpel":
+        huisdier.energie = min(
+            100, huisdier.energie + int(verstreken_minuten // (ENERGIE_HERSTEL_MINUTEN * SIMPELE_VOERBAK_FACTOR))
+        )
     huisdier.laatste_verzorging_op = nu
 
 

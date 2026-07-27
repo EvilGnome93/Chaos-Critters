@@ -157,6 +157,14 @@ class Huisdier(Base):
     xp: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+    # Per-pet uitrusting (2026-07-27, verzoek van de gebruiker: Item-overhaul
+    # deel 1 — voerbakken/zelfreinigend systeem krijgen hun beloofde effect).
+    # Geen FK naar Item nodig: sync_stats() (utils/stats.py) is een pure
+    # synchrone functie zonder DB-sessie, dus een simpele naam/vlag i.p.v.
+    # een join houdt dat zo. "simpel"/"slim"/None; mutually exclusive (1 slot).
+    voerbak_niveau: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    zelfreinigend_actief: Mapped[bool] = mapped_column(default=False)
+
     eigenaar: Mapped["Speler"] = relationship(back_populates="huisdieren")
     soort: Mapped["PetSoort"] = relationship(back_populates="huisdieren")
     tier: Mapped["Tier"] = relationship()

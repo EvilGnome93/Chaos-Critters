@@ -49,6 +49,31 @@ _MYSTERIE_VOEDSEL = "Mysterie voedselzak"
 
 VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
 
+# Extra grondstof-kosten bovenop de Chaos Coins-prijs, voor items die dat
+# volgens hun shop-omschrijving vereisen (2026-07-27, Item-overhaul deel 1,
+# verzoek van de gebruiker). Geeft in elk geval één grondstof een concreet
+# doel, zonder een volledig crafting-systeem te bouwen.
+RECEPT_KOSTEN: dict[str, list[tuple[str, int]]] = {
+    "Slimme voerbak": [("Schroot", 5)],
+}
+
+# Koppelt de shop-itemnaam aan de interne uitrustings-waarde op Huisdier.
+VOERBAK_NIVEAUS = {"Simpele voerbak": "simpel", "Slimme voerbak": "slim"}
+ZELFREINIGEND_ITEM = "Zelfreinigend systeem"
+UITRUSTING_ITEMS = [*VOERBAK_NIVEAUS.keys(), ZELFREINIGEND_ITEM]
+
+
+_VOERBAK_NAMEN_OMGEKEERD = {v: n for n, v in VOERBAK_NIVEAUS.items()}
+
+
+def _uitrusting_tekst(huisdier: Huisdier) -> str:
+    delen = []
+    if huisdier.voerbak_niveau:
+        delen.append(_VOERBAK_NAMEN_OMGEKEERD[huisdier.voerbak_niveau])
+    if huisdier.zelfreinigend_actief:
+        delen.append(ZELFREINIGEND_ITEM)
+    return ", ".join(delen) if delen else "geen"
+
 
 def _toepassen_voeding(huisdier: Huisdier, item_naam: str) -> str:
     """Past het effect van een voedingsitem toe op de pet, geeft de gebruikte naam terug
@@ -159,6 +184,8 @@ class PetLijstView(discord.ui.View):
         for i, pet in enumerate(subset):
             status = _werk_status(pet) if pet.status == PetStatus.werkplek else STATUS_LABELS[pet.status]
             stats = f"🍖 {pet.honger} ⚡ {pet.energie}"
+            if pet.voerbak_niveau or pet.zelfreinigend_actief:
+                stats += f" 🔧 {_uitrusting_tekst(pet)}"
             emoji = TIER_EMOJI.get(pet.tier_id, "⚪")
             element = self.soort_elementen.get(pet.soort_id, "❓")
             embed.add_field(
@@ -274,7 +301,8 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message(
                     f"**{huisdier.naam}** {element_emoji(soort.element if soort else None)} — {_level_status(huisdier)}\n"
                     f"🍖 Honger: {huisdier.honger}/100, "
-                    f"⚡ Energie: {huisdier.energie}/100",
+                    f"⚡ Energie: {huisdier.energie}/100\n"
+                    f"🔧 Uitrusting: {_uitrusting_tekst(huisdier)}",
                     ephemeral=True,
                 )
                 return
@@ -360,6 +388,108 @@ class VerzorgingCog(commands.Cog):
                 ephemeral=True,
             )
 
+    @app_commands.command(
+        name="uitrusten",
+        description="Rust een pet uit met een voerbak/zelfreinigend systeem uit je inventaris, of koppel het af",
+    )
+    @app_commands.describe(
+        pet_id="Het ID van je pet",
+        item="Het uitrustingsitem",
+        afkoppelen="Zet op True om dit item juist af te koppelen (komt terug in je inventaris)",
+    )
+    @app_commands.choices(
+        item=[app_commands.Choice(name=naam, value=naam) for naam in UITRUSTING_ITEMS]
+    )
+    async def uitrusten(
+        self,
+        interaction: discord.Interaction,
+        pet_id: int,
+        item: app_commands.Choice[str],
+        afkoppelen: bool = False,
+    ) -> None:
+        async with async_session() as session:
+            huisdier = await session.scalar(
+                select(Huisdier).where(
+                    Huisdier.eigenaar_id == interaction.user.id, Huisdier.volgnummer == pet_id
+                )
+            )
+            if huisdier is None:
+                await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
+                return
+
+            is_zelfreinigend = item.value == ZELFREINIGEND_ITEM
+            slot_naam = "zelfreinigend systeem" if is_zelfreinigend else "voerbak"
+
+            if afkoppelen:
+                if is_zelfreinigend:
+                    if not huisdier.zelfreinigend_actief:
+                        await interaction.response.send_message(
+                            f"**{huisdier.naam}** heeft geen {slot_naam} uitgerust.", ephemeral=True
+                        )
+                        return
+                    huisdier.zelfreinigend_actief = False
+                else:
+                    if huisdier.voerbak_niveau != VOERBAK_NIVEAUS[item.value]:
+                        await interaction.response.send_message(
+                            f"**{huisdier.naam}** heeft geen **{item.value}** uitgerust.", ephemeral=True
+                        )
+                        return
+                    huisdier.voerbak_niveau = None
+
+                item_obj = await session.scalar(select(Item).where(Item.naam == item.value))
+                await _voeg_toe_aan_inventaris(session, interaction.user.id, item_obj.id, 1)
+                await session.commit()
+                await interaction.response.send_message(
+                    f"🔧 **{item.value}** afgekoppeld van **{huisdier.naam}** en teruggezet in je inventaris.",
+                    ephemeral=True,
+                )
+                return
+
+            if not is_zelfreinigend and huisdier.voerbak_niveau == VOERBAK_NIVEAUS[item.value]:
+                await interaction.response.send_message(
+                    f"**{huisdier.naam}** heeft al een **{item.value}** uitgerust.", ephemeral=True
+                )
+                return
+            if is_zelfreinigend and huisdier.zelfreinigend_actief:
+                await interaction.response.send_message(
+                    f"**{huisdier.naam}** heeft al een {slot_naam} uitgerust.", ephemeral=True
+                )
+                return
+
+            item_obj = await session.scalar(select(Item).where(Item.naam == item.value))
+            inv = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == interaction.user.id, InventarisItem.item_id == item_obj.id
+                )
+            )
+            if inv is None or inv.aantal < 1:
+                await interaction.response.send_message(
+                    f"Je hebt geen **{item.value}** (meer) in je inventaris. Koop er een via `/shop`.",
+                    ephemeral=True,
+                )
+                return
+
+            wissel_tekst = ""
+            if not is_zelfreinigend and huisdier.voerbak_niveau is not None:
+                # Slot is al bezet door de andere voerbak — automatisch
+                # omwisselen: oude teruggeven, nieuwe verbruiken.
+                oude_naam = _VOERBAK_NAMEN_OMGEKEERD[huisdier.voerbak_niveau]
+                oude_item = await session.scalar(select(Item).where(Item.naam == oude_naam))
+                await _voeg_toe_aan_inventaris(session, interaction.user.id, oude_item.id, 1)
+                wissel_tekst = f" (**{oude_naam}** kwam terug in je inventaris)"
+
+            inv.aantal -= 1
+            if is_zelfreinigend:
+                huisdier.zelfreinigend_actief = True
+            else:
+                huisdier.voerbak_niveau = VOERBAK_NIVEAUS[item.value]
+            await session.commit()
+
+            await interaction.response.send_message(
+                f"🔧 **{huisdier.naam}** is uitgerust met **{item.value}**!{wissel_tekst}",
+                ephemeral=True,
+            )
+
     async def _shop_item_autocomplete(
         self, interaction: discord.Interaction, huidig: str
     ) -> list[app_commands.Choice[str]]:
@@ -421,12 +551,43 @@ class VerzorgingCog(commands.Cog):
                 )
                 return
 
+            # Sommige items vereisen naast Chaos Coins ook grondstoffen
+            # (2026-07-27, verzoek van de gebruiker: geeft grondstoffen een
+            # concreet doel). Eerst alles checken, dan pas iets aftrekken.
+            recept = RECEPT_KOSTEN.get(item, [])
+            grondstof_inventaris: dict[str, InventarisItem] = {}
+            for grondstof_naam, hoeveelheid in recept:
+                benodigd = hoeveelheid * aantal
+                grondstof_item = await session.scalar(select(Item).where(Item.naam == grondstof_naam))
+                inv = await session.scalar(
+                    select(InventarisItem).where(
+                        InventarisItem.speler_id == interaction.user.id,
+                        InventarisItem.item_id == grondstof_item.id,
+                    )
+                )
+                if inv is None or inv.aantal < benodigd:
+                    in_bezit = inv.aantal if inv else 0
+                    await interaction.response.send_message(
+                        f"**{item}** x{aantal} vereist ook {benodigd}x **{grondstof_naam}** "
+                        f"(je hebt {in_bezit}).",
+                        ephemeral=True,
+                    )
+                    return
+                grondstof_inventaris[grondstof_naam] = inv
+
             speler.currency -= kosten
+            for grondstof_naam, hoeveelheid in recept:
+                grondstof_inventaris[grondstof_naam].aantal -= hoeveelheid * aantal
             await _voeg_toe_aan_inventaris(session, interaction.user.id, item_obj.id, aantal)
             await session.commit()
 
+            recept_tekst = (
+                " + " + ", ".join(f"{hoeveelheid * aantal}x {naam}" for naam, hoeveelheid in recept)
+                if recept
+                else ""
+            )
             await interaction.response.send_message(
-                f"✅ Gekocht: {aantal}x **{item}** voor {kosten} Chaos Coins. "
+                f"✅ Gekocht: {aantal}x **{item}** voor {kosten} Chaos Coins{recept_tekst}. "
                 f"Saldo: {speler.currency} Chaos Coins.",
                 ephemeral=True,
             )
