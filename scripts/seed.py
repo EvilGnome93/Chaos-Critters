@@ -41,6 +41,15 @@ ELEMENT_MAP: dict[str, Element] = {
     "Luiaard": Element.grond, "Koala": Element.grond, "Kalkoen": Element.grond, "Gordeldier": Element.grond,
     "Chimpansee": Element.grond, "Antilope": Element.grond, "Kiwi": Element.grond, "Bizon": Element.grond,
     "Orang oetan": Element.grond, "Panda": Element.grond, "Rode Panda": Element.grond,
+    # Achtste lichting (2026-07-27): 25 nieuwe soorten, verzoek van de
+    # gebruiker (4 zelf aangedragen: Steur, Mees, Schotse hooglander,
+    # Koi-Karper; Mol vervangen door Aardvarken om geen dubbele Mol-familie
+    # naast de bestaande Chaos Mol te krijgen — Schotse hooglander bewust wél
+    # toegevoegd ondanks overlap met Bizon/Chaos Stier, op verzoek).
+    "Schotse hooglander": Element.grond, "Aardvarken": Element.grond, "Kameel": Element.grond,
+    "Zebra": Element.grond, "Lemuur": Element.grond, "Kwokka": Element.grond, "Klipdas": Element.grond,
+    "Neusaap": Element.grond, "Okapi": Element.grond, "Wombat": Element.grond, "Rendier": Element.grond,
+    "Pissebed": Element.grond,
     # Water
     "Eend": Element.water, "Otter": Element.water, "Gans": Element.water, "Krab": Element.water,
     "Zeehond": Element.water, "Kikker": Element.water, "Goudvis": Element.water, "Pelikaan": Element.water,
@@ -49,16 +58,20 @@ ELEMENT_MAP: dict[str, Element] = {
     "Zeekoe": Element.water, "Haai": Element.water, "Axolotl": Element.water, "Garnaal": Element.water,
     "Pinguin": Element.water, "Schildpad": Element.water, "Rog": Element.water, "Vogelbekdier": Element.water,
     "Dolfijn": Element.water, "Zwaardvis": Element.water,
+    "Steur": Element.water, "Koi-Karper": Element.water, "Walvis": Element.water, "Piranha": Element.water,
+    "Zeester": Element.water, "Zeekomkommer": Element.water, "Zeeleeuw": Element.water, "Anemoon": Element.water,
     # Lucht
     "Uil": Element.lucht, "Steenarend": Element.lucht, "Valk": Element.lucht, "Duif": Element.lucht,
     "Specht": Element.lucht, "Havik": Element.lucht, "Vleermuis": Element.lucht, "Pauw": Element.lucht,
     "Mus": Element.lucht, "Kraai": Element.lucht, "Kraanvogel": Element.lucht, "Parkiet": Element.lucht,
     "Gier": Element.lucht, "Vlinder": Element.lucht, "Kolibrie": Element.lucht, "Ekster": Element.lucht,
     "Libelle": Element.lucht, "Bij": Element.lucht, "Lieveheersbeestje": Element.lucht,
+    "Mees": Element.lucht,
     # Vuur (felle/agressieve dieren)
     "Vos": Element.vuur, "Wolf": Element.vuur, "Lynx": Element.vuur, "Das": Element.vuur,
     "Tijger": Element.vuur, "Panter": Element.vuur, "Neushoorn": Element.vuur, "Luipaard": Element.vuur,
     "Poema": Element.vuur, "Hyena": Element.vuur, "Veelvraat": Element.vuur, "Nijlpaard": Element.vuur,
+    "Vuurvis": Element.vuur, "Mantisgarnaal": Element.vuur,
     # Chaos (alle Chaos-soorten)
     "Chaos Kip": Element.chaos, "Chaos Eenhoorn": Element.chaos, "Chaos Rat": Element.chaos,
     "Chaos Bever": Element.chaos, "Chaos Zwijn": Element.chaos, "Chaos Mol": Element.chaos,
@@ -66,6 +79,7 @@ ELEMENT_MAP: dict[str, Element] = {
     "Chaos Kameleon": Element.chaos, "Chaos Giraffe": Element.chaos, "Chaos Kangoeroe": Element.chaos,
     "Chaos Toekan": Element.chaos, "Chaos Octopus": Element.chaos, "Chaos Stier": Element.chaos,
     "Chaos Sprinkhaan": Element.chaos, "Chaos Papegaai": Element.chaos, "Chaos Wasbeerhond": Element.chaos,
+    "Blobvis": Element.chaos, "Pijlgifkikker": Element.chaos,
 }
 
 TIERS = [
@@ -283,6 +297,35 @@ PET_SOORTEN = [
     ("Zwaardvis", 3, HOOG, LAAG, "Vijver", "Scherpe, snelle aanvaller met een gevaarlijke punt"),
     ("Chaos Wasbeerhond", 3, GEMIDDELD, GEMIDDELD, "Bos", "Onvoorspelbare stats die dagelijks licht wisselen, sluwe bosbewoner met een ondoorgrondelijke uitstraling"),
     ("Rode Panda", 4, HOOG, GEMIDDELD, "Bos", "Behendige klimmer met verrassend scherpe klauwen, moeilijker te raken dan het uiterlijk doet vermoeden"),
+    # Achtste lichting (2026-07-27): 25 nieuwe soorten, verzoek van de
+    # gebruiker. Mol vervangen door Aardvarken (dubbele familie met de
+    # bestaande Chaos Mol); Schotse hooglander bewust wél gehouden ondanks
+    # overlap met Bizon/Chaos Stier, op expliciet verzoek van de gebruiker.
+    ("Steur", 3, LAAG, GEMIDDELD, "Vijver", "Oeroude reuzenvis, geduldig en moeilijk onder de indruk te krijgen"),
+    ("Koi-Karper", 2, ZEER_LAAG, GEMIDDELD, "Vijver", "Sierlijke vijvervis in felle kleuren, brengt geluk volgens de overlevering"),
+    ("Mees", 1, LAAG, HOOG, "Moestuin", "Klein en energiek, foerageert de hele dag door tussen de planten"),
+    ("Schotse hooglander", 2, GEMIDDELD, HOOG, "Moestuin", "Ruige vacht en indrukwekkende hoorns, onverstoorbaar hard werkend"),
+    ("Aardvarken", 3, LAAG, HOOG, "Mijnschacht", "Gravende specialist, wroet moeiteloos door de hardste grond"),
+    ("Kameel", 3, GEMIDDELD, HOOG, "Bos", "Kan dagenlang doorwerken zonder klagen"),
+    ("Zebra", 3, GEMIDDELD, GEMIDDELD, "Bos", "Verwarrend strepenpatroon, lastig scherp te krijgen voor een tegenstander"),
+    ("Lemuur", 3, LAAG, HOOG, "Bos", "Behendige klimmer met een opvallend geringde staart"),
+    ("Walvis", 5, ZEER_HOOG, LAAG, "Vijver", "Kolossale reus van de Vijver, macht die alles overstemt"),
+    ("Kwokka", 2, LAAG, GEMIDDELD, "Bos", "Altijd vrolijk ogend, verrassend veerkrachtig in een gevecht"),
+    ("Klipdas", 1, LAAG, GEMIDDELD, "Mijnschacht", "Klein rotsbewonertje, verrassend nauw verwant aan iets veel groters"),
+    ("Piranha", 2, HOOG, LAAG, "Vijver", "Scherpe tandjes en weinig geduld, gevaarlijk in groepsverband"),
+    ("Zeester", 1, ZEER_LAAG, LAAG, "Vijver", "Regenereert een verloren arm zonder enige moeite"),
+    ("Neusaap", 4, GEMIDDELD, HOOG, "Bos", "Opvallende verschijning, zwemt verrassend goed voor een aap"),
+    ("Okapi", 4, GEMIDDELD, HOOG, "Bos", "Schuwe bosbewoner, met de gestreepte poten bijna onzichtbaar tussen het gebladerte"),
+    ("Wombat", 2, LAAG, HOOG, "Mijnschacht", "Graaft indrukwekkende tunnels, verdedigt zich met een keiharde achterkant"),
+    ("Zeekomkommer", 1, ZEER_LAAG, LAAG, "Vijver", "Onopvallende bodembewoner, doet nooit haastig"),
+    ("Rendier", 3, GEMIDDELD, HOOG, "Bos", "Hardnekkige doorzetter, trekt zwaar werk zonder ooit te vermoeien"),
+    ("Zeeleeuw", 3, GEMIDDELD, GEMIDDELD, "Vijver", "Speelse acrobaat in het water, verrassend snelle aanvaller"),
+    ("Anemoon", 1, LAAG, ZEER_LAAG, "Vijver", "Blijft het liefst op één plek, prikt onverwacht fel terug"),
+    ("Pissebed", 1, ZEER_LAAG, GEMIDDELD, "Bos", "Rolt zich op tot een balletje bij gevaar, ijverige opruimer van de bosbodem"),
+    ("Vuurvis", 4, HOOG, LAAG, "Vijver", "Giftige stekels en felle kleuren, een gewaarschuwde tegenstander telt voor twee"),
+    ("Blobvis", 5, ZEER_LAAG, ZEER_LAAG, "Vijver", "Ziet er allesbehalve indrukwekkend uit, en toch..."),
+    ("Mantisgarnaal", 4, ZEER_HOOG, GEMIDDELD, "Vijver", "Verpletterende klauwslag, een van de snelste aanvallen die er zijn"),
+    ("Pijlgifkikker", 2, GEMIDDELD, LAAG, "Bos", "Piepklein maar levensgevaarlijk fel gekleurd"),
 ]
 
 # (naam, type, prijs, beschrijving)
