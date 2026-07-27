@@ -325,6 +325,14 @@ ITEMS = [
     ("Takken", ItemType.grondstof, 0, "Grondstof, verkregen via werken in het Bos"),
     ("Maanschijnkristal", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Nachtwacht"),
     ("Erts", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Mijnschacht"),
+    # Tweede, zeldzamere grondstof per werkplek (2026-07-26, verzoek van de
+    # gebruiker): kleine kans per voltooide shift, los van de hoofdgrondstof.
+    ("Fruit", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken in de Moestuin"),
+    ("Water", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken bij de Vijver"),
+    ("Spijker", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken op de Werkbank"),
+    ("Bladeren", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken in het Bos"),
+    ("Sterrenstof", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken bij de Nachtwacht"),
+    ("Edelsteen", ItemType.grondstof, 0, "Zeldzame bonus-grondstof, kleine kans via werken in de Mijnschacht"),
 ]
 
 # Koppelt elke werkplek aan het grondstof-item dat hij oplevert.
@@ -335,6 +343,18 @@ WERKPLEK_OPBRENGSTEN = {
     "Bos": "Takken",
     "Nachtwacht": "Maanschijnkristal",
     "Mijnschacht": "Erts",
+}
+
+# Tweede grondstof per werkplek, met een kleine kans per voltooide shift
+# (Werkplek.opbrengst_2_kans, placeholder-waarde 0.25 voor iedereen — later
+# bij te stellen, zie "Bekende balans-issues" in docs/dev-status.md).
+WERKPLEK_BONUS_OPBRENGSTEN = {
+    "Moestuin": "Fruit",
+    "Vijver": "Water",
+    "Werkbank": "Spijker",
+    "Bos": "Bladeren",
+    "Nachtwacht": "Sterrenstof",
+    "Mijnschacht": "Edelsteen",
 }
 
 INSTELLINGEN = [
@@ -405,6 +425,12 @@ async def seed() -> None:
                 update(Werkplek)
                 .where(Werkplek.type == werkplek_naam)
                 .values(opbrengst_item_id=item_ids[item_naam])
+            )
+        for werkplek_naam, item_naam in WERKPLEK_BONUS_OPBRENGSTEN.items():
+            await session.execute(
+                update(Werkplek)
+                .where(Werkplek.type == werkplek_naam)
+                .values(opbrengst_item_2_id=item_ids[item_naam])
             )
 
         instelling_rows = [

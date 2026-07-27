@@ -57,13 +57,20 @@ class Werkplek(Base):
     type: Mapped[str] = mapped_column(String(32), unique=True)
     vereiste_werk_genen: Mapped[str] = mapped_column(String(32))
     output_per_uur: Mapped[float] = mapped_column(Numeric(6, 2))
+    # Gedeelde capaciteit over alle spelers heen: max. dit aantal pets
+    # (van willekeurig welke eigenaar) mag tegelijk op deze werkplek
+    # werken. Afgedwongen in cogs/werk.py (2026-07-26).
     capaciteit: Mapped[int] = mapped_column(default=1)
-    # Nog niet afgedwongen: hoeveel pets tegelijk hier mogen werken. Relevant
-    # zodra werkplekken gedeeld worden (bijv. gilde-feature, sectie 16).
     opbrengst_item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"), nullable=True)
+    # Tweede, zeldzamere grondstof per werkplek (2026-07-26, verzoek van de
+    # gebruiker): elke voltooide shift heeft opbrengst_2_kans kans om ook dit
+    # item op te leveren, los van de hoofdgrondstof.
+    opbrengst_item_2_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"), nullable=True)
+    opbrengst_2_kans: Mapped[float] = mapped_column(Numeric(4, 3), default=0.25)
 
     pet_soorten: Mapped[list["PetSoort"]] = relationship(back_populates="werkplek_voorkeur")
-    opbrengst_item: Mapped["Item | None"] = relationship()
+    opbrengst_item: Mapped["Item | None"] = relationship(foreign_keys=[opbrengst_item_id])
+    opbrengst_item_2: Mapped["Item | None"] = relationship(foreign_keys=[opbrengst_item_2_id])
 
 
 class PetSoort(Base):

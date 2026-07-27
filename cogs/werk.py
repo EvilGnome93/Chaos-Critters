@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,7 @@ from utils.stats import inzetbaarheid_probleem, sync_stats
 log = logging.getLogger("chaos_critters")
 
 CURRENCY_PER_GRONDSTOF = 2  # placeholder balans-waarde, later bij te stellen
+BONUS_GRONDSTOF_AANTAL = 1  # vaste hoeveelheid bij een geslaagde 2e-grondstof-roll
 NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120
 
 
@@ -95,12 +97,24 @@ async def _aantal_werkende_pets(session, speler_id: int) -> int:
     )
 
 
+async def _aantal_werkend_op_werkplek(session, werkplek_id: int) -> int:
+    """Gedeelde capaciteit-telling over ALLE spelers heen (2026-07-26,
+    verzoek van de gebruiker) — anders dan _aantal_werkende_pets, die per
+    speler telt voor de persoonlijke max-3-limiet."""
+    return await session.scalar(
+        select(func.count())
+        .select_from(Huisdier)
+        .where(Huisdier.werkplek_type_id == werkplek_id, Huisdier.status == PetStatus.werkplek)
+    )
+
+
 class WerkCog(commands.Cog):
     """De passieve werk-laag op werkplekken. Zie projectbrief sectie 4 en 6.
 
-    Werkplek-capaciteit wordt nog niet afgedwongen (staat als TODO voor
-    zodra werkplekken gedeeld worden, sectie 16). Energie wordt volledig
-    afgetrokken bij start van de shift, niet geleidelijk.
+    Werkplek-capaciteit (Werkplek.capaciteit) is gedeeld over alle spelers
+    heen en wordt afgedwongen bij het starten van een nieuwe shift (2026-07-
+    26, verzoek van de gebruiker). Energie wordt volledig afgetrokken bij
+    start van de shift, niet geleidelijk.
     """
 
     def __init__(self, bot: commands.Bot) -> None:
@@ -171,6 +185,7 @@ class WerkCog(commands.Cog):
             app_commands.Choice(name="Werkbank", value="Werkbank"),
             app_commands.Choice(name="Bos", value="Bos"),
             app_commands.Choice(name="Nachtwacht", value="Nachtwacht"),
+            app_commands.Choice(name="Mijnschacht", value="Mijnschacht"),
         ],
         cyclus=[
             app_commands.Choice(name="Korte shift (2 uur)", value="korte"),
@@ -234,6 +249,15 @@ class WerkCog(commands.Cog):
             werkplek_obj = await session.scalar(select(Werkplek).where(Werkplek.type == werkplek.value))
             cyclus_info = WERK_CYCLI[cyclus.value]
 
+            aantal_op_werkplek = await _aantal_werkend_op_werkplek(session, werkplek_obj.id)
+            if aantal_op_werkplek >= werkplek_obj.capaciteit:
+                await interaction.response.send_message(
+                    f"**{werkplek_obj.type}** zit vol ({aantal_op_werkplek}/{werkplek_obj.capaciteit} bezet, "
+                    "over alle spelers heen). Probeer het straks nog eens.",
+                    ephemeral=True,
+                )
+                return
+
             huisdier.status = PetStatus.werkplek
             huisdier.werkplek_type_id = werkplek_obj.id
             huisdier.werk_cyclus = cyclus.value
@@ -285,6 +309,13 @@ class WerkCog(commands.Cog):
         speler.currency += currency_aantal
         await _voeg_toe_aan_inventaris(session, interaction.user.id, item.id, grondstof_aantal)
 
+        # Tweede, zeldzamere grondstof met een kleine kans per shift
+        # (2026-07-26, verzoek van de gebruiker), los van de hoofdgrondstof.
+        bonus_item = None
+        if werkplek_obj.opbrengst_item_2_id and random.random() < float(werkplek_obj.opbrengst_2_kans):
+            bonus_item = await session.get(Item, werkplek_obj.opbrengst_item_2_id)
+            await _voeg_toe_aan_inventaris(session, interaction.user.id, bonus_item.id, BONUS_GRONDSTOF_AANTAL)
+
         xp_gewonnen = round(effectieve_uren * XP_PER_EFFECTIEVE_UUR)
         nieuwe_levels = voeg_xp_toe(huisdier, xp_gewonnen)
 
@@ -298,11 +329,12 @@ class WerkCog(commands.Cog):
         level_up_tekst = ""
         if nieuwe_levels:
             level_up_tekst = f"\n✨ **{huisdier.naam}** bereikte level {nieuwe_levels[-1]}!"
+        bonus_tekst = f"\n🍀 Bonus: {BONUS_GRONDSTOF_AANTAL}x {bonus_item.naam}!" if bonus_item else ""
 
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
             f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP."
-            f"{level_up_tekst}",
+            f"{bonus_tekst}{level_up_tekst}",
             ephemeral=True,
         )
         await send_log(
@@ -314,6 +346,7 @@ class WerkCog(commands.Cog):
                 "werk",
                 f"{interaction.user.mention} haalde opbrengst op van **{huisdier.naam}** "
                 f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP"
+                + (f", bonus {BONUS_GRONDSTOF_AANTAL}x {bonus_item.naam}" if bonus_item else "")
                 + (f", level-up naar {nieuwe_levels[-1]}" if nieuwe_levels else ""),
             ),
         )
