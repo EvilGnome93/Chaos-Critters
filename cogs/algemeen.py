@@ -7,7 +7,7 @@ from discord.ext import commands
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
     ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — de meeste placeholder-balanswaarden zijn tegen het licht gehouden. Het bekende ranked-daglimiet-lek is aangepakt (Extra match token duurder + kost nu ook grondstoffen). Nog open: is het XP-tempo naar max level te traag?"),
-    ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
+    ("🔍 Volledige balans-audit", "Grondige dubbelcheck van alle items, Chaos Coins-prijzen, crafting-recepten en overige balanswaarden. Ook de /shop-UX onder de loep: nu niet altijd duidelijk of je met coins of met grondstoffen (items) betaalt; mogelijk een apart /craft-commando voor recept-aankopen i.p.v. alles door /shop."),
     ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet. Inclusief een `/info <soort>` losse lookup: gevecht/werk-stats, werkplek-voorkeur en hoeveel je er zelf al hebt."),
     ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),

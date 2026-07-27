@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 import config
 from db.engine import async_session
-from db.models import Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
+from db.models import Clan, Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
 from utils.leveling import XP_PER_EFFECTIEVE_UUR, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats
@@ -97,14 +97,19 @@ async def _aantal_werkende_pets(session, speler_id: int) -> int:
     )
 
 
-async def _aantal_werkend_op_werkplek(session, werkplek_id: int) -> int:
-    """Gedeelde capaciteit-telling over ALLE spelers heen (2026-07-26,
-    verzoek van de gebruiker) — anders dan _aantal_werkende_pets, die per
-    speler telt voor de persoonlijke max-3-limiet."""
+async def _aantal_werkend_op_werkplek(session, werkplek_id: int, clan_id: int | None) -> int:
+    """Gedeelde capaciteit-telling (2026-07-26, verzoek van de gebruiker) —
+    anders dan _aantal_werkende_pets, die per speler telt voor de
+    persoonlijke max-3-limiet. Sinds het clan-systeem (2026-07-27) is dit
+    geen ene globale pool meer: elke clan heeft zijn eigen pool per
+    werkplek, los van clanloze spelers (die samen de "None"-pool delen,
+    het oorspronkelijke gedrag)."""
+    conditie = Speler.clan_id.is_(None) if clan_id is None else Speler.clan_id == clan_id
     return await session.scalar(
         select(func.count())
         .select_from(Huisdier)
-        .where(Huisdier.werkplek_type_id == werkplek_id, Huisdier.status == PetStatus.werkplek)
+        .join(Speler, Huisdier.eigenaar_id == Speler.discord_id)
+        .where(Huisdier.werkplek_type_id == werkplek_id, Huisdier.status == PetStatus.werkplek, conditie)
     )
 
 
@@ -249,11 +254,14 @@ class WerkCog(commands.Cog):
             werkplek_obj = await session.scalar(select(Werkplek).where(Werkplek.type == werkplek.value))
             cyclus_info = WERK_CYCLI[cyclus.value]
 
-            aantal_op_werkplek = await _aantal_werkend_op_werkplek(session, werkplek_obj.id)
+            speler = await session.get(Speler, interaction.user.id)
+            clan_id = speler.clan_id if speler else None
+            aantal_op_werkplek = await _aantal_werkend_op_werkplek(session, werkplek_obj.id, clan_id)
             if aantal_op_werkplek >= werkplek_obj.capaciteit:
+                pool_tekst = "binnen je clan" if clan_id is not None else "onder spelers zonder clan"
                 await interaction.response.send_message(
                     f"**{werkplek_obj.type}** zit vol ({aantal_op_werkplek}/{werkplek_obj.capaciteit} bezet, "
-                    "over alle spelers heen). Probeer het straks nog eens.",
+                    f"{pool_tekst}). Probeer het straks nog eens.",
                     ephemeral=True,
                 )
                 return
@@ -307,6 +315,9 @@ class WerkCog(commands.Cog):
 
         speler = await session.get(Speler, interaction.user.id)
         speler.currency += currency_aantal
+        if speler.clan_id is not None:
+            clan = await session.get(Clan, speler.clan_id)
+            clan.totale_werk_opbrengst += currency_aantal
         await _voeg_toe_aan_inventaris(session, interaction.user.id, item.id, grondstof_aantal)
 
         # Tweede, zeldzamere grondstof met een kleine kans per shift

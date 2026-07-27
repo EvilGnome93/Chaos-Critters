@@ -108,12 +108,36 @@ class Speler(Base):
     # Volgende per-speler pet-volgnummer (zie Huisdier.volgnummer): blijft
     # oplopen, ook na een toekomstige /release, zodat nummers nooit botsen.
     volgend_pet_nummer: Mapped[int] = mapped_column(default=1)
-    # Alvast aanwezig voor het gilde-systeem, komt later; blijft voorlopig NULL.
-    gilde_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Clan-systeem (2026-07-27, verzoek van de gebruiker: "clan" i.p.v. het
+    # Nederlandse "gilde" — enige Engelse naam in een verder Nederlandstalig
+    # schema, op expliciet verzoek. Niet "guild": discord.py gebruikt die naam
+    # al voor een Discord-server zelf (discord.Guild/interaction.guild_id),
+    # dus "clan" voorkomt een verwarrende naam-botsing). NULL = geen clan.
+    clan_id: Mapped[int | None] = mapped_column(ForeignKey("clans.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     huisdieren: Mapped[list["Huisdier"]] = relationship(back_populates="eigenaar")
     inventaris: Mapped[list["InventarisItem"]] = relationship(back_populates="speler")
+    clan: Mapped["Clan | None"] = relationship(back_populates="leden", foreign_keys=[clan_id])
+
+
+class Clan(Base):
+    """Zie projectbrief sectie 16: gedeelde werkplekken + leaderboard per
+    clan. Elke clan krijgt zijn eigen capaciteit-pool per werkplek, los
+    van de globale pool van andere clans/clanloze spelers (cogs/werk.py).
+    """
+
+    __tablename__ = "clans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    naam: Mapped[str] = mapped_column(String(32), unique=True)
+    oprichter_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("spelers.discord_id"))
+    # Cumulatieve Chaos Coins-opbrengst van alle leden via /werk, voor het
+    # leaderboard — blijft staan ook als leden het geld weer uitgeven.
+    totale_werk_opbrengst: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    leden: Mapped[list["Speler"]] = relationship(back_populates="clan", foreign_keys=[Speler.clan_id])
 
 
 class Huisdier(Base):

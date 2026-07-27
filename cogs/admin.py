@@ -14,24 +14,6 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "🤝 /vecht: vriendschappelijke modus",
-        "`/vecht [tegenstander] modus:vriendschappelijk` — altijd beschikbaar, ook als je dagelijkse "
-        "ranked-pogingen op zijn. Geen MMR-verandering, geen Chaos Coins/XP-beloning, geen blessures, "
-        "en geen inzet mogelijk. Verder identiek: tactieken, elementen, VS-afbeelding, PvE én PvP.\n\n"
-        "Wat te testen: een vriendschappelijk gevecht starten nadat je ranked-pogingen op zijn, en "
-        "checken dat je MMR/coins na afloop echt niet veranderd zijn.",
-    ),
-    (
-        "👷 Werkplekken: gedeelde capaciteit + tweede grondstof",
-        "Elke werkplek heeft nu een écht afgedwongen maximum aantal pets tegelijk, over ALLE spelers "
-        "heen (niet meer per speler) — zit 'm vol, dan krijg je een duidelijke melding. Daarnaast heeft "
-        "elke werkplek een kans op een zeldzame bonus-grondstof per voltooide shift (Fruit, Water, "
-        "Spijker, Bladeren, Sterrenstof, Edelsteen). Bonus: de 'Mijnschacht'-werkplek stond al in het "
-        "systeem maar ontbrak in `/werk`'s keuzelijst — kan nu ook echt gekozen worden.\n\n"
-        "Wat te testen: met 2 accounts dezelfde (kleine) werkplek tegelijk vol proberen te zetten, en "
-        "een paar shifts draaien om de bonus-grondstof een keer te zien opduiken.",
-    ),
-    (
         "🎒 Voerbakken & Zelfreinigend systeem hebben nu effect",
         "Deze shop-items deden nog niets — nu wel, en per pet uit te rusten met het nieuwe "
         "`/uitrusten pet_id item` (en `afkoppelen:True` om het weer los te halen). Voerbakken geven "
@@ -54,6 +36,17 @@ NIEUW_OM_TE_TESTEN = [
         "duidelijke foutmelding geven met hoeveel je te kort komt), en dan met genoeg grondstof "
         "opnieuw proberen.",
     ),
+    (
+        "🏰 Nieuw: clan-systeem",
+        "`/clan-aanmaken naam`, `/clan-join naam`, `/clan-verlaten`, `/clan-ontbinden` (alleen de "
+        "oprichter), `/clan-info [naam]` en `/clan-leaderboard`. Elke clan krijgt zijn **eigen "
+        "capaciteit-pool per werkplek**, los van andere clans en van spelers zonder clan — dus meer "
+        "clans betekent meer totale werkplek-ruimte in de server. Het leaderboard telt de cumulatieve "
+        "Chaos Coins-opbrengst van alle `/werk`-shifts van de leden samen bij elkaar op.\n\n"
+        "Wat te testen: met 2 accounts dezelfde clan joinen en dezelfde (kleine) werkplek tegelijk "
+        "vol proberen te zetten, en met een 3e (clanloos of andere clan) account checken dat die "
+        "gewoon nog kan werken.",
+    ),
 ]
 
 # Speler-gerichte commando's om aan te kondigen bij een testronde, met een
@@ -72,6 +65,12 @@ TEST_COMMANDOS = [
     ("/vecht [tegenstander] [modus]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit — bij een uitdaging opent een paneel om optioneel een item/Chaos Coins in te zetten. `modus:vriendschappelijk` telt niet mee voor ranked (geen MMR/beloning/blessures, altijd beschikbaar)."),
     ("/trade speler", "Open een paneel om een ruil samen te stellen: dropdowns voor wat je aanbiedt/terugvraagt (items/pets van jou en de ander), knoppen voor aantal + Chaos Coins."),
     ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
+    ("/clan-aanmaken naam", "Richt een nieuwe clan op — je wordt automatisch lid. Werkplekken delen dan een eigen capaciteit-pool binnen je clan."),
+    ("/clan-join naam", "Word lid van een bestaande clan."),
+    ("/clan-verlaten", "Verlaat je huidige clan (ontbindt 'm automatisch als je het laatste lid was)."),
+    ("/clan-ontbinden", "Ontbindt je clan meteen, alleen mogelijk voor de oprichter."),
+    ("/clan-info [naam]", "Bekijk oprichter, ledenaantal, ledenlijst en totale werk-opbrengst van je eigen (of een andere) clan."),
+    ("/clan-leaderboard", "Top 10 clans op cumulatieve werk-opbrengst."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
     ("/herstel [speler] [pet_id] [scope]", "(admin) Herstel honger + energie naar 100: 1 pet, een heel team, of alle pets — handig om niet steeds te hoeven wachten tijdens het testen."),

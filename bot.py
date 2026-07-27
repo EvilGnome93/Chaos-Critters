@@ -23,6 +23,7 @@ COGS = (
     "cogs.gevechten",
     "cogs.trading",
     "cogs.release",
+    "cogs.clan",
     "cogs.fokken",
     "cogs.admin",
 )
