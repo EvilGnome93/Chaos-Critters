@@ -14,46 +14,31 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "🌪️ Elementen & contra's",
-        "Elke pet heeft nu een element: ⛰️ Grond, 🌊 Water, 🌪️ Lucht, 🔥 Vuur, of 🌀 Chaos. Contra-cirkel "
-        "Vuur > Lucht > Grond > Water > Vuur: heb je het gunstige element tegen de tegenstander, dan "
-        "krijg je +15% macht in die matchup; heb je het ongunstige, dan -10%. Chaos-pets (en tegen "
-        "Chaos-pets) geven een willekeurige uitkomst. Zichtbaar bij `/lijst`, `/verzorg`, `/team`, en "
-        "in de matchup-titel tijdens `/vecht`.\n\n"
-        "Wat te testen: een team met bewust een gunstig/ongunstig element tegen een tegenstander, en "
-        "kijken of de uitkomst vaker de juiste kant op valt (het blijft kansspel, dus niet elke keer).",
+        "🤝 /vecht: vriendschappelijke modus",
+        "`/vecht [tegenstander] modus:vriendschappelijk` — altijd beschikbaar, ook als je dagelijkse "
+        "ranked-pogingen op zijn. Geen MMR-verandering, geen Chaos Coins/XP-beloning, geen blessures, "
+        "en geen inzet mogelijk. Verder identiek: tactieken, elementen, VS-afbeelding, PvE én PvP.\n\n"
+        "Wat te testen: een vriendschappelijk gevecht starten nadat je ranked-pogingen op zijn, en "
+        "checken dat je MMR/coins na afloop echt niet veranderd zijn.",
     ),
     (
-        "⚔️ Gevechten: VS-afbeelding + echte wilde tegenstanders",
-        "Tijdens een matchup zie je nu de twee vechtende pets naast elkaar met een VS-badge, net als "
-        "bij een ruilvoorstel — óók tegen een gesimuleerde tegenstander. Die heet voortaan niet meer "
-        "gewoon 'de tegenstander': elke matchup krijg je een echt wild dier voorgeschoteld (bijv. "
-        "'Wilde Wolf') met zijn eigen naam, element én afbeelding, zodat je vooraf weet waar je "
-        "tegenaan loopt. Het plaatje verdwijnt weer zodra het gevecht is afgelopen.",
+        "👷 Werkplekken: gedeelde capaciteit + tweede grondstof",
+        "Elke werkplek heeft nu een écht afgedwongen maximum aantal pets tegelijk, over ALLE spelers "
+        "heen (niet meer per speler) — zit 'm vol, dan krijg je een duidelijke melding. Daarnaast heeft "
+        "elke werkplek een kans op een zeldzame bonus-grondstof per voltooide shift (Fruit, Water, "
+        "Spijker, Bladeren, Sterrenstof, Edelsteen). Bonus: de 'Mijnschacht'-werkplek stond al in het "
+        "systeem maar ontbrak in `/werk`'s keuzelijst — kan nu ook echt gekozen worden.\n\n"
+        "Wat te testen: met 2 accounts dezelfde (kleine) werkplek tegelijk vol proberen te zetten, en "
+        "een paar shifts draaien om de bonus-grondstof een keer te zien opduiken.",
     ),
     (
-        "⚔️ /vecht: inzet nu via een paneel i.p.v. losse opties",
-        "`/vecht tegenstander` opent bij een uitdaging een paneel om optioneel een item en/of Chaos "
-        "Coins in te zetten (dropdown + knoppen), i.p.v. de losse `inzet_coins`/`inzet_item`/"
-        "`inzet_aantal`-opties die je in het command moest onthouden. PvE (zonder tegenstander) blijft "
-        "gewoon direct starten.",
-    ),
-    (
-        "🐛 Bugfix: /team liet je niet meer je team aanpassen",
-        "Als je teamleden een tijdje niet verzorgd waren (energie te laag of honger op) verdwenen ze uit "
-        "de `/team`-dropdown, waardoor je je team niet meer kon wijzigen of leeghalen. Teamleden blijven "
-        "nu altijd zichtbaar in de lijst, ook als ze tijdelijk niet inzetbaar zijn.",
-    ),
-    (
-        "🍽️ /verzorg: meerdere stuks voeding in 1 keer",
-        "`/verzorg pet_id item aantal` — geef bijvoorbeeld in 1 keer 3x Basis brokjes i.p.v. steeds "
-        "los te moeten voeren.",
-    ),
-    (
-        "🩹 /herstel (admin) — handig testgemak",
-        "Zet honger + energie in 1x terug naar 100: `/herstel pet_id:5` voor 1 pet, "
-        "`/herstel scope:Team` voor je hele team, of gewoon `/herstel` voor al je pets. "
-        "Scheelt steeds wachten op stat-verval of voeden tijdens het testen.",
+        "🎒 Voerbakken & Zelfreinigend systeem hebben nu effect",
+        "Deze shop-items deden nog niets — nu wel, en per pet uit te rusten met het nieuwe "
+        "`/uitrusten pet_id item` (en `afkoppelen:True` om het weer los te halen). Voerbakken laten "
+        "energie ook buiten rust herstellen (Slimme sneller dan Simpele); Zelfreinigend systeem "
+        "halveert honger-verval. Slimme voerbak kost er ook 5x Schroot bij in de shop.\n\n"
+        "Wat te testen: een voerbak kopen, uitrusten, en kijken of energie ook oploopt terwijl een pet "
+        "aan het werk is (normaal gebeurt dat alleen in rust).",
     ),
 ]
 
@@ -68,8 +53,9 @@ TEST_COMMANDOS = [
     ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
+    ("/uitrusten pet_id item [afkoppelen]", "Rust een pet uit met een voerbak of Zelfreinigend systeem uit je inventaris, of koppel 'm weer af (komt terug in je inventaris)."),
     ("/team", "Stel je team van 3 pets samen voor gevechten."),
-    ("/vecht [tegenstander]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit — bij een uitdaging opent een paneel om optioneel een item/Chaos Coins in te zetten."),
+    ("/vecht [tegenstander] [modus]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit — bij een uitdaging opent een paneel om optioneel een item/Chaos Coins in te zetten. `modus:vriendschappelijk` telt niet mee voor ranked (geen MMR/beloning/blessures, altijd beschikbaar)."),
     ("/trade speler", "Open een paneel om een ruil samen te stellen: dropdowns voor wat je aanbiedt/terugvraagt (items/pets van jou en de ander), knoppen voor aantal + Chaos Coins."),
     ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
