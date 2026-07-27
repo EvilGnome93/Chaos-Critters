@@ -9,7 +9,7 @@ TODO_ITEMS = [
     ("🌾 Doel voor grondstoffen", "Voerbakken/zelfreinigend systeem hebben nu hun effect (en Schroot heeft een doel via de Slimme voerbak), maar de overige 11 grondstof-soorten die je via werken verdient hebben nog geen enkel doel."),
     ("⚖️ Herbalanceren", "Item-prijzen, XP-snelheden, werk-opbrengsten — alle placeholder-balanswaarden tegen het licht houden."),
     ("🏰 Gilde-systeem", "Gedeelde werkplekken en leaderboards per gilde."),
-    ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet."),
+    ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet. Inclusief een `/info <soort>` losse lookup: gevecht/werk-stats, werkplek-voorkeur en hoeveel je er zelf al hebt."),
     ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
     ("🐣 Fokken (lange termijn)", "Nieuwe pets kweken van je bestaande pets. Pas echt interessant vanaf 250 pet-soorten, dus staat achteraan."),

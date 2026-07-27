@@ -6,7 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy import select
 
-from cogs.vangen import TIER_KLEUREN
+from cogs.vangen import TIER_EMOJI, TIER_KLEUREN
 from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
@@ -92,8 +92,6 @@ STATUS_LABELS = {
     PetStatus.rust: "😴 Rust",
     PetStatus.team: "⚔️ In team",
 }
-
-TIER_EMOJI = {1: "⚪", 3: "🔵", 5: "🟡"}
 
 SORTEER_OPTIES = {
     "id": "ID",

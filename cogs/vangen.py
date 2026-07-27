@@ -33,6 +33,11 @@ TIER_KLEUREN = {
 }
 PLACEHOLDER_AFBEELDING = "https://placehold.co/400x400/2c2f33/ffffff/png?text=%3F"  # tot er echte pet-art is
 
+# Tier-emoji, ook gebruikt in cogs/verzorging.py:/lijst. Was eerder alleen
+# {1, 3, 5} — Uncommon/Epic vielen dan terug op het Common-icoontje
+# (2026-07-27, gevonden terwijl aan /info gewerkt werd, los meegenomen).
+TIER_EMOJI = {1: "⚪", 2: "🟢", 3: "🔵", 4: "🟣", 5: "🟡"}
+
 
 def _met_variantie(basis: float) -> float:
     factor = 1 + random.uniform(-GENEN_VARIANTIE, GENEN_VARIANTIE)
