@@ -60,6 +60,21 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 5. Admin panel: **web-based op casualchaos.nl** (brief sectie 14), niet via Discord. Het `/instelling`-Discord-commando (was een placeholder) is verwijderd uit `cogs/admin.py` (2026-07-22) — één bron van waarheid, alleen het webpanel. De `Instellingen`-tabel in de database blijft de opslag; het webpanel leest/schrijft dezelfde database als de bot. Dit is een apart (web)project, geen Discord-cog-werk.
 6. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **lange termijn, verzet naar achteraan** (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150).
 
+## Voorbereiding volgende sessie (2026-07-27)
+
+Alles tot en met het clan-systeem is gecommit + gepusht naar `dev` (laatste commit `4863a4e`), alle testscripts in `scripts/` slagen. Niets staat open/kapot. Volgende stap volgens `/todo`-volgorde: **Volledige balans-audit** (item 2 hierboven) — expliciet verzoek van de gebruiker om **hier veel vragen over te stellen vooraf**, dus onderstaand een kant-en-klare vragenlijst i.p.v. blind aan getallen sleutelen. De "Balans-audit referentie" direct hieronder heeft alle exacte huidige waarden al verzameld.
+
+**Concrete openstaande vragen om bij het begin van de volgende sessie te stellen** (niet zelf invullen):
+1. **XP-tempo** (grootste bekende gat, zie "Bekende balans-issues" hieronder): hoe lang zou het redelijkerwijs moeten duren om 1 pet van level 1 naar level 50 (`MAX_LEVEL`) te krijgen bij normaal spelen? Huidige schatting: ~227 dagen puur uit werk-XP. Dit antwoord bepaalt `XP_PER_EFFECTIEVE_UUR`, de level-curve, en mogelijk `XP_WINST`/`XP_VERLIES`.
+2. **Recept-hoeveelheden zelf gekozen, niet gevalideerd**: de hoeveelheden in `RECEPT_KOSTEN` (`cogs/verzorging.py`) — Water x2, Sterrenstof x2, Groente x3, Fruit x1, Algen x3, Takken x3, Bladeren x2, Erts x3 + Spijker x2, Maanschijnkristal x2 + Edelsteen x1 — zijn door mij bedacht op basis van "bonus-grondstof (25% kans) = lagere hoeveelheid dan gegarandeerde hoofdgrondstof", niet afgestemd met de gebruiker. Expliciet checken of dit aanvoelt als de juiste moeite/beloning-verhouding.
+3. **`/shop`-UX**: voelt het verwarrend dat sommige shop-items nu ook grondstoffen kosten naast Chaos Coins (niet zichtbaar vóór je een aankoop probeert, alleen in de beschrijving-tekst)? Wil de gebruiker een apart `/craft`-commando specifiek voor recept-items, met de kosten vooraf duidelijk getoond (bijv. in een preview-embed), of is de huidige `/shop`-foutmelding-bij-tekort voldoende?
+4. **Item-prijzen algemeen**: zijn er items die je zelf al te goedkoop/duur vindt aanvoelen nu je ermee gespeeld hebt (bijv. Extra match token nu 150, Slimme voerbak 250+5 Schroot, Zelfreinigend systeem 300+2 Sterrenstof)?
+5. **Werk-opbrengst/energie-kosten per cyclus**: voelen de shift-lengtes (2/6/10 uur) en hun energie-kosten (20/50/70) in verhouding tot de opbrengst-multiplier (1.0/2.8/4.5)? Overnacht is duidelijk het efficiëntst per uur — is dat gewenst (beloont geduld) of ongewenst (maakt korte/lange shifts overbodig)?
+6. **Werkplek-capaciteit + tweede-grondstof-kans**: nu dat er ook clans zijn (elk met een eigen pool), voelt `capaciteit` (3/2/2/2/1/2) nog steeds goed? En is 25% kans op de bonus-grondstof voor elke werkplek te vaak/te zeldzaam?
+7. **Gevecht-economie**: `ELO_K`=32, winst-currency 20+2/100MMR, `XP_WINST/VERLIES`=30/10, tactiek-variantie — dit is nooit eerder als "placeholder, moet nog" gemarkeerd maar is wel meegenomen op verzoek. Was er een concrete reden om dit mee te nemen (iets voelde scheef tijdens het spelen), of was het vooral "voor de zekerheid ook even checken"?
+
+**Ook nog te doen, niet per se een vraag**: de "Bekende balans-issues"-sectie hieronder bevat de volledige onderbouwing voor vraag 1.
+
 ## Balans-audit referentie (2026-07-27, voor Herbalanceren)
 
 **Alle placeholder-balanswaarden, met exacte locatie** (herbekeken tijdens de Herbalanceren-stap; alleen de Extra match token-prijs is aangepast, de rest bewust ongewijzigd gelaten omdat er geen concreet probleem gevonden is):
