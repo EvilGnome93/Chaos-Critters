@@ -52,12 +52,35 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 **Doorlopend, geen afvinkbaar punt**: nieuwe pet-soorten blijven erbij komen naast het onderstaande werk — dat is nooit "klaar".
 
 1. **Doel voor grondstoffen** (Item-overhaul deel 2, resterend na 2026-07-27): de voerbakken/Zelfreinigend systeem hebben nu hun effect, en Schroot heeft een doel gekregen via de Slimme voerbak (zie "Wat werkt"), maar de overige 11 grondstof-soorten (Groente, Algen, Takken, Maanschijnkristal, Erts, Fruit, Water, Spijker, Bladeren, Sterrenstof, Edelsteen) hebben nog steeds geen enkel doel. Nog te bepalen wat daarmee moet gebeuren (meer recepten zoals bij Slimme voerbak? upgrades? crafting? inruilen?) — bewust nog niet in deze stap meegenomen, expliciet uitgesteld op verzoek van de gebruiker ("half is goed genoeg").
-2. Herbalanceren van alles: item-prijzen, XP-snelheden, werk-opbrengsten, alle placeholder-balanswaarden (inclusief `RELEASE_BASIS_COINS`/`BONUS_ITEM_KANS` uit `/release`, de elementen-bonus/malus-percentages 15%/10%, de `Werkplek.opbrengst_2_kans` van 25% voor iedere werkplek, en de nieuwe `SIMPELE_VOERBAK_FACTOR`/`ZELFREINIGEND_HONGER_FACTOR` van 2x). Zie ook de "Bekende balans-issues" hieronder.
+2. Herbalanceren van alles: item-prijzen, XP-snelheden, werk-opbrengsten, alle placeholder-balanswaarden (inclusief `RELEASE_BASIS_COINS`/`BONUS_ITEM_KANS` uit `/release`, de elementen-bonus/malus-percentages 15%/10%, de `Werkplek.opbrengst_2_kans` van 25% voor iedere werkplek, en `SIMPELE_VOERBAK_FACTOR` = 2x in `utils/stats.py` — **niet** `ZELFREINIGEND_HONGER_FACTOR`, die constante bestaat niet meer sinds voerbak/Zelfreinigend systeem-effecten zijn omgedraaid, zie "Wat werkt" hierboven). Zie ook de "Bekende balans-issues" hieronder.
 3. Gilde-systeem (verder weg, `gilde_id`-velden staan al klaar in het schema; kan de gedeelde werkplek-capaciteit later per gilde i.p.v. globaal maken).
 4. **Critterdex**: commando dat alle pet-soorten toont (tier + element) en of je 'm al gevangen hebt. Gepagineerd net als `/lijst` (max 10/pagina), filterbaar op tier, standaard sortering op tier + alfabet. Exacte view-opbouw (dropdown voor tier-filter? aparte knoppen?) nog te bepalen bij implementatie. **Erbij, verzoek van de gebruiker (2026-07-27)**: een `/info <soort>` sub-feature — losse soort-lookup (autocomplete op naam) met gevecht/werk-stats als kwalitatief label (Laag/Gemiddeld/Hoog/...), tier, element, werkplek-voorkeur, flavor-tekst, en hoeveel je er zelf al gevangen hebt. Nog niet gebouwd (bewust uitgesteld tot de Critterdex-stap, i.p.v. nu als los commando).
 5. Mini-wiki: publiek bericht in het kanaal (zoals `/lijst`). Dropdown om een onderwerp te kiezen, buttons voor navigatie/paginering binnen dat onderwerp (zelfde patroon als `/lijst`). Welke onderwerpen erin komen en de exacte inhoud nog te bepalen.
 6. Admin panel: **web-based op casualchaos.nl** (brief sectie 14), niet via Discord. Het `/instelling`-Discord-commando (was een placeholder) is verwijderd uit `cogs/admin.py` (2026-07-22) — één bron van waarheid, alleen het webpanel. De `Instellingen`-tabel in de database blijft de opslag; het webpanel leest/schrijft dezelfde database als de bot. Dit is een apart (web)project, geen Discord-cog-werk.
 7. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **lange termijn, verzet naar achteraan** (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150).
+
+## Voorbereiding volgende sessie: "Doel voor grondstoffen" + "Herbalanceren" (2026-07-27)
+
+Gebruiker wil deze twee backlog-items (1 en 2 hierboven) in één stap combineren, waarschijnlijk vanaf een andere pc — onderstaande is een kant-en-klare referentie zodat een nieuwe sessie niet opnieuw hoeft te zoeken. Nog geen code aangepast, puur audit/voorbereiding.
+
+**De 11 nog-doelloze grondstoffen** (allemaal `ItemType.grondstof`, prijs 0, alleen via `/werk` te verdienen, nul ander gebruik behalve rondslingeren in de inventaris — geverifieerd via grep): Groente (Moestuin), Algen (Vijver), Takken (Bos), Maanschijnkristal (Nachtwacht), Erts (Mijnschacht), Fruit (Moestuin-bonus), Water (Vijver-bonus), Spijker (Werkbank-bonus), Bladeren (Bos-bonus), Sterrenstof (Nachtwacht-bonus), Edelsteen (Mijnschacht-bonus). **Schroot** (let op: `ItemType.materiaal`, niet `grondstof`) is de enige met een doel: `RECEPT_KOSTEN["Slimme voerbak"] = [("Schroot", 5)]` in `cogs/verzorging.py`.
+
+**Het recept-patroon staat al klaar voor hergebruik**: `RECEPT_KOSTEN: dict[str, list[tuple[str, int]]]` in `cogs/verzorging.py` (naast de `/shop`-aankoopflow) is al generiek — meerdere grondstoffen per recept, meerdere recepten tegelijk. Om de overige 11 grondstoffen een doel te geven volstaat in het simpelste geval: nieuwe entries toevoegen (voor bestaande of nieuwe shop-items), geen verdere codewijziging nodig. Grotere opties (upgrades/crafting-systeem/inruilen) vereisen wel nieuw ontwerp — nog geen keuze gemaakt.
+
+**Alle placeholder-balanswaarden, met exacte locatie**:
+- `cogs/werk.py`: `CURRENCY_PER_GRONDSTOF` = 2, `BONUS_GRONDSTOF_AANTAL` = 1, cyclus `energie_kost` (20/50/70) en `output_multiplier` (1.0/2.8/4.5) voor korte/lange/overnacht.
+- `scripts/seed.py`: stat-schaal `ZEER_LAAG..HOOGSTE` = 10/20/40/60/80/95; `WERKPLEKKEN[].output_per_uur` (Moestuin 5.0, Vijver 6.0, Werkbank 6.0, Bos 5.5, Nachtwacht 7.0, Mijnschacht 6.5) en `.capaciteit` (3/2/2/2/1/2); `TIERS[].spawnkans` (45/25/18/9/3%) en `.stat_multiplier` (1.0/1.2/1.4/1.7/2.0); alle `ITEMS[].prijs`.
+- `db/models.py` / migratie `86eb7fa1f495`: `Werkplek.opbrengst_2_kans` default 0.25 voor iedere werkplek.
+- `utils/leveling.py`: `XP_PER_EFFECTIEVE_UUR` = 5, `MAX_LEVEL` = 50, `GENEN_GROEI_PER_LEVEL` = 0.02, level-curve `huidig_level * 100`.
+- `utils/stats.py`: `_HONGER_VERVAL_MINUTEN_ECHT` = 20, `_ENERGIE_HERSTEL_MINUTEN_ECHT` = 10, `ENERGIE_MINIMUM` = 20, `SIMPELE_VOERBAK_FACTOR` = 2, `SLAAP_HONGER_KOST` = 20, `_SLAAP_COOLDOWN_UUR_ECHT` = 24, `_BLESSURE_DUUR_UUR_ECHT` = 2.
+- `cogs/release.py`: `RELEASE_BASIS_COINS` = 15, `BONUS_ITEM_KANS` = 0.15.
+- `utils/elementen.py`: `BONUS` = 1.15, `MALUS` = 0.90.
+- `utils/gevechten.py` (**nog nergens expliciet als placeholder gemarkeerd, maar hoort inhoudelijk bij Herbalanceren**): `ELO_K` = 32, `CURRENCY_BASIS_WINST` = 20, `CURRENCY_BONUS_PER_100_MMR` = 2, `XP_WINST`/`XP_VERLIES` = 30/10, `ENERGIE_KOST_MIN`/`MAX` = 10/20, `TACTIEK_VARIANTIE` (aggressief -25%/+35%, gebalanceerd -15%/+15%, voorzichtig -10%/+10%), `MAX_INTERNE_RONDES` = 5, `SCHADE_FRACTIE` = 0.35.
+- DB-backed via `Instelling`-tabel (al zonder codewijziging aanpasbaar): `ranked_gratis_per_dag` = 3, `max_werkende_pets_per_speler` = 3.
+
+**Enige al gedocumenteerde bekende balans-issue** (zie hieronder): de dagelijkse ranked-limiet is makkelijk te omzeilen via currency uit winst + Extra match token.
+
+**Open vraag voor volgende sessie**: horen de `utils/gevechten.py`-constanten (Elo/currency/XP/tactiek-variantie) ook bij "Herbalanceren", of is dat losstaand? Nog niet besproken met de gebruiker.
 
 ## Bekende balans-issues (nog niet opgelost, expliciet uitgesteld)
 
