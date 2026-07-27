@@ -151,7 +151,7 @@ SOORT_SLUGS = {
     "Chaos Wasbeerhond": "chaos_wasbeerhond",
     "Rode Panda": "rode_panda",
     "Steur": "steur",
-    "Koi-Karper": "koi_karper",
+    "Koi-Karper": "koi-karper",
     "Mees": "mees",
     "Schotse hooglander": "schotse_hooglander",
     "Aardvarken": "aardvarken",
