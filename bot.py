@@ -24,6 +24,7 @@ COGS = (
     "cogs.trading",
     "cogs.release",
     "cogs.clan",
+    "cogs.critterdex",
     "cogs.fokken",
     "cogs.admin",
 )

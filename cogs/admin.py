@@ -51,6 +51,16 @@ NIEUW_OM_TE_TESTEN = [
         "vol proberen te zetten, en met een 3e (clanloos of andere clan) account checken dat die "
         "gewoon nog kan werken.",
     ),
+    (
+        "📖 Nieuw: /critterdex en /info",
+        "`/critterdex` toont alle pet-soorten (gepagineerd, 10 per pagina), met dropdown-filters voor "
+        "tier én element, en of/hoe vaak je elke soort al gevangen hebt. `/info soort` (autocomplete) "
+        "geeft de details van één specifieke soort: gevecht/werk-stats als woord (Laag/Gemiddeld/"
+        "Hoog/...), werkplek-voorkeur en je eigen vangst-aantal.\n\n"
+        "Wat te testen: filter in `/critterdex` op een tier + element tegelijk en check of de lijst "
+        "klopt, en vergelijk `/info` van een soort die je al gevangen hebt met een die je nog niet "
+        "hebt.",
+    ),
 ]
 
 class AdminCog(commands.Cog):
