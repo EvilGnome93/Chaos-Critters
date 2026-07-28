@@ -60,6 +60,15 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 3. Admin panel: **web-based op casualchaos.nl** (brief sectie 14), niet via Discord. Het `/instelling`-Discord-commando (was een placeholder) is verwijderd uit `cogs/admin.py` (2026-07-22) — één bron van waarheid, alleen het webpanel. De `Instellingen`-tabel in de database blijft de opslag; het webpanel leest/schrijft dezelfde database als de bot. Dit is een apart (web)project, geen Discord-cog-werk.
 4. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **lange termijn, verzet naar achteraan** (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150).
 
+## Voorbereiding volgende sessie (2026-07-28)
+
+Alles tot en met `/craft`/`/craft-lijst` is gecommit + gepusht naar `dev` (laatste commit `62c3190`), inclusief de migratie voor de balans-audit-wijzigingen (`2b8a6f31c9de`, al toegepast op de live DB) en alle bijgewerkte testscripts. Niets staat open/kapot, op één bekende uitzondering na:
+
+- **`scripts/test_vangen.py` is stuk** (`VangenCog._vind_soort` bestaat niet meer, waarschijnlijk hernoemd tijdens latere refactors) — al eerder geconstateerd (2026-07-28), nog steeds niet gefixt, buiten scope gehouden. Oppakken zodra er tijd voor is.
+- **`/craft-lijst` is expliciet tijdelijk** (verzoek van de gebruiker) — overwegen te verwijderen zodra `/craft` (zonder argumenten) bekend genoeg is bij de testgroep.
+
+Volgende stap volgens de backlog-volgorde hierboven: **1. Critterdex** (incl. de `/info <soort>`-sub-feature). Geen kant-en-klare vragenlijst dit keer — bij twijfel over de view-opbouw (dropdown vs. knoppen voor tier-filter) gewoon vragen zoals gebruikelijk.
+
 ## Balans-audit resultaat (2026-07-28)
 
 Alle 7 audit-vragen zijn met de gebruiker doorgenomen en doorgevoerd (code + 1 nieuwe migratie `2b8a6f31c9de`, toegepast op de live DB). Alle testscripts in `scripts/` zijn bijgewerkt en slagen (zie hieronder).
