@@ -74,7 +74,8 @@ class AlgemeenCog(commands.Cog):
         embed = discord.Embed(title="📋 Volledig commando-overzicht", color=discord.Color.blurple())
         for commando, uitleg in TEST_COMMANDOS:
             embed.add_field(name=commando, value=uitleg, inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        # Voor nu publiek zichtbaar (verzoek van de gebruiker), later evt. weer ephemeral maken.
+        await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
 async def setup(bot: commands.Bot) -> None:
