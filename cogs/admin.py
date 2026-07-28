@@ -14,15 +14,19 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "🎒 Voerbakken & Zelfreinigend systeem hebben nu effect",
-        "Deze shop-items deden nog niets — nu wel, en per pet uit te rusten met het nieuwe "
-        "`/uitrusten pet_id item` (en `afkoppelen:True` om het weer los te halen). Voerbakken geven "
-        "passief **honger** terug (Slimme vult het volledige verval aan, Simpele de helft); "
-        "Zelfreinigend systeem laat **energie** ook buiten rust herstellen (bijv. tijdens werk). "
-        "Slimme voerbak kost er ook 5x Schroot bij in de shop.\n\n"
-        "Wat te testen: een voerbak uitrusten en kijken of honger niet (of trager) daalt, en "
-        "Zelfreinigend systeem uitrusten en kijken of energie oploopt terwijl een pet aan het werk is "
-        "(normaal gebeurt dat alleen in rust).",
+        "⚖️ Balans-audit: sneller levelen, receptkosten fors omhoog",
+        "Levelen gaat nu ~19x sneller (doel: ~2-4 weken naar level 50 i.p.v. maanden). Korte/lange "
+        "werk-shifts zijn ook een stuk aantrekkelijker geworden t.o.v. overnacht (was 4,5x zo "
+        "efficiënt per uur, nu nog maar 1,3x). Daartegenover staan **fors hogere receptkosten**: elk "
+        "shop-item met een recept (Slimme voerbak, Zelfreinigend systeem, Extra match token, "
+        "Naamkaartje, etc.) vereist nu **2 verschillende grondstoffen** i.p.v. 1, in flink hogere "
+        "hoeveelheden — Slimme voerbak kost bijv. nu 40x Schroot + 20x Erts (was 5x Schroot). Ook: "
+        "Nachtwacht-capaciteit ging van 1 naar 2, en max. pets tegelijk aan het werk per speler van 3 "
+        "naar 2 (voorkomt dat 1 speler een hele werkplek solo kan opvullen).\n\n"
+        "Wat te testen: laat een pet werken en kijk of 'ie merkbaar sneller levelt dan je gewend was; "
+        "probeer een duur shop-item (bijv. Slimme voerbak) te kopen zonder genoeg grondstoffen en "
+        "check de foutmelding; probeer met een 3e pet te werken terwijl je er al 2 hebt lopen (moet nu "
+        "geweigerd worden).",
     ),
     (
         "💰 Alle grondstoffen hebben nu een doel + Extra match token duurder",
@@ -48,34 +52,6 @@ NIEUW_OM_TE_TESTEN = [
         "gewoon nog kan werken.",
     ),
 ]
-
-# Speler-gerichte commando's om aan te kondigen bij een testronde, met een
-# korte uitleg per commando. Handmatig bijgehouden (geen introspectie op de
-# command tree), dus bijwerken als er een nieuw speler-commando bijkomt.
-TEST_COMMANDOS = [
-    ("/vang <naam>", "Vang de pet die net gespawnd is in dit kanaal (exacte naam, of het stuk vóór de haakjes, bijv. 'Hond')."),
-    ("/lijst", "Bekijk al je pets: level+XP, werkstatus en honger/energie. Sorteerbaar via de knoppen."),
-    ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins + XP. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is (met eventuele level-up)."),
-    ("/verzorg pet_id [item] [aantal]", "Bekijk het level, XP en de stats van een pet, of voer 'm met voeding uit je inventaris om honger aan te vullen (optioneel meerdere stuks in één keer)."),
-    ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
-    ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
-    ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
-    ("/uitrusten pet_id item [afkoppelen]", "Rust een pet uit met een voerbak of Zelfreinigend systeem uit je inventaris, of koppel 'm weer af (komt terug in je inventaris)."),
-    ("/team", "Stel je team van 3 pets samen voor gevechten."),
-    ("/vecht [tegenstander] [modus]", "Vecht tegen een gesimuleerde tegenstander, of daag een speler uit — bij een uitdaging opent een paneel om optioneel een item/Chaos Coins in te zetten. `modus:vriendschappelijk` telt niet mee voor ranked (geen MMR/beloning/blessures, altijd beschikbaar)."),
-    ("/trade speler", "Open een paneel om een ruil samen te stellen: dropdowns voor wat je aanbiedt/terugvraagt (items/pets van jou en de ander), knoppen voor aantal + Chaos Coins."),
-    ("/release pet_id", "Laat een pet vrij in ruil voor Chaos Coins (schaalt met tier + level) plus een kleine kans op een bonus-grondstof. Onomkeerbaar."),
-    ("/clan-aanmaken naam", "Richt een nieuwe clan op — je wordt automatisch lid. Werkplekken delen dan een eigen capaciteit-pool binnen je clan."),
-    ("/clan-join naam", "Word lid van een bestaande clan."),
-    ("/clan-verlaten", "Verlaat je huidige clan (ontbindt 'm automatisch als je het laatste lid was)."),
-    ("/clan-ontbinden", "Ontbindt je clan meteen, alleen mogelijk voor de oprichter."),
-    ("/clan-info [naam]", "Bekijk oprichter, ledenaantal, ledenlijst en totale werk-opbrengst van je eigen (of een andere) clan."),
-    ("/clan-leaderboard", "Top 10 clans op cumulatieve werk-opbrengst."),
-    ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
-    ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
-    ("/herstel [speler] [pet_id] [scope]", "(admin) Herstel honger + energie naar 100: 1 pet, een heel team, of alle pets — handig om niet steeds te hoeven wachten tijdens het testen."),
-]
-
 
 class AdminCog(commands.Cog):
     """Admin-commando's. Balans-instellingen zelf komen niet via Discord maar
@@ -224,7 +200,8 @@ class AdminCog(commands.Cog):
             title="🧪 Chaos Critters — klaar om getest te worden!",
             description=(
                 "Er staat genoeg om mee te spelen. Dit is een vroege testversie, dus bugs en "
-                "rare balans zijn te verwachten — laat het gewoon weten als je iets geks tegenkomt!"
+                "rare balans zijn te verwachten — laat het gewoon weten als je iets geks tegenkomt!\n\n"
+                "Gebruik `/commands` voor het volledige commando-overzicht."
             ),
             color=discord.Color.green(),
         )
@@ -235,11 +212,6 @@ class AdminCog(commands.Cog):
             for titel, uitleg in NIEUW_OM_TE_TESTEN:
                 nieuw_embed.add_field(name=titel, value=uitleg, inline=False)
             embeds.append(nieuw_embed)
-
-        overzicht_embed = discord.Embed(title="📋 Volledig commando-overzicht", color=discord.Color.blurple())
-        for commando, uitleg in TEST_COMMANDOS:
-            overzicht_embed.add_field(name=commando, value=uitleg, inline=False)
-        embeds.append(overzicht_embed)
 
         await interaction.response.send_message(
             "@everyone", embeds=embeds, allowed_mentions=discord.AllowedMentions(everyone=True)
