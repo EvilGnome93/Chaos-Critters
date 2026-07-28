@@ -29,16 +29,16 @@ NIEUW_OM_TE_TESTEN = [
         "geweigerd worden).",
     ),
     (
-        "💰 Alle grondstoffen hebben nu een doel + Extra match token duurder",
-        "De 11 grondstoffen die tot nu toe nutteloos waren, kosten nu wat in de shop: Water → Simpele "
-        "voerbak, Sterrenstof → Zelfreinigend systeem, Groente → Graanvrije premium voeding, Fruit → "
-        "Mysterie voedselzak, Algen → Vers vlees/vis, Takken → Naamkaartje, Bladeren → Focus drankje, "
-        "Erts+Spijker → Werk-elixer, Maanschijnkristal+Edelsteen → Extra match token. **Extra match "
-        "token ging ook van 50 naar 150 Chaos Coins** — was te makkelijk te herkopen van wat "
-        "gevecht-winst, dat mag nu meer moeite kosten.\n\n"
-        "Wat te testen: iets uit de shop kopen waar je de grondstof nog niet voor hebt (moet een "
-        "duidelijke foutmelding geven met hoeveel je te kort komt), en dan met genoeg grondstof "
-        "opnieuw proberen.",
+        "🛠️ Nieuw: /craft voor recept-items",
+        "Items met een grondstof-recept (Slimme voerbak, Zelfreinigend systeem, Extra match token, "
+        "etc.) koop je voortaan makkelijker via `/craft item aantal` — toont alle kosten (Chaos Coins "
+        "+ elke grondstof, met ✅/❌ of je genoeg hebt) in een preview, met een Bevestigen-knop die "
+        "uitgeschakeld is zolang je iets te kort komt. `/craft` zonder item geeft een overzicht van "
+        "alle recept-items. `/shop` werkt voor deze items ook nog gewoon (met de bestaande "
+        "foutmelding-bij-tekort).\n\n"
+        "Wat te testen: `/craft item:Simpele voerbak` proberen zonder genoeg Water/Fruit (Bevestigen "
+        "moet uitgeschakeld zijn), dan grondstoffen verzamelen en opnieuw `/craft` draaien om te "
+        "bevestigen.",
     ),
     (
         "🏰 Nieuw: clan-systeem",

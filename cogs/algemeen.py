@@ -6,7 +6,6 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🛒 /craft-commando", "Een apart commando voor shop-items met een grondstof-recept (Slimme voerbak, Extra match token, etc.), met een preview van alle kosten (Chaos Coins + grondstoffen) vóórdat je bevestigt — i.p.v. de huidige `/shop`-foutmelding-bij-tekort."),
     ("📖 Critterdex", "Overzicht van alle pet-soorten met tier en element, en welke je al gevangen hebt. Max 10 per pagina, filterbaar op tier, standaard gesorteerd op tier + alfabet. Inclusief een `/info <soort>` losse lookup: gevecht/werk-stats, werkplek-voorkeur en hoeveel je er zelf al hebt."),
     ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
@@ -24,6 +23,7 @@ TEST_COMMANDOS = [
     ("/verzorg pet_id [item] [aantal]", "Bekijk het level, XP en de stats van een pet, of voer 'm met voeding uit je inventaris om honger aan te vullen (optioneel meerdere stuks in één keer)."),
     ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
     ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
+    ("/craft [item] [aantal]", "Bekijk of maak een item met een grondstof-recept (bijv. Slimme voerbak) — toont alle kosten (coins + grondstoffen) vooraf, met een Bevestigen-knop."),
     ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
     ("/uitrusten pet_id item [afkoppelen]", "Rust een pet uit met een voerbak of Zelfreinigend systeem uit je inventaris, of koppel 'm weer af (komt terug in je inventaris)."),
     ("/team", "Stel je team van 3 pets samen voor gevechten."),

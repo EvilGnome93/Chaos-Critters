@@ -77,6 +77,57 @@ RECEPT_KOSTEN: dict[str, list[tuple[str, int]]] = {
     "Zelfreinigend systeem": [("Sterrenstof", 3), ("Schroot", 20)],
 }
 
+async def _koop_item(session, speler_id: int, item_obj: Item, aantal: int) -> tuple[bool, str]:
+    """Voert een aankoop uit (Chaos Coins + eventuele recept-grondstoffen uit
+    RECEPT_KOSTEN). Geeft (gelukt, bericht) terug; bij gelukt=False is niets
+    afgeboekt. Gedeeld tussen /shop en /craft zodat ze niet uit de pas lopen."""
+    speler = await session.get(Speler, speler_id)
+    if speler is None:
+        speler = Speler(discord_id=speler_id, currency=0)
+        session.add(speler)
+
+    kosten = item_obj.prijs * aantal
+    if speler.currency < kosten:
+        return False, (
+            f"Je hebt niet genoeg Chaos Coins. **{item_obj.naam}** x{aantal} kost {kosten}, "
+            f"je hebt {speler.currency}."
+        )
+
+    recept = RECEPT_KOSTEN.get(item_obj.naam, [])
+    grondstof_inventaris: dict[str, InventarisItem] = {}
+    for grondstof_naam, hoeveelheid in recept:
+        benodigd = hoeveelheid * aantal
+        grondstof_item = await session.scalar(select(Item).where(Item.naam == grondstof_naam))
+        inv = await session.scalar(
+            select(InventarisItem).where(
+                InventarisItem.speler_id == speler_id, InventarisItem.item_id == grondstof_item.id
+            )
+        )
+        if inv is None or inv.aantal < benodigd:
+            in_bezit = inv.aantal if inv else 0
+            return False, (
+                f"**{item_obj.naam}** x{aantal} vereist ook {benodigd}x **{grondstof_naam}** "
+                f"(je hebt {in_bezit})."
+            )
+        grondstof_inventaris[grondstof_naam] = inv
+
+    speler.currency -= kosten
+    for grondstof_naam, hoeveelheid in recept:
+        grondstof_inventaris[grondstof_naam].aantal -= hoeveelheid * aantal
+    await _voeg_toe_aan_inventaris(session, speler_id, item_obj.id, aantal)
+    await session.commit()
+
+    recept_tekst = (
+        " + " + ", ".join(f"{hoeveelheid * aantal}x {naam}" for naam, hoeveelheid in recept)
+        if recept
+        else ""
+    )
+    return True, (
+        f"✅ Gekocht: {aantal}x **{item_obj.naam}** voor {kosten} Chaos Coins{recept_tekst}. "
+        f"Saldo: {speler.currency} Chaos Coins."
+    )
+
+
 # Koppelt de shop-itemnaam aan de interne uitrustings-waarde op Huisdier.
 VOERBAK_NIVEAUS = {"Simpele voerbak": "simpel", "Slimme voerbak": "slim"}
 ZELFREINIGEND_ITEM = "Zelfreinigend systeem"
@@ -277,6 +328,52 @@ class PetLijstView(discord.ui.View):
     @discord.ui.button(label="Energie", style=discord.ButtonStyle.secondary, row=2, custom_id="sorteer_energie")
     async def sorteer_energie(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._wissel_sortering(interaction, "energie")
+
+
+class CraftBevestigView(discord.ui.View):
+    """Bevestigingsstap voor /craft: kosten (Chaos Coins + grondstoffen) staan
+    al zichtbaar in de preview-embed, hier alleen nog Bevestigen/Annuleren."""
+
+    def __init__(self, speler_id: int, item_obj: Item, aantal: int, kan_craften: bool):
+        super().__init__(timeout=60)
+        self.speler_id = speler_id
+        self.item_obj = item_obj
+        self.aantal = aantal
+        self.message: discord.Message | None = None
+        self.bevestigen.disabled = not kan_craften
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.speler_id:
+            await interaction.response.send_message("Dit is niet jouw craft-poging.", ephemeral=True)
+            return False
+        return True
+
+    async def on_timeout(self) -> None:
+        if self.message is None:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
+
+    @discord.ui.button(label="Bevestigen", style=discord.ButtonStyle.success)
+    async def bevestigen(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        async with async_session() as session:
+            item_obj = await session.get(Item, self.item_obj.id)
+            _, bericht = await _koop_item(session, self.speler_id, item_obj, self.aantal)
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content=bericht, embed=None, view=self)
+        self.stop()
+
+    @discord.ui.button(label="Annuleren", style=discord.ButtonStyle.danger)
+    async def annuleren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content="Geannuleerd.", embed=None, view=self)
+        self.stop()
 
 
 class VerzorgingCog(commands.Cog):
@@ -555,26 +652,81 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message(f"Onbekend shop-item: **{item}**.", ephemeral=True)
                 return
 
-            speler = await session.get(Speler, interaction.user.id)
-            if speler is None:
-                speler = Speler(discord_id=interaction.user.id, currency=0)
-                session.add(speler)
+            _, bericht = await _koop_item(session, interaction.user.id, item_obj, aantal)
+            await interaction.response.send_message(bericht, ephemeral=True)
 
-            kosten = item_obj.prijs * aantal
-            if speler.currency < kosten:
+    async def _craft_item_autocomplete(
+        self, interaction: discord.Interaction, huidig: str
+    ) -> list[app_commands.Choice[str]]:
+        huidig = huidig.lower()
+        return [
+            app_commands.Choice(name=naam, value=naam) for naam in RECEPT_KOSTEN if huidig in naam.lower()
+        ][:25]
+
+    async def _craft_overzicht_embed(self, session) -> discord.Embed:
+        items_obj = (
+            await session.execute(select(Item).where(Item.naam.in_(RECEPT_KOSTEN.keys())))
+        ).scalars().all()
+        per_naam = {i.naam: i for i in items_obj}
+
+        embed = discord.Embed(
+            title="🛠️ Craft-overzicht",
+            description="Items met een grondstof-recept. Gebruik `/craft item:<naam>` voor de "
+            "kosten in detail + een bevestigingsstap.",
+            color=discord.Color.orange(),
+        )
+        for naam, recept in RECEPT_KOSTEN.items():
+            recept_tekst = ", ".join(f"{hoeveelheid}x {grondstof}" for grondstof, hoeveelheid in recept)
+            embed.add_field(
+                name=naam, value=f"{per_naam[naam].prijs} Chaos Coins + {recept_tekst}", inline=False
+            )
+        return embed
+
+    @app_commands.command(
+        name="craft-lijst",
+        description="(tijdelijk) Snel overzicht van alle craftbare items, zonder de rest van /craft",
+    )
+    async def craft_lijst(self, interaction: discord.Interaction) -> None:
+        async with async_session() as session:
+            embed = await self._craft_overzicht_embed(session)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(
+        name="craft",
+        description="Bekijk of maak een item met een grondstof-recept, met alle kosten vooraf zichtbaar",
+    )
+    @app_commands.describe(
+        item="Recept-item (optioneel, laat leeg voor het overzicht)",
+        aantal="Hoeveel stuks (standaard 1)",
+    )
+    @app_commands.autocomplete(item=_craft_item_autocomplete)
+    async def craft(
+        self, interaction: discord.Interaction, item: str | None = None, aantal: int = 1
+    ) -> None:
+        async with async_session() as session:
+            if item is None:
+                embed = await self._craft_overzicht_embed(session)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            if aantal < 1:
+                await interaction.response.send_message("`aantal` moet minstens 1 zijn.", ephemeral=True)
+                return
+
+            if item not in RECEPT_KOSTEN:
                 await interaction.response.send_message(
-                    f"Je hebt niet genoeg Chaos Coins. **{item}** x{aantal} kost {kosten}, "
-                    f"je hebt {speler.currency}.",
-                    ephemeral=True,
+                    f"**{item}** heeft geen grondstof-recept — koop 'm gewoon via `/shop`.", ephemeral=True
                 )
                 return
 
-            # Sommige items vereisen naast Chaos Coins ook grondstoffen
-            # (2026-07-27, verzoek van de gebruiker: geeft grondstoffen een
-            # concreet doel). Eerst alles checken, dan pas iets aftrekken.
-            recept = RECEPT_KOSTEN.get(item, [])
-            grondstof_inventaris: dict[str, InventarisItem] = {}
-            for grondstof_naam, hoeveelheid in recept:
+            item_obj = await session.scalar(select(Item).where(Item.naam == item))
+            speler = await session.get(Speler, interaction.user.id)
+            saldo = speler.currency if speler else 0
+            kosten = item_obj.prijs * aantal
+
+            regels = []
+            alles_voldoende = saldo >= kosten
+            for grondstof_naam, hoeveelheid in RECEPT_KOSTEN[item]:
                 benodigd = hoeveelheid * aantal
                 grondstof_item = await session.scalar(select(Item).where(Item.naam == grondstof_naam))
                 inv = await session.scalar(
@@ -583,32 +735,24 @@ class VerzorgingCog(commands.Cog):
                         InventarisItem.item_id == grondstof_item.id,
                     )
                 )
-                if inv is None or inv.aantal < benodigd:
-                    in_bezit = inv.aantal if inv else 0
-                    await interaction.response.send_message(
-                        f"**{item}** x{aantal} vereist ook {benodigd}x **{grondstof_naam}** "
-                        f"(je hebt {in_bezit}).",
-                        ephemeral=True,
-                    )
-                    return
-                grondstof_inventaris[grondstof_naam] = inv
+                in_bezit = inv.aantal if inv else 0
+                voldoende = in_bezit >= benodigd
+                alles_voldoende = alles_voldoende and voldoende
+                regels.append(f"{'✅' if voldoende else '❌'} {benodigd}x **{grondstof_naam}** (je hebt {in_bezit})")
 
-            speler.currency -= kosten
-            for grondstof_naam, hoeveelheid in recept:
-                grondstof_inventaris[grondstof_naam].aantal -= hoeveelheid * aantal
-            await _voeg_toe_aan_inventaris(session, interaction.user.id, item_obj.id, aantal)
-            await session.commit()
+            embed = discord.Embed(title=f"🛠️ Craften: {aantal}x {item}", color=discord.Color.orange())
+            embed.add_field(
+                name="Kosten",
+                value=f"{'✅' if saldo >= kosten else '❌'} {kosten} Chaos Coins (je hebt {saldo})\n"
+                + "\n".join(regels),
+                inline=False,
+            )
+            if not alles_voldoende:
+                embed.set_footer(text="Je hebt nog niet genoeg voor deze craft — Bevestigen is uitgeschakeld.")
 
-            recept_tekst = (
-                " + " + ", ".join(f"{hoeveelheid * aantal}x {naam}" for naam, hoeveelheid in recept)
-                if recept
-                else ""
-            )
-            await interaction.response.send_message(
-                f"✅ Gekocht: {aantal}x **{item}** voor {kosten} Chaos Coins{recept_tekst}. "
-                f"Saldo: {speler.currency} Chaos Coins.",
-                ephemeral=True,
-            )
+            view = CraftBevestigView(interaction.user.id, item_obj, aantal, kan_craften=alles_voldoende)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            view.message = await interaction.original_response()
 
     @app_commands.command(name="items", description="Bekijk je inventaris")
     async def items(self, interaction: discord.Interaction) -> None:
