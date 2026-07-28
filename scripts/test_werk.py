@@ -22,6 +22,7 @@ from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler, Werkplek
 
 SPELERS = [999999999999999931, 999999999999999932, 999999999999999933]
+CAPACITEIT_SPELERS = [999999999999999934, 999999999999999935, 999999999999999936]
 
 
 def fake_interaction(user_id: int, guild_id: int | None = 1, channel_id: int = 42) -> MagicMock:
@@ -63,13 +64,13 @@ async def test_gedeelde_capaciteit() -> None:
     pet_ids: list[int] = []
     try:
         async with async_session() as session:
-            # Nachtwacht heeft capaciteit 1 (kleinste werkplek) — ideaal om
-            # de limiet met maar 2 spelers te kunnen raken.
+            # Nachtwacht heeft capaciteit 2 (sinds de balans-audit, 2026-07-28
+            # — was 1) — 3 spelers nodig om de limiet te raken.
             soort = await session.scalar(select(PetSoort).limit(1))
-            for i, speler_id in enumerate(SPELERS[:2]):
+            for i, speler_id in enumerate(CAPACITEIT_SPELERS):
                 pet_ids.append(await _maak_pet(session, speler_id, soort, f"NachtwachtTest{i}"))
 
-        interactie_1 = fake_interaction(SPELERS[0])
+        interactie_1 = fake_interaction(CAPACITEIT_SPELERS[0])
         await cog.werk.callback(
             cog, interactie_1, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
         )
@@ -78,23 +79,31 @@ async def test_gedeelde_capaciteit() -> None:
         print(f"Speler 1: {bericht_1}")
         assert "aan het werk gezet" in bericht_1
 
-        interactie_2 = fake_interaction(SPELERS[1])
+        interactie_2 = fake_interaction(CAPACITEIT_SPELERS[1])
         await cog.werk.callback(
             cog, interactie_2, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
         )
         bericht_2 = interactie_2.response.send_message.call_args[0][0]
-        print(f"Speler 2 (moet geweigerd worden): {bericht_2}")
-        assert "zit vol" in bericht_2
+        print(f"Speler 2 (moet nog lukken, capaciteit 2): {bericht_2}")
+        assert "aan het werk gezet" in bericht_2
+
+        interactie_3 = fake_interaction(CAPACITEIT_SPELERS[2])
+        await cog.werk.callback(
+            cog, interactie_3, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+        )
+        bericht_3 = interactie_3.response.send_message.call_args[0][0]
+        print(f"Speler 3 (moet geweigerd worden): {bericht_3}")
+        assert "zit vol" in bericht_3
 
         async with async_session() as session:
-            pet2 = await session.get(Huisdier, pet_ids[1])
-            assert pet2.status == PetStatus.rust, "Speler 2's pet zou niet aan het werk moeten zijn gezet"
+            pet3 = await session.get(Huisdier, pet_ids[2])
+            assert pet3.status == PetStatus.rust, "Speler 3's pet zou niet aan het werk moeten zijn gezet"
         print("Capaciteit wordt correct gedeeld/afgedwongen over spelers heen.")
     finally:
         async with async_session() as session:
             if pet_ids:
                 await session.execute(Huisdier.__table__.delete().where(Huisdier.id.in_(pet_ids)))
-            await session.execute(Speler.__table__.delete().where(Speler.discord_id.in_(SPELERS[:2])))
+            await session.execute(Speler.__table__.delete().where(Speler.discord_id.in_(CAPACITEIT_SPELERS)))
             await session.commit()
 
 

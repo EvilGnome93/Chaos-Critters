@@ -55,7 +55,7 @@ async def test_multi_ingredient_recept() -> None:
     try:
         async with async_session() as session:
             session.add(Speler(discord_id=SPELER, currency=1000, mmr=1000, volgend_pet_nummer=1))
-            await _geef_item(session, SPELER, "Erts", 3)
+            await _geef_item(session, SPELER, "Erts", 12)
             # Bewust nog geen Spijker: moet mislukken op het 2e ingrediënt.
             await session.commit()
 
@@ -105,7 +105,7 @@ async def test_extra_match_token_prijs_en_recept() -> None:
         print(f"Huidige prijs: {token.prijs} (verwacht 150)")
         assert token.prijs == 150
         assert token.type == ItemType.boost
-    assert RECEPT_KOSTEN["Extra match token"] == [("Maanschijnkristal", 2), ("Edelsteen", 1)]
+    assert RECEPT_KOSTEN["Extra match token"] == [("Maanschijnkristal", 30), ("Edelsteen", 2)]
     print("Prijs en recept kloppen.")
 
 

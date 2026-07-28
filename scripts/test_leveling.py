@@ -24,8 +24,10 @@ async def main() -> None:
     async with async_session() as session:
         speler = await session.get(Speler, TEST_SPELER_ID)
         if speler is None:
-            speler = Speler(discord_id=TEST_SPELER_ID)
+            speler = Speler(discord_id=TEST_SPELER_ID, volgend_pet_nummer=1)
             session.add(speler)
+            await session.commit()
+            speler = await session.get(Speler, TEST_SPELER_ID)
 
         soort = await session.scalar(select(PetSoort).limit(1))
         huisdier = Huisdier(
@@ -33,6 +35,7 @@ async def main() -> None:
             soort_id=soort.id,
             tier_id=soort.tier_id,
             naam="Leveltest",
+            volgnummer=speler.volgend_pet_nummer,
             gevecht_genen=60,
             werk_genen=60,
         )

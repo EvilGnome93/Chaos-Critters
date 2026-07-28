@@ -119,7 +119,11 @@ WERKPLEKKEN = [
         "type": "Nachtwacht",
         "vereiste_werk_genen": "Nacht-affiniteit",
         "output_per_uur": 7.0,
-        "capaciteit": 1,
+        # 2026-07-28, Balans-audit: was 1 (kleinste van alle werkplekken),
+        # maar Maanschijnkristal (alleen hier) werd sinds de ranked-lek-fix
+        # ook nodig voor Extra match token — dat legde onbedoeld extra druk
+        # op precies de krapste werkplek.
+        "capaciteit": 2,
     },
     {
         "type": "Mijnschacht",
@@ -335,37 +339,37 @@ ITEMS = [
         "Graanvrije premium voeding",
         ItemType.voeding,
         35,
-        "Groter honger-herstel + tijdelijke stat boost voor 1 match. Kost ook 3x Groente",
+        "Groter honger-herstel + tijdelijke stat boost voor 1 match. Kost ook 12x Groente + 1x Water",
     ),
-    ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur. Kost ook 3x Algen"),
+    ("Vers vlees/vis", ItemType.voeding, 60, "Volledig honger-herstel, duur. Kost ook 15x Algen + 8x Takken"),
     (
         "Simpele voerbak",
         ItemType.overig,
         100,
-        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult de helft van het verval aan. Kost ook 2x Water",
+        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult de helft van het verval aan. Kost ook 2x Water + 2x Fruit",
     ),
     (
         "Slimme voerbak",
         ItemType.overig,
         250,
-        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult het volledige verval aan. Kost ook 5x Schroot",
+        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult het volledige verval aan. Kost ook 40x Schroot + 20x Erts",
     ),
     (
         "Zelfreinigend systeem",
         ItemType.overig,
         300,
-        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust (bijv. tijdens werk). Kost ook 2x Sterrenstof",
+        "Per pet uit te rusten met /uitrusten. Energie herstelt ook buiten rust (bijv. tijdens werk). Kost ook 3x Sterrenstof + 20x Schroot",
     ),
-    ("Focus drankje", ItemType.boost, 40, "Tijdelijke gevecht_genen boost voor 1 ranked match. Kost ook 2x Bladeren"),
-    ("Werk-elixer", ItemType.boost, 40, "Tijdelijke werk_genen boost voor 1 werk cyclus. Kost ook 3x Erts + 2x Spijker"),
+    ("Focus drankje", ItemType.boost, 40, "Tijdelijke gevecht_genen boost voor 1 ranked match. Kost ook 2x Bladeren + 1x Edelsteen"),
+    ("Werk-elixer", ItemType.boost, 40, "Tijdelijke werk_genen boost voor 1 werk cyclus. Kost ook 12x Erts + 2x Spijker"),
     (
         "Extra match token",
         ItemType.boost,
         150,
-        "Koopt een ranked poging boven de dagelijkse gratis cooldown. Kost ook 2x Maanschijnkristal + 1x Edelsteen",
+        "Koopt een ranked poging boven de dagelijkse gratis cooldown. Kost ook 30x Maanschijnkristal + 2x Edelsteen",
     ),
-    ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet. Kost ook 3x Takken"),
-    ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen. Kost ook 1x Fruit"),
+    ("Naamkaartje", ItemType.overig, 75, "Hernoem je pet. Kost ook 15x Takken + 1x Spijker"),
+    ("Mysterie voedselzak", ItemType.voeding, 25, "Willekeurige voeding, goedkoper dan los kopen. Kost ook 1x Fruit + 1x Bladeren"),
     # Grondstoffen, verkregen via de werk-laag (sectie 6), niet los kopen in de shop.
     ("Groente", ItemType.grondstof, 0, "Grondstof, verkregen via werken in de Moestuin"),
     ("Algen", ItemType.grondstof, 0, "Grondstof, verkregen via werken bij de Vijver"),
@@ -410,7 +414,10 @@ INSTELLINGEN = [
     ("ranked_gratis_per_dag", "3", "Aantal gratis ranked pogingen per dag"),
     ("spawn_interval_min_berichten", "25", "Ondergrens van de activiteit-trigger voor spawns"),
     ("spawn_interval_max_berichten", "40", "Bovengrens van de activiteit-trigger voor spawns"),
-    ("max_werkende_pets_per_speler", "3", "Max aantal pets dat een speler tegelijk aan het werk kan hebben"),
+    # 2026-07-28, Balans-audit: was 3, gelijk aan Moestuin's capaciteit (3) —
+    # 1 speler kon zo in z'n eentje een hele gedeelde werkplek volledig
+    # bezet houden. Op 2 kan dat nergens meer volledig.
+    ("max_werkende_pets_per_speler", "2", "Max aantal pets dat een speler tegelijk aan het werk kan hebben"),
 ]
 
 

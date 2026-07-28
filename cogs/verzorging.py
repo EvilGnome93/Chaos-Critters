@@ -51,25 +51,30 @@ VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
 
 # Extra grondstof-kosten bovenop de Chaos Coins-prijs, voor items die dat
 # volgens hun shop-omschrijving vereisen (2026-07-27, Item-overhaul deel 1,
-# verzoek van de gebruiker). Geeft in elk geval één grondstof een concreet
-# doel, zonder een volledig crafting-systeem te bouwen.
+# verzoek van de gebruiker). Geeft elke grondstof een concreet doel, zonder
+# een volledig crafting-systeem te bouwen.
+#
+# Herzien tijdens de Balans-audit (2026-07-28, verzoek van de gebruiker: "niet
+# snel aan de OP-items komen"). Elk recept vereist nu minstens 2 verschillende
+# grondstoffen uit 2 verschillende werkplekken. Hoofdgrondstoffen (gegarandeerd
+# per shift: Groente/Algen/Schroot/Takken/Maanschijnkristal/Erts) zijn de
+# belangrijkste knop en dus fors hoger dan vóór de audit; bonus-grondstoffen
+# (Water/Sterrenstof/Fruit/Bladeren/Spijker/Edelsteen — 25%-kans per shift)
+# blijven bewust klein, want die zijn door hun zeldzaamheid al traag genoeg.
+# De 2 duurste "OP"-items (Slimme voerbak, Zelfreinigend systeem) hebben de
+# zwaarste combinatie: allebei nu ook Schroot nodig, naast hun eigen unieke
+# ingrediënt.
 RECEPT_KOSTEN: dict[str, list[tuple[str, int]]] = {
-    "Slimme voerbak": [("Schroot", 5)],
-    # 2026-07-27, "Doel voor grondstoffen": geeft de resterende 11 nog-nutteloze
-    # grondstoffen een concreet doel door ze als recept-kosten aan bestaande
-    # shop-items te hangen, i.p.v. een nieuw crafting-systeem te bouwen.
-    # Hoeveelheden lager voor de zeldzamere bonus-grondstoffen (Water,
-    # Sterrenstof, Bladeren, Edelsteen — kleine kans per shift) dan voor de
-    # gegarandeerde hoofdgrondstoffen.
-    "Simpele voerbak": [("Water", 2)],
-    "Zelfreinigend systeem": [("Sterrenstof", 2)],
-    "Graanvrije premium voeding": [("Groente", 3)],
-    "Mysterie voedselzak": [("Fruit", 1)],
-    "Vers vlees/vis": [("Algen", 3)],
-    "Naamkaartje": [("Takken", 3)],
-    "Focus drankje": [("Bladeren", 2)],
-    "Werk-elixer": [("Erts", 3), ("Spijker", 2)],
-    "Extra match token": [("Maanschijnkristal", 2), ("Edelsteen", 1)],
+    "Graanvrije premium voeding": [("Groente", 12), ("Water", 1)],
+    "Vers vlees/vis": [("Algen", 15), ("Takken", 8)],
+    "Mysterie voedselzak": [("Fruit", 1), ("Bladeren", 1)],
+    "Naamkaartje": [("Takken", 15), ("Spijker", 1)],
+    "Focus drankje": [("Bladeren", 2), ("Edelsteen", 1)],
+    "Werk-elixer": [("Erts", 12), ("Spijker", 2)],
+    "Extra match token": [("Maanschijnkristal", 30), ("Edelsteen", 2)],
+    "Simpele voerbak": [("Water", 2), ("Fruit", 2)],
+    "Slimme voerbak": [("Schroot", 40), ("Erts", 20)],
+    "Zelfreinigend systeem": [("Sterrenstof", 3), ("Schroot", 20)],
 }
 
 # Koppelt de shop-itemnaam aan de interne uitrustings-waarde op Huisdier.

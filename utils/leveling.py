@@ -8,7 +8,11 @@ from db.models import Huisdier
 
 MAX_LEVEL = 50
 GENEN_GROEI_PER_LEVEL = 0.02  # +2% samengesteld per level (sectie 9, letterlijk voorbeeld)
-XP_PER_EFFECTIEVE_UUR = 5  # placeholder balans-waarde, later bij te stellen
+# 2026-07-28, Balans-audit: was 5, gaf ~227 dagen tot MAX_LEVEL bij continu
+# overnacht-werken op 1 pet. Gebruiker wilde ~2-4 weken; met de gelijkgetrokken
+# output_multiplier (cogs/werk.py) komt 95 uit op ~21 dagen (3 weken) voor
+# datzelfde referentiescenario.
+XP_PER_EFFECTIEVE_UUR = 95
 
 
 def xp_voor_volgend_level(huidig_level: int) -> int:

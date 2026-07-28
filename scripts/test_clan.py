@@ -109,6 +109,11 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
     async with async_session() as session:
         for speler_id in SPELERS:
             await _maak_pet(session, speler_id, f"Pet{speler_id}")
+        # Nachtwacht heeft capaciteit 2 (sinds de balans-audit, 2026-07-28 —
+        # was 1): speler 0 krijgt een 2e pet zodat clan A de pool alleen al
+        # kan vullen, zonder dat speler 1's eigen shift nodig is om te vullen
+        # (die moet juist getest worden op afwijzing).
+        await _maak_pet(session, SPELERS[0], "TweedePetSpeler0")
 
     # Speler 2 sticht een TWEEDE clan (B) — zonder dit zou speler 2 gewoon
     # clanloos zijn en niet aantonen dat clan A/B elk hun eigen pool hebben.
@@ -118,14 +123,22 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
     print(f"Speler 2 richt clan B op: {bericht_b}")
     assert "opgericht" in bericht_b
 
-    # Speler 0 (clan A) zet Nachtwacht (capaciteit 1) vol binnen clan A.
+    # Speler 0 (clan A) zet Nachtwacht (capaciteit 2) vol binnen clan A, met 2 eigen pets.
     interactie0 = fake_interaction(SPELERS[0])
     await werk_cog.werk.callback(
         werk_cog, interactie0, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
     )
     bericht0 = interactie0.response.send_message.call_args[0][0]
-    print(f"Speler 0 (clan A): {bericht0}")
+    print(f"Speler 0, pet 1 (clan A): {bericht0}")
     assert "aan het werk gezet" in bericht0
+
+    interactie0b = fake_interaction(SPELERS[0])
+    await werk_cog.werk.callback(
+        werk_cog, interactie0b, pet_id=2, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+    )
+    bericht0b = interactie0b.response.send_message.call_args[0][0]
+    print(f"Speler 0, pet 2 (clan A, vult de pool tot 2/2): {bericht0b}")
+    assert "aan het werk gezet" in bericht0b
 
     # Speler 1 zit ook in clan A -> zelfde pool, moet geweigerd worden.
     interactie1 = fake_interaction(SPELERS[1])
@@ -182,8 +195,12 @@ async def test_werk_opbrengst_en_leaderboard() -> None:
         clan_voor = await session.get(Clan, clan_a_id)
         opbrengst_voor = clan_voor.totale_werk_opbrengst
 
+        # Speler 0 heeft nu 2 pets aan het werk (zie test_gedeelde_capaciteit_per_clan) —
+        # expliciet volgnummer 1 pakken, want de /werk-aanroep hieronder gebruikt pet_id=1.
         pet = await session.scalar(
-            select(Huisdier).where(Huisdier.eigenaar_id == SPELERS[0], Huisdier.status == PetStatus.werkplek)
+            select(Huisdier).where(
+                Huisdier.eigenaar_id == SPELERS[0], Huisdier.status == PetStatus.werkplek, Huisdier.volgnummer == 1
+            )
         )
         pet.werk_gestart_op = _nu() - timedelta(hours=999)
         await session.commit()

@@ -39,26 +39,31 @@ _ECHTE_DUUR_UREN = {"korte": 2, "lange": 6, "overnacht": 10}
 _TEST_DUUR_UREN = 1 / 60
 
 WERK_CYCLI = {
+    # Output-multipliers gelijkgetrokken (2026-07-28, Balans-audit, verzoek
+    # van de gebruiker): overnacht was met 4.5x tegenover korte's 1.0x veruit
+    # het efficiëntst per uur, waardoor korte/lange shifts weinig zin hadden.
+    # Nieuwe verhouding 2.0/2.3/2.6 behoudt een lichte voorkeur voor langere
+    # shifts (minder inlogmomenten nodig) zonder de kloof zo groot te maken.
     "korte": Cyclus(
         "Korte shift",
         _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["korte"],
         _ECHTE_DUUR_UREN["korte"],
         20,
-        1.0,
+        2.0,
     ),
     "lange": Cyclus(
         "Lange shift",
         _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["lange"],
         _ECHTE_DUUR_UREN["lange"],
         50,
-        2.8,
+        2.3,
     ),
     "overnacht": Cyclus(
         "Overnacht",
         _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["overnacht"],
         _ECHTE_DUUR_UREN["overnacht"],
         70,
-        4.5,
+        2.6,
     ),
 }
 

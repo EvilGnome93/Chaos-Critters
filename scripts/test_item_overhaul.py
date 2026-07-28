@@ -116,10 +116,12 @@ async def test_shop_en_uitrusten() -> None:
         async with async_session() as session:
             pet_id = await _maak_pet(session, SPELER, "UitrustingTest")
             water = await session.scalar(select(Item).where(Item.naam == "Water"))
+            fruit = await session.scalar(select(Item).where(Item.naam == "Fruit"))
             session.add(InventarisItem(speler_id=SPELER, item_id=water.id, aantal=5))
+            session.add(InventarisItem(speler_id=SPELER, item_id=fruit.id, aantal=5))
             await session.commit()
 
-        # Simpele voerbak kopen (kost ook Water sinds "Doel voor grondstoffen") en uitrusten.
+        # Simpele voerbak kopen (kost ook Water + Fruit sinds de balans-audit) en uitrusten.
         interactie = fake_interaction(SPELER)
         await cog.shop.callback(cog, interactie, item="Simpele voerbak", aantal=1)
         bericht = interactie.response.send_message.call_args.kwargs.get("embed") or \
@@ -137,24 +139,36 @@ async def test_shop_en_uitrusten() -> None:
             pet = await session.get(Huisdier, pet_id)
             assert pet.voerbak_niveau == "simpel"
 
-        # Slimme voerbak kopen zonder genoeg Schroot moet mislukken.
+        # Slimme voerbak kopen zonder Schroot/Erts moet mislukken (2 ingrediënten sinds de balans-audit).
         interactie3 = fake_interaction(SPELER)
         await cog.shop.callback(cog, interactie3, item="Slimme voerbak", aantal=1)
         bericht3 = interactie3.response.send_message.call_args[0][0]
         print(f"Koop Slimme voerbak zonder Schroot: {bericht3}")
-        assert "vereist ook" in bericht3
+        assert "vereist ook" in bericht3 and "Schroot" in bericht3
 
-        # Geef genoeg Schroot en probeer opnieuw.
+        # Geef genoeg Schroot, maar nog geen Erts: moet mislukken op het 2e ingrediënt.
         async with async_session() as session:
             schroot = await session.scalar(select(Item).where(Item.naam == "Schroot"))
-            session.add(InventarisItem(speler_id=SPELER, item_id=schroot.id, aantal=10))
+            session.add(InventarisItem(speler_id=SPELER, item_id=schroot.id, aantal=40))
+            await session.commit()
+
+        interactie3b = fake_interaction(SPELER)
+        await cog.shop.callback(cog, interactie3b, item="Slimme voerbak", aantal=1)
+        bericht3b = interactie3b.response.send_message.call_args[0][0]
+        print(f"Koop Slimme voerbak met Schroot maar zonder Erts: {bericht3b}")
+        assert "vereist ook" in bericht3b and "Erts" in bericht3b
+
+        # Geef ook genoeg Erts en probeer opnieuw.
+        async with async_session() as session:
+            erts = await session.scalar(select(Item).where(Item.naam == "Erts"))
+            session.add(InventarisItem(speler_id=SPELER, item_id=erts.id, aantal=20))
             await session.commit()
 
         interactie4 = fake_interaction(SPELER)
         await cog.shop.callback(cog, interactie4, item="Slimme voerbak", aantal=1)
         bericht4 = interactie4.response.send_message.call_args[0][0]
-        print(f"Koop Slimme voerbak met genoeg Schroot: {bericht4}")
-        assert "Gekocht" in bericht4 and "Schroot" in bericht4
+        print(f"Koop Slimme voerbak met genoeg Schroot + Erts: {bericht4}")
+        assert "Gekocht" in bericht4 and "Schroot" in bericht4 and "Erts" in bericht4
 
         async with async_session() as session:
             schroot_inv = await session.scalar(
@@ -162,8 +176,14 @@ async def test_shop_en_uitrusten() -> None:
                     InventarisItem.speler_id == SPELER, InventarisItem.item_id == schroot.id
                 )
             )
-            print(f"Schroot over: {schroot_inv.aantal} (verwacht 5, was 10, -5 gebruikt)")
-            assert schroot_inv.aantal == 5
+            erts_inv = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == SPELER, InventarisItem.item_id == erts.id
+                )
+            )
+            print(f"Schroot over: {schroot_inv.aantal} (verwacht 0), Erts over: {erts_inv.aantal} (verwacht 0)")
+            assert schroot_inv.aantal == 0
+            assert erts_inv.aantal == 0
 
         # Slimme voerbak uitrusten terwijl Simpele al actief is -> auto-swap.
         interactie5 = fake_interaction(SPELER)
