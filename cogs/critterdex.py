@@ -92,7 +92,7 @@ class CritterdexView(discord.ui.View):
             el_emoji = element_emoji(soort.element)
             tier_naam = self.tier_namen.get(soort.tier_id, "?")
             aantal = self.gevangen_aantallen.get(soort.id, 0)
-            status = f"Gevangen: {aantal}x" if aantal else "Nog niet gevangen"
+            status = f"✅ Gevangen: {aantal}x" if aantal else "❌ Nog niet gevangen"
             embed.add_field(
                 name=f"{emoji} {el_emoji} {soort.naam}",
                 value=f"{tier_naam} — {status}",
@@ -223,7 +223,9 @@ class CritterdexCog(commands.Cog):
         embed.add_field(name="Werk", value=_stat_label(soort_obj.werk_basis), inline=True)
         embed.add_field(name="Werkplek-voorkeur", value=werkplek.type if werkplek else "Geen", inline=True)
         embed.add_field(
-            name="Zelf gevangen", value=f"{aantal_gevangen}x" if aantal_gevangen else "Nog niet gevangen", inline=True
+            name="Zelf gevangen",
+            value=f"✅ {aantal_gevangen}x" if aantal_gevangen else "❌ Nog niet gevangen",
+            inline=True,
         )
         if soort_obj.beschrijving:
             embed.add_field(name="Beschrijving", value=soort_obj.beschrijving, inline=False)

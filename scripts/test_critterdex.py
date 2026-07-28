@@ -85,7 +85,7 @@ async def test_critterdex_paginering_en_filters() -> None:
         vos_veld = next((f for f in _alle_velden(view) if f.name.endswith(" Vos")), None)
         assert vos_veld is not None
         print(f"Vos-veld: {vos_veld.name} -> {vos_veld.value}")
-        assert "Gevangen: 1x" in vos_veld.value
+        assert "✅ Gevangen: 1x" in vos_veld.value
 
         # Tier-filter: alleen Legendary (id 5).
         view.tier_select._values = ["5"]
@@ -139,7 +139,7 @@ async def test_info() -> None:
         print(f"Titel: {embed.title}")
         print(f"Velden: {veld_waarden}")
         assert "Vos" in embed.title
-        assert veld_waarden["Zelf gevangen"] == "1x"
+        assert veld_waarden["Zelf gevangen"] == "✅ 1x"
         assert veld_waarden["Werkplek-voorkeur"] == "Bos"
 
         interactie_onbekend = fake_interaction(SPELER)
