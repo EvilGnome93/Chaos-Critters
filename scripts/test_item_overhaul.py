@@ -3,9 +3,14 @@ Simpele/Slimme voerbak en Zelfreinigend systeem krijgen hun beloofde
 passieve effect, per pet uit te rusten via het nieuwe /uitrusten-commando.
 Slimme voerbak kost nu ook grondstoffen (Schroot) naast Chaos Coins.
 
-Test 1 is een pure unit-test van sync_stats() (geen DB nodig). Tests 2+
-draaien end-to-end tegen de dev-DB via de echte commands. Ruimt zijn eigen
-testdata op aan het eind.
+Voerbak-effect herzien (2026-07-28, verzoek van de gebruiker): verbruikt nu
+echt voer uit de inventaris i.p.v. een abstracte honger-regen (zie
+utils/stats.py:sync_stats_met_voerbak). Test 1 is een pure unit-test van
+sync_stats() (geen DB nodig, alleen het Zelfreinigend-energie-effect, dat
+onveranderd bleef). Test 2 dekt het nieuwe voerbak-voer-verbruik (heeft wel
+een DB nodig, want dat is nu een echte inventaris-write). Tests 3+ draaien
+end-to-end tegen de dev-DB via de echte commands. Ruimt zijn eigen testdata
+op aan het eind.
 """
 
 import asyncio
@@ -21,7 +26,7 @@ from sqlalchemy import select
 from cogs.verzorging import VerzorgingCog
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
-from utils.stats import ENERGIE_HERSTEL_MINUTEN, HONGER_VERVAL_MINUTEN, sync_stats
+from utils.stats import ENERGIE_HERSTEL_MINUTEN, HONGER_VERVAL_MINUTEN, sync_stats, sync_stats_met_voerbak
 
 SPELER = 999999999999999941
 
@@ -54,25 +59,27 @@ def _pet_stub(**overrides) -> Huisdier:
 
 
 def test_sync_stats_passief_effect() -> None:
-    print("-- sync_stats: passieve voerbak/zelfreinigend-effecten (pure unit-test) --")
+    print("-- sync_stats: honger-verval + zelfreinigend-energie-effect (pure unit-test) --")
 
-    # Voerbak = voer -> geeft passief HONGER terug (2026-07-27, verzoek van
-    # de gebruiker: "voerbak geeft toch echt voer, niet energie" — logische
-    # correctie op de eerste versie hieronder).
+    # sync_stats() zelf raakt honger niet meer bijzonder aan sinds de
+    # voerbak-herziening (2026-07-28) — dat verval is nu altijd gewoon
+    # normaal, ongeacht voerbak_niveau. Het voerbak-effect zit in de aparte,
+    # async sync_stats_met_voerbak() (zie test_voerbak_verbruikt_echt_voer),
+    # want dat is nu een echte inventaris-write en dus geen pure functie meer.
     geen = _pet_stub(honger=50, laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
     sync_stats(geen)
-    print(f"Zonder voerbak: honger {geen.honger} (verwacht < 50, normaal verval)")
+    print(f"Normaal verval: honger {geen.honger} (verwacht < 50)")
     assert geen.honger < 50
 
-    simpel = _pet_stub(honger=50, voerbak_niveau="simpel", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
-    sync_stats(simpel)
-    print(f"Simpele voerbak: honger {simpel.honger} (verwacht > zonder voerbak, vult helft van verval aan)")
-    assert simpel.honger > geen.honger
-
-    slim = _pet_stub(honger=50, voerbak_niveau="slim", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
-    sync_stats(slim)
-    print(f"Slimme voerbak: honger {slim.honger} (verwacht == 50, vult volledig verval aan, netto stabiel)")
-    assert slim.honger == 50
+    met_voerbak_maar_pure_call = _pet_stub(
+        honger=50, voerbak_niveau="slim", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10)
+    )
+    sync_stats(met_voerbak_maar_pure_call)
+    print(
+        f"sync_stats() (niet de _met_voerbak-variant) met voerbak_niveau='slim': honger "
+        f"{met_voerbak_maar_pure_call.honger} (verwacht ook < 50, want de pure functie negeert voerbak_niveau)"
+    )
+    assert met_voerbak_maar_pure_call.honger < 50
 
     # Zelfreinigend systeem: laat ENERGIE ook buiten rust herstellen (het
     # effect dat voorheen aan de voerbak hing).
@@ -88,6 +95,122 @@ def test_sync_stats_passief_effect() -> None:
     print(f"Met zelfreinigend, buiten rust: energie {met_zelfreinigend.energie} (verwacht > 50)")
     assert met_zelfreinigend.energie > 50
     print("Passieve effecten kloppen.")
+
+
+# Elk subscenario krijgt zijn EIGEN speler-id (i.p.v. 1 gedeelde) — anders
+# lekken restjes voeding van het ene scenario in het volgende, wat een
+# eerdere versie van deze test stiekem liet slagen om de verkeerde reden.
+SPELERS_VOERBAK = list(range(999999999999999942, 999999999999999946))
+
+
+async def _pet_met_voerbak(session, speler_id: int, naam: str, niveau: str, honger: int) -> int:
+    if await session.get(Speler, speler_id) is None:
+        session.add(Speler(discord_id=speler_id, currency=0, mmr=1000, volgend_pet_nummer=1))
+        await session.commit()
+    speler = await session.get(Speler, speler_id)
+    soort = await session.scalar(select(PetSoort).limit(1))
+    pet = Huisdier(
+        eigenaar_id=speler_id, soort_id=soort.id, tier_id=soort.tier_id, naam=naam,
+        volgnummer=speler.volgend_pet_nummer, gevecht_genen=50, werk_genen=50,
+        status=PetStatus.werkplek, honger=honger, energie=50, voerbak_niveau=niveau,
+        laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10),
+    )
+    speler.volgend_pet_nummer += 1
+    session.add(pet)
+    await session.commit()
+    await session.refresh(pet)
+    return pet.id
+
+
+async def _geef_item(session, speler_id: int, item_naam: str, aantal: int) -> None:
+    item = await session.scalar(select(Item).where(Item.naam == item_naam))
+    session.add(InventarisItem(speler_id=speler_id, item_id=item.id, aantal=aantal))
+
+
+async def test_voerbak_verbruikt_echt_voer() -> None:
+    print("\n-- sync_stats_met_voerbak: voerbak verbruikt écht voer uit de inventaris --")
+    speler_geen, speler_simpel_brokjes, speler_simpel_premium, speler_slim_vlees = SPELERS_VOERBAK
+    pet_ids: list[int] = []
+    try:
+        # 1. Voerbak zonder voer in de inventaris -> gewoon normaal verval, geen fallback-regen.
+        async with async_session() as session:
+            pet_id = await _pet_met_voerbak(session, speler_geen, "GeenVoerraad", "slim", honger=50)
+            pet_ids.append(pet_id)
+            pet = await session.get(Huisdier, pet_id)
+            await sync_stats_met_voerbak(session, pet)
+            await session.commit()
+            print(f"Slim, geen voer in inventaris: honger {pet.honger} (verwacht < 50)")
+            assert pet.honger < 50
+
+        # 2. Simpele voerbak + Basis brokjes -> gebruikt Basis brokjes.
+        async with async_session() as session:
+            pet_id = await _pet_met_voerbak(session, speler_simpel_brokjes, "SimpelMetBrokjes", "simpel", honger=50)
+            pet_ids.append(pet_id)
+            await _geef_item(session, speler_simpel_brokjes, "Basis brokjes", 2)
+            await session.commit()
+            pet = await session.get(Huisdier, pet_id)
+            await sync_stats_met_voerbak(session, pet)
+            await session.commit()
+            brokjes = await session.scalar(select(Item).where(Item.naam == "Basis brokjes"))
+            brokjes_inv = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == speler_simpel_brokjes, InventarisItem.item_id == brokjes.id
+                )
+            )
+            print(f"Simpel + 2x Basis brokjes: honger {pet.honger}, brokjes over: {brokjes_inv.aantal}")
+            assert pet.honger > 40  # verval + minstens 1x +15 uit een brokje
+            assert brokjes_inv.aantal < 2
+
+        # 3. Simpele voerbak mag GEEN Graanvrije premium voeding gebruiken, ook al is die beschikbaar.
+        async with async_session() as session:
+            pet_id = await _pet_met_voerbak(session, speler_simpel_premium, "SimpelAlleenPremium", "simpel", honger=50)
+            pet_ids.append(pet_id)
+            await _geef_item(session, speler_simpel_premium, "Graanvrije premium voeding", 5)
+            await session.commit()
+            pet = await session.get(Huisdier, pet_id)
+            await sync_stats_met_voerbak(session, pet)
+            await session.commit()
+            premium = await session.scalar(select(Item).where(Item.naam == "Graanvrije premium voeding"))
+            premium_inv = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == speler_simpel_premium, InventarisItem.item_id == premium.id
+                )
+            )
+            print(
+                f"Simpel + alleen Graanvrije premium voeding (niet toegestaan): honger {pet.honger} "
+                f"(verwacht < 50, ongebruikt), voeding over: {premium_inv.aantal} (verwacht 5)"
+            )
+            assert pet.honger < 50
+            assert premium_inv.aantal == 5
+
+        # 4. Slimme voerbak zonder Basis brokjes maar met Vers vlees/vis -> gebruikt dat (volledig herstel).
+        async with async_session() as session:
+            pet_id = await _pet_met_voerbak(session, speler_slim_vlees, "SlimMetVersVlees", "slim", honger=10)
+            pet_ids.append(pet_id)
+            await _geef_item(session, speler_slim_vlees, "Vers vlees/vis", 1)
+            await session.commit()
+            pet = await session.get(Huisdier, pet_id)
+            await sync_stats_met_voerbak(session, pet)
+            await session.commit()
+            vlees = await session.scalar(select(Item).where(Item.naam == "Vers vlees/vis"))
+            vlees_inv = await session.scalar(
+                select(InventarisItem).where(
+                    InventarisItem.speler_id == speler_slim_vlees, InventarisItem.item_id == vlees.id
+                )
+            )
+            print(f"Slim + 1x Vers vlees/vis: honger {pet.honger} (verwacht 100), over: {vlees_inv.aantal} (verwacht 0)")
+            assert pet.honger == 100
+            assert vlees_inv.aantal == 0
+
+        print("Voerbak verbruikt correct echt voer, respecteert het niveau, en doet niets zonder voorraad.")
+    finally:
+        async with async_session() as session:
+            if pet_ids:
+                await session.execute(Huisdier.__table__.delete().where(Huisdier.id.in_(pet_ids)))
+            await session.execute(InventarisItem.__table__.delete().where(InventarisItem.speler_id.in_(SPELERS_VOERBAK)))
+            await session.execute(Speler.__table__.delete().where(Speler.discord_id.in_(SPELERS_VOERBAK)))
+            await session.commit()
+        print("Testdata opgeruimd.")
 
 
 async def _maak_pet(session, speler_id: int, naam: str) -> int:
@@ -235,6 +358,7 @@ async def test_shop_en_uitrusten() -> None:
 
 async def main() -> None:
     test_sync_stats_passief_effect()
+    await test_voerbak_verbruikt_echt_voer()
     await test_shop_en_uitrusten()
     print("\nAlle checks geslaagd.")
 

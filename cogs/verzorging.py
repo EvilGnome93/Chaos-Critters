@@ -12,7 +12,13 @@ from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
 from utils.elementen import emoji as element_emoji, soort_element_emojis
 from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
-from utils.stats import SLAAP_COOLDOWN_UUR, SLAAP_HONGER_KOST, sync_stats
+from utils.stats import (
+    HONGER_HERSTEL_WAARDEN as _HONGER_HERSTEL,
+    SLAAP_COOLDOWN_UUR,
+    SLAAP_HONGER_KOST,
+    VOLLEDIG_HERSTEL_ITEMS as _VOLLEDIG_HERSTEL,
+    sync_stats_met_voerbak,
+)
 
 
 def _level_status(pet: Huisdier) -> str:
@@ -40,11 +46,9 @@ ITEM_CATEGORIE_LABELS = {
 # komt voortaan alleen uit passief herstel in rust (utils/stats.py) of /slaap.
 # Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
 # aankopen voor de shop-stap en horen hier nog niet bij.
-_HONGER_HERSTEL = {
-    "Basis brokjes": 15,
-    "Graanvrije premium voeding": 40,
-}
-_VOLLEDIG_HERSTEL = {"Vers vlees/vis"}
+# _HONGER_HERSTEL/_VOLLEDIG_HERSTEL komen uit utils/stats.py (single source
+# of truth, want die worden sinds 2026-07-28 ook gebruikt door het
+# voerbak-auto-voer-effect in sync_stats_met_voerbak).
 _MYSTERIE_VOEDSEL = "Mysterie voedselzak"
 
 VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
@@ -200,7 +204,7 @@ async def _haal_pets_op(session, speler_id: int) -> list[Huisdier]:
     stmt = select(Huisdier).where(Huisdier.eigenaar_id == speler_id)
     pets = (await session.execute(stmt)).scalars().all()
     for pet in pets:
-        sync_stats(pet)
+        await sync_stats_met_voerbak(session, pet)
     await session.commit()
     return pets
 
@@ -408,7 +412,7 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
                 return
 
-            sync_stats(huisdier)
+            await sync_stats_met_voerbak(session, huisdier)
 
             if item is None:
                 soort = await session.get(PetSoort, huisdier.soort_id)
@@ -470,7 +474,7 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message("Je hebt geen pet met dat ID.", ephemeral=True)
                 return
 
-            sync_stats(huisdier)
+            await sync_stats_met_voerbak(session, huisdier)
 
             if huisdier.laatste_slaap_op is not None:
                 verstreken = _nu() - huisdier.laatste_slaap_op

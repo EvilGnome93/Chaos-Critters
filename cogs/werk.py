@@ -15,7 +15,7 @@ from db.engine import async_session
 from db.models import Clan, Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
 from utils.discord_log import fmt_log, send_log
 from utils.leveling import XP_PER_EFFECTIEVE_UUR, voeg_xp_toe
-from utils.stats import inzetbaarheid_probleem, sync_stats
+from utils.stats import inzetbaarheid_probleem, sync_stats_met_voerbak
 
 log = logging.getLogger("chaos_critters")
 
@@ -222,7 +222,7 @@ class WerkCog(commands.Cog):
                 )
                 return
 
-            sync_stats(huisdier)
+            await sync_stats_met_voerbak(session, huisdier)
 
             if huisdier.status == PetStatus.werkplek:
                 await self._verwerk_lopende_shift(session, interaction, huisdier)

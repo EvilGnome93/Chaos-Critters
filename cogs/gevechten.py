@@ -28,7 +28,7 @@ from utils.gevechten import (
     synthetische_tegenstander_macht,
 )
 from utils.leveling import voeg_xp_toe
-from utils.stats import BLESSURE_DUUR_UUR, inzetbaarheid_probleem, sync_stats
+from utils.stats import BLESSURE_DUUR_UUR, inzetbaarheid_probleem, sync_stats_met_voerbak
 
 TACTIEK_LABELS = {"aggressief": "🗡️ Aggressief", "gebalanceerd": "⚖️ Gebalanceerd", "voorzichtig": "🛡️ Voorzichtig"}
 
@@ -903,7 +903,7 @@ class GevechtenCog(commands.Cog):
                 await session.execute(select(Huisdier).where(Huisdier.eigenaar_id == interaction.user.id))
             ).scalars().all()
             for pet in pets:
-                sync_stats(pet)
+                await sync_stats_met_voerbak(session, pet)
             await session.commit()
             elementen = await soort_element_emojis(session)
 
@@ -953,7 +953,7 @@ class GevechtenCog(commands.Cog):
         async with async_session() as session:
             eigen_team = await _haal_team_op(session, interaction.user.id)
             for pet in eigen_team:
-                sync_stats(pet)
+                await sync_stats_met_voerbak(session, pet)
             await session.commit()
 
             if len(eigen_team) != 3:
@@ -1102,7 +1102,7 @@ class GevechtenCog(commands.Cog):
             eigen_team = await _haal_team_op(session, uitdaging.uitdager_id)
             tegenstander_team = await _haal_team_op(session, uitdaging.tegenstander_id)
             for pet in [*eigen_team, *tegenstander_team]:
-                sync_stats(pet)
+                await sync_stats_met_voerbak(session, pet)
             await session.commit()
 
             if len(eigen_team) != 3 or len(tegenstander_team) != 3:

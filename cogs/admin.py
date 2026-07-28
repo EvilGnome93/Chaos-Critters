@@ -61,6 +61,17 @@ NIEUW_OM_TE_TESTEN = [
         "klopt, en vergelijk `/info` van een soort die je al gevangen hebt met een die je nog niet "
         "hebt.",
     ),
+    (
+        "🍽️ Voerbakken gebruiken nu écht voer uit je inventaris",
+        "Eerder gaven voerbakken een abstracte honger-regen los van je inventaris. Nu voeren ze een "
+        "pet automatisch met voedingsitems die je echt bezit: **Simpele voerbak** alleen met Basis "
+        "brokjes, **Slimme voerbak** met je goedkoopste beschikbare voer (Basis brokjes → Graanvrije "
+        "premium voeding → Vers vlees/vis). Geen voer meer over? Dan gebeurt er niets, gewoon normaal "
+        "verval — geen gratis vangnet.\n\n"
+        "Wat te testen: rust een pet uit met een voerbak zonder voeding in je inventaris (moet gewoon "
+        "honger verliezen), koop dan wat voeding en kijk of de pet zichzelf voert zodra je 'm ergens "
+        "aanraakt (bijv. `/lijst`).",
+    ),
 ]
 
 class AdminCog(commands.Cog):

@@ -346,13 +346,15 @@ ITEMS = [
         "Simpele voerbak",
         ItemType.overig,
         100,
-        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult de helft van het verval aan. Kost ook 2x Water + 2x Fruit",
+        "Per pet uit te rusten met /uitrusten. Voert de pet automatisch met Basis brokjes uit je "
+        "inventaris (op = geen effect meer). Kost ook 2x Water + 2x Fruit",
     ),
     (
         "Slimme voerbak",
         ItemType.overig,
         250,
-        "Per pet uit te rusten met /uitrusten. Geeft passief honger terug, vult het volledige verval aan. Kost ook 40x Schroot + 20x Erts",
+        "Per pet uit te rusten met /uitrusten. Voert de pet automatisch met je goedkoopste beschikbare "
+        "voer (op = geen effect meer). Kost ook 40x Schroot + 20x Erts",
     ),
     (
         "Zelfreinigend systeem",
