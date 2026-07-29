@@ -47,6 +47,10 @@ class ReleaseBevestigView(discord.ui.View):
         self.pet_id = pet_id
         self.guild_id = guild_id
         self.message: discord.Message | None = None
+        # De knoppen staan pas écht uit zodra edit_message() geland is, dus
+        # tot die tijd kan een dubbelklik een tweede vrijlating starten — die
+        # zou de pet nog zien (andere sessie) en nogmaals coins uitkeren.
+        self._verwerkt = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.speler_id:
@@ -56,6 +60,10 @@ class ReleaseBevestigView(discord.ui.View):
 
     @discord.ui.button(label="🕊️ Bevestig vrijlaten", style=discord.ButtonStyle.danger)
     async def bevestigen(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Deze pet is al vrijgelaten.", ephemeral=True)
+            return
+        self._verwerkt = True
         for item in self.children:
             item.disabled = True
 

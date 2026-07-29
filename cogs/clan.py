@@ -129,22 +129,44 @@ class ClanCog(commands.Cog):
                 return
 
             clan = await session.get(Clan, speler.clan_id)
+            was_oprichter = clan.oprichter_id == interaction.user.id
             speler.clan_id = None
             await session.flush()
 
             overige_leden = await _aantal_leden(session, clan.id)
             ontbonden = overige_leden == 0
+            nieuwe_oprichter_id = None
             if ontbonden:
                 await session.delete(clan)
+            elif was_oprichter:
+                # Zonder deze overdracht zou de clan onontbindbaar worden: de
+                # vertrokken oprichter kan /clan-ontbinden niet meer gebruiken
+                # (die eist dat je lid bent) en de achterblijvers zijn de
+                # oprichter niet. Oudste resterende lid neemt het over
+                # (2026-07-28, codebase-review).
+                nieuwe_oprichter_id = await session.scalar(
+                    select(Speler.discord_id)
+                    .where(Speler.clan_id == clan.id)
+                    .order_by(Speler.created_at, Speler.discord_id)
+                    .limit(1)
+                )
+                clan.oprichter_id = nieuwe_oprichter_id
             await session.commit()
 
-        extra = " De clan had geen leden meer over en is automatisch ontbonden." if ontbonden else ""
+        if ontbonden:
+            extra = " De clan had geen leden meer over en is automatisch ontbonden."
+        elif nieuwe_oprichter_id is not None:
+            extra = f" <@{nieuwe_oprichter_id}> is nu de oprichter van de clan."
+        else:
+            extra = ""
         await interaction.response.send_message(f"Je hebt clan **{clan.naam}** verlaten.{extra}", ephemeral=False)
         await send_log(
             self.bot, interaction.guild_id, "main",
             fmt_log(
                 "🔴", "clan",
-                f"{interaction.user.mention} verliet clan **{clan.naam}**" + (" (automatisch ontbonden)" if ontbonden else ""),
+                f"{interaction.user.mention} verliet clan **{clan.naam}**"
+                + (" (automatisch ontbonden)" if ontbonden else "")
+                + (f" (oprichterschap naar <@{nieuwe_oprichter_id}>)" if nieuwe_oprichter_id else ""),
             ),
         )
 

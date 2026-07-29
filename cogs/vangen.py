@@ -80,6 +80,11 @@ async def _kies_random_soort(
     soorten = (
         (await session.execute(select(PetSoort).where(PetSoort.tier_id == tier.id))).scalars().all()
     )
+    if not soorten:
+        # Kan alleen als er een tier bestaat zonder pet-soorten (bijv. net
+        # toegevoegd, nog niet geseed). Zonder deze check zou random.choice
+        # met een IndexError crashen i.p.v. een leesbare melding te geven.
+        raise ValueError(f"Tier '{tier.naam}' heeft nog geen pet-soorten om te spawnen.")
     return random.choice(soorten), tier
 
 

@@ -7,7 +7,7 @@ from discord.ext import commands
 from sqlalchemy import select
 
 from cogs.vangen import TIER_EMOJI, TIER_KLEUREN
-from cogs.werk import WERK_CYCLI, _format_duur, _nu, _voeg_toe_aan_inventaris
+from cogs.werk import WERK_CYCLI, _format_duur, _neem_uit_inventaris, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
 from utils.elementen import emoji as element_emoji, soort_element_emojis
@@ -98,7 +98,7 @@ async def _koop_item(session, speler_id: int, item_obj: Item, aantal: int) -> tu
         )
 
     recept = RECEPT_KOSTEN.get(item_obj.naam, [])
-    grondstof_inventaris: dict[str, InventarisItem] = {}
+    grondstof_items: dict[str, Item] = {}
     for grondstof_naam, hoeveelheid in recept:
         benodigd = hoeveelheid * aantal
         grondstof_item = await session.scalar(select(Item).where(Item.naam == grondstof_naam))
@@ -113,11 +113,18 @@ async def _koop_item(session, speler_id: int, item_obj: Item, aantal: int) -> tu
                 f"**{item_obj.naam}** x{aantal} vereist ook {benodigd}x **{grondstof_naam}** "
                 f"(je hebt {in_bezit})."
             )
-        grondstof_inventaris[grondstof_naam] = inv
+        grondstof_items[grondstof_naam] = grondstof_item
 
-    speler.currency -= kosten
+    # Atomisch afboeken (zie _neem_uit_inventaris): de check hierboven kan
+    # verouderd zijn als er tegelijk een ander commando van dezelfde speler
+    # loopt, dus elke afboeking bevestigt zelf nog of er genoeg was.
     for grondstof_naam, hoeveelheid in recept:
-        grondstof_inventaris[grondstof_naam].aantal -= hoeveelheid * aantal
+        if not await _neem_uit_inventaris(
+            session, speler_id, grondstof_items[grondstof_naam].id, hoeveelheid * aantal
+        ):
+            await session.rollback()
+            return False, f"Je hebt niet meer genoeg **{grondstof_naam}** voor deze aankoop."
+    speler.currency -= kosten
     await _voeg_toe_aan_inventaris(session, speler_id, item_obj.id, aantal)
     await session.commit()
 
@@ -345,6 +352,9 @@ class CraftBevestigView(discord.ui.View):
         self.aantal = aantal
         self.message: discord.Message | None = None
         self.bevestigen.disabled = not kan_craften
+        # De knoppen staan pas écht uit zodra edit_message() geland is, dus
+        # tot die tijd kan een dubbelklik een tweede craft starten.
+        self._verwerkt = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.speler_id:
@@ -364,6 +374,11 @@ class CraftBevestigView(discord.ui.View):
 
     @discord.ui.button(label="Bevestigen", style=discord.ButtonStyle.success)
     async def bevestigen(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Deze craft is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
+
         async with async_session() as session:
             item_obj = await session.get(Item, self.item_obj.id)
             _, bericht = await _koop_item(session, self.speler_id, item_obj, self.aantal)
@@ -445,7 +460,12 @@ class VerzorgingCog(commands.Cog):
                 )
                 return
 
-            inventaris_item.aantal -= aantal
+            if not await _neem_uit_inventaris(session, interaction.user.id, item_obj.id, aantal):
+                await session.rollback()
+                await interaction.response.send_message(
+                    f"Je hebt niet meer genoeg **{item.value}**.", ephemeral=True
+                )
+                return
             gebruikte_items = [_toepassen_voeding(huisdier, item.value) for _ in range(aantal)]
             await session.commit()
 
@@ -588,6 +608,15 @@ class VerzorgingCog(commands.Cog):
                 )
                 return
 
+            # Eerst het nieuwe item afboeken: lukt dat niet (voorraad net weg
+            # via een ander commando), dan is er nog niets veranderd.
+            if not await _neem_uit_inventaris(session, interaction.user.id, item_obj.id, 1):
+                await session.rollback()
+                await interaction.response.send_message(
+                    f"Je hebt geen **{item.value}** (meer) in je inventaris.", ephemeral=True
+                )
+                return
+
             wissel_tekst = ""
             if not is_zelfreinigend and huisdier.voerbak_niveau is not None:
                 # Slot is al bezet door de andere voerbak — automatisch
@@ -597,7 +626,6 @@ class VerzorgingCog(commands.Cog):
                 await _voeg_toe_aan_inventaris(session, interaction.user.id, oude_item.id, 1)
                 wissel_tekst = f" (**{oude_naam}** kwam terug in je inventaris)"
 
-            inv.aantal -= 1
             if is_zelfreinigend:
                 huisdier.zelfreinigend_actief = True
             else:

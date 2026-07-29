@@ -4,9 +4,9 @@ verkoop is bewust geschrapt, dat wordt straks door /release afgedekt)."""
 import discord
 from discord import app_commands
 from discord.ext import commands
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from cogs.werk import _voeg_toe_aan_inventaris
+from cogs.werk import _neem_uit_inventaris, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
 from utils.discord_log import fmt_log, send_log
@@ -74,23 +74,32 @@ async def _pet_afbeelding_url(session, eigenaar_id: int, pet_id: int) -> str | N
     return soort.afbeelding_url if soort else None
 
 
-async def _voer_kant_uit(session, van_speler_id: int, naar_speler_id: int, kant: TradeKant) -> None:
+async def _voer_kant_uit(session, van_speler_id: int, naar_speler_id: int, kant: TradeKant) -> bool:
+    """Verplaatst één kant van de ruil. Geeft False als de gever iets niet
+    (meer) blijkt te bezitten — de aanroeper hoort de transactie dan terug te
+    draaien i.p.v. te committen.
+
+    Alle afboekingen zijn atomisch (`UPDATE ... WHERE >= n`, met een
+    rowcount-check) i.p.v. ORM read-modify-write. Dat laatste liet twee
+    gelijktijdige transacties dezelfde voorraad afboeken terwijl de
+    bijschrijving wél atomisch optelde, wat bij een dubbelklik netto items
+    uit het niets opleverde (2026-07-28, codebase-review)."""
     item_naam, item_aantal, pet_id, coins, _pet_naam = kant
 
     if item_naam:
         item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
-        inv = await session.scalar(
-            select(InventarisItem).where(
-                InventarisItem.speler_id == van_speler_id, InventarisItem.item_id == item_obj.id
-            )
-        )
-        inv.aantal -= item_aantal
+        if item_obj is None or not await _neem_uit_inventaris(
+            session, van_speler_id, item_obj.id, item_aantal
+        ):
+            return False
         await _voeg_toe_aan_inventaris(session, naar_speler_id, item_obj.id, item_aantal)
 
     if pet_id is not None:
         pet = await session.scalar(
             select(Huisdier).where(Huisdier.eigenaar_id == van_speler_id, Huisdier.volgnummer == pet_id)
         )
+        if pet is None:
+            return False
         nieuwe_eigenaar = await session.get(Speler, naar_speler_id)
         pet.eigenaar_id = naar_speler_id
         pet.volgnummer = nieuwe_eigenaar.volgend_pet_nummer
@@ -100,10 +109,18 @@ async def _voer_kant_uit(session, van_speler_id: int, naar_speler_id: int, kant:
         pet.status = PetStatus.rust
 
     if coins:
-        van_speler = await session.get(Speler, van_speler_id)
-        naar_speler = await session.get(Speler, naar_speler_id)
-        van_speler.currency -= coins
-        naar_speler.currency += coins
+        resultaat = await session.execute(
+            update(Speler)
+            .where(Speler.discord_id == van_speler_id, Speler.currency >= coins)
+            .values(currency=Speler.currency - coins)
+        )
+        if resultaat.rowcount == 0:
+            return False
+        await session.execute(
+            update(Speler).where(Speler.discord_id == naar_speler_id).values(currency=Speler.currency + coins)
+        )
+
+    return True
 
 
 class TradeBevestigView(discord.ui.View):
@@ -127,6 +144,10 @@ class TradeBevestigView(discord.ui.View):
         self.vraag = vraag
         self.guild_id = guild_id
         self.message: discord.Message | None = None
+        # Voorkomt dat een dubbelklik de ruil twee keer uitvoert: de knoppen
+        # staan pas écht uit zodra edit_message() geland is, dus tot die tijd
+        # kan Discord een tweede interactie sturen (2026-07-28, review).
+        self._verwerkt = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.voorsteller_id:
@@ -138,6 +159,10 @@ class TradeBevestigView(discord.ui.View):
 
     @discord.ui.button(label="✅ Definitief bevestigen", style=discord.ButtonStyle.success)
     async def bevestigen(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Deze ruil is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
         for item in self.children:
             item.disabled = True
 
@@ -145,7 +170,21 @@ class TradeBevestigView(discord.ui.View):
             probleem = await _bezit_kant(session, self.voorsteller_id, self.geef)
             if probleem is None:
                 probleem = await _bezit_kant(session, self.ontvanger_id, self.vraag)
+            if probleem is None:
+                gelukt = await _voer_kant_uit(session, self.voorsteller_id, self.ontvanger_id, self.geef)
+                if gelukt:
+                    gelukt = await _voer_kant_uit(session, self.ontvanger_id, self.voorsteller_id, self.vraag)
+                if not gelukt:
+                    # Eén van beide kanten bleek tóch niet meer te leveren
+                    # (bijv. voorraad net weg via een ander commando): alles
+                    # terugdraaien, zodat er nooit een halve ruil blijft staan.
+                    await session.rollback()
+                    probleem = "een van beide spelers had de aangeboden spullen niet meer."
+
             if probleem is not None:
+                self._verwerkt = False  # mag opnieuw geprobeerd worden
+                for item in self.children:
+                    item.disabled = False
                 await interaction.response.edit_message(
                     content=f"❌ Ruil kon niet worden voltooid: {probleem}", embed=None, view=self
                 )
@@ -155,8 +194,6 @@ class TradeBevestigView(discord.ui.View):
                 )
                 return
 
-            await _voer_kant_uit(session, self.voorsteller_id, self.ontvanger_id, self.geef)
-            await _voer_kant_uit(session, self.ontvanger_id, self.voorsteller_id, self.vraag)
             await session.commit()
 
         embed = discord.Embed(
@@ -220,6 +257,9 @@ class TradeVoorstelView(discord.ui.View):
         self.vraag = vraag
         self.guild_id = guild_id
         self.message: discord.Message | None = None
+        # Voorkomt dat een dubbelklik twee bevestig-views op hetzelfde bericht
+        # zet (2026-07-28, review) — zelfde patroon als UitdagingView.
+        self._verwerkt = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.ontvanger_id:
@@ -229,6 +269,11 @@ class TradeVoorstelView(discord.ui.View):
 
     @discord.ui.button(label="✅ Accepteren", style=discord.ButtonStyle.success)
     async def accepteren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Dit voorstel is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
+
         async with async_session() as session:
             probleem = await _bezit_kant(session, self.ontvanger_id, self.vraag)
 
@@ -266,6 +311,10 @@ class TradeVoorstelView(discord.ui.View):
 
     @discord.ui.button(label="❌ Weigeren", style=discord.ButtonStyle.danger)
     async def weigeren(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self._verwerkt:
+            await interaction.response.send_message("Dit voorstel is al verwerkt.", ephemeral=True)
+            return
+        self._verwerkt = True
         for item in self.children:
             item.disabled = True
         await interaction.response.edit_message(content="❌ Ruilvoorstel geweigerd.", embed=None, view=self)

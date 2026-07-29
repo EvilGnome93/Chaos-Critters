@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 from discord import app_commands
 from discord.ext import commands
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 import config
@@ -85,6 +85,28 @@ async def _voeg_toe_aan_inventaris(session, speler_id: int, item_id: int, aantal
         set_={"aantal": InventarisItem.aantal + aantal},
     )
     await session.execute(stmt)
+
+
+async def _neem_uit_inventaris(session, speler_id: int, item_id: int, aantal: int) -> bool:
+    """Trekt `aantal` van een item af. Geeft False (en boekt niets af) als de
+    speler er niet genoeg van heeft.
+
+    Bewust één atomische `UPDATE ... WHERE aantal >= n` i.p.v. de ORM-variant
+    (`inv.aantal -= n`): die laatste is een read-modify-write, waardoor twee
+    gelijktijdige transacties allebei dezelfde voorraad konden afboeken (lost
+    update). Omdat de tegenhanger `_voeg_toe_aan_inventaris` wél atomisch
+    optelt, leverde dat bij een dubbelklik op een ruil netto items uit het
+    niets op (2026-07-28, gevonden bij de codebase-review)."""
+    resultaat = await session.execute(
+        update(InventarisItem)
+        .where(
+            InventarisItem.speler_id == speler_id,
+            InventarisItem.item_id == item_id,
+            InventarisItem.aantal >= aantal,
+        )
+        .values(aantal=InventarisItem.aantal - aantal)
+    )
+    return resultaat.rowcount > 0
 
 
 async def _max_werkende_pets(session) -> int:

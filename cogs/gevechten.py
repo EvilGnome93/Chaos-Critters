@@ -6,9 +6,9 @@ from typing import Literal
 import discord
 from discord import app_commands
 from discord.ext import commands
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from cogs.werk import _format_duur, _voeg_toe_aan_inventaris
+from cogs.werk import _format_duur, _neem_uit_inventaris, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, Instelling, InventarisItem, Item, PetSoort, PetStatus, Speler, Tier
 from utils.afbeeldingen import soort_afbeeldingen
@@ -108,19 +108,25 @@ async def _heeft_ranked_poging(session, speler: Speler) -> tuple[bool, str | Non
     )
 
 
-async def _verbruik_ranked_poging(session, speler: Speler) -> None:
+async def _verbruik_ranked_poging(session, speler: Speler) -> bool:
+    """Verbruikt een gratis poging, of anders een Extra match token. Geeft
+    False als er niets te verbruiken viel — dat kan gebeuren als er tussen de
+    `_heeft_ranked_poging`-check en dit moment iets veranderde (bij PvP zit
+    daar de hele accepteer-stap tussen), of bij twee gelijktijdige gevechten
+    met nog maar één token. De aanroeper hoort het gevecht dan af te breken."""
     _reset_ranked_indien_nodig(speler)
     limiet = await _ranked_gratis_per_dag(session)
     if speler.ranked_pogingen_vandaag < limiet:
         speler.ranked_pogingen_vandaag += 1
-        return
+        return True
+
     token = await session.scalar(select(Item).where(Item.naam == "Extra match token"))
-    inv = await session.scalar(
-        select(InventarisItem).where(
-            InventarisItem.speler_id == speler.discord_id, InventarisItem.item_id == token.id
-        )
-    )
-    inv.aantal -= 1
+    if token is None:
+        return False
+    # Atomisch afboeken i.p.v. `inv.aantal -= 1`: dat laatste kon het aantal
+    # negatief maken (of op None crashen) als er tegelijk een tweede gevecht
+    # dezelfde laatste token opsoupeerde (2026-07-28, codebase-review).
+    return await _neem_uit_inventaris(session, speler.discord_id, token.id, 1)
 
 
 async def _inzet_item_opties(session, speler_id: int) -> list[discord.SelectOption]:
@@ -795,23 +801,34 @@ class VechtView(discord.ui.View):
 
                     winnaar_id = self.eigen_id if gewonnen else self.tegenstander_id
                     verliezer_id = self.tegenstander_id if gewonnen else self.eigen_id
-                    winnaar_speler = speler if gewonnen else tegen_speler
-                    verliezer_speler = tegen_speler if gewonnen else speler
 
+                    # De inzet is bij het accepteren gecontroleerd, maar een
+                    # gevecht duurt minuten — de verliezer kan die items/coins
+                    # intussen uitgegeven hebben. Alleen bijschrijven wat er
+                    # daadwerkelijk afgeboekt kon worden, anders zou de winnaar
+                    # meer krijgen dan de verliezer kwijtraakt (2026-07-28).
                     if self.inzet_coins:
-                        winnaar_speler.currency += self.inzet_coins
-                        verliezer_speler.currency -= self.inzet_coins
+                        afgeboekt = await session.execute(
+                            update(Speler)
+                            .where(
+                                Speler.discord_id == verliezer_id,
+                                Speler.currency >= self.inzet_coins,
+                            )
+                            .values(currency=Speler.currency - self.inzet_coins)
+                        )
+                        if afgeboekt.rowcount:
+                            await session.execute(
+                                update(Speler)
+                                .where(Speler.discord_id == winnaar_id)
+                                .values(currency=Speler.currency + self.inzet_coins)
+                            )
                     if self.inzet_item:
                         item_naam, aantal = self.inzet_item
                         item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
-                        verliezer_inv = await session.scalar(
-                            select(InventarisItem).where(
-                                InventarisItem.speler_id == verliezer_id, InventarisItem.item_id == item_obj.id
-                            )
-                        )
-                        if verliezer_inv:
-                            verliezer_inv.aantal = max(0, verliezer_inv.aantal - aantal)
-                        await _voeg_toe_aan_inventaris(session, winnaar_id, item_obj.id, aantal)
+                        if item_obj is not None and await _neem_uit_inventaris(
+                            session, verliezer_id, item_obj.id, aantal
+                        ):
+                            await _voeg_toe_aan_inventaris(session, winnaar_id, item_obj.id, aantal)
 
                 await session.commit()
 
@@ -1020,8 +1037,14 @@ class GevechtenCog(commands.Cog):
         # de eigen teamsamenstelling is), met een kleine MMR-modifier.
         async with async_session() as session:
             speler = await session.get(Speler, interaction.user.id)
-            if not is_friendly:
-                await _verbruik_ranked_poging(session, speler)
+            if not is_friendly and not await _verbruik_ranked_poging(session, speler):
+                await session.rollback()
+                await interaction.response.send_message(
+                    "Je ranked-poging kon niet verwerkt worden — je hebt geen gratis pogingen of "
+                    "Extra match token meer over.",
+                    ephemeral=True,
+                )
+                return
             for pet in eigen_team:
                 pet_db = await session.get(Huisdier, pet.id)
                 pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
@@ -1161,8 +1184,19 @@ class GevechtenCog(commands.Cog):
                         return
 
             if not uitdaging.is_friendly:
-                await _verbruik_ranked_poging(session, uitdager)
-                await _verbruik_ranked_poging(session, tegenstander_speler)
+                # Beide kanten moeten kunnen betalen; lukt dat bij één van
+                # beide niet meer (token net op tussen accepteren en nu), dan
+                # gaat het hele gevecht niet door i.p.v. half afgeboekt.
+                for speler, naam in (
+                    (uitdager, uitdaging.uitdager_naam),
+                    (tegenstander_speler, uitdaging.tegenstander_naam),
+                ):
+                    if not await _verbruik_ranked_poging(session, speler):
+                        await session.rollback()
+                        await self._annuleer_uitdaging(
+                            interaction, uitdaging, f"{naam} heeft geen ranked-poging meer over."
+                        )
+                        return
             for pet in [*eigen_team, *tegenstander_team]:
                 pet_db = await session.get(Huisdier, pet.id)
                 pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
