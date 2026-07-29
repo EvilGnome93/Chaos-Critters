@@ -12,9 +12,12 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
         "Pets spawnen automatisch in de ingestelde spawn-kanalen (op basis van activiteit + af en toe "
         "gewoon na een tijdje). Vang de actieve spawn met `/vang` en de (deel van de) naam. Elke soort "
         "heeft een tier (zeldzaamheid): **Common** (45%), **Uncommon** (25%), **Rare** (18%), **Epic** "
-        "(9%), **Legendary** (3%) kans per spawn. Een hogere tier betekent hogere basisstats "
-        "(stat-multiplier van 1.0x tot 2.0x) — een Legendary is dus standaard sterker dan een Common "
-        "van dezelfde genen.",
+        "(9%), **Legendary** (3%) kans per spawn.\n\n"
+        "Een hogere tier geeft een **gevecht-bonus**: de tier-multiplier (1.0x bij Common oplopend tot "
+        "2.0x bij Legendary) vermenigvuldigt de gevechtsmacht van je pet, en verhoogt ook wat een pet "
+        "oplevert bij `/release`. **Let op**: op je werk-opbrengst heeft de tier géén invloed — daar "
+        "tellen alleen de werk-genen van de pet zelf. Een Common met hoge werk-genen kan dus prima "
+        "productiever zijn dan een Legendary.",
         [
             "`/vang <naam>` — vang de actieve spawn in dit kanaal",
             "`/lijst` — bekijk al je gevangen pets",
@@ -25,26 +28,36 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     (
         "🌪️ Elementen & contra's",
         "Elke pet-soort heeft een vast element: ⛰️ **Grond**, 🌊 **Water**, 🌪️ **Lucht**, 🔥 **Vuur**, "
-        "of 🌀 **Chaos**. Er is een vaste contra-cirkel: **Vuur > Lucht > Grond > Water > Vuur**. Heb "
-        "je in een gevechts-matchup het gunstige element tegen je tegenstander, dan krijg je **+15% "
-        "macht**; heb je het ongunstige, dan **-10%**. Twee stappen verschil in de cirkel is neutraal "
-        "(geen bonus/malus). **Chaos** aan een van beide kanten maakt de uitkomst willekeurig (+15%/"
-        "-10%/neutraal) — onvoorspelbaar per matchup.",
+        "of 🌀 **Chaos**. Er is een vaste contra-cirkel: **Vuur > Lucht > Grond > Water > Vuur**.\n\n"
+        "Sta je in een matchup met het gunstige element tegenover je tegenstander, dan krijg je **+15% "
+        "macht**; sta je er ongunstig in, dan **-10%**. Zit je twee stappen uit elkaar in de cirkel — "
+        "bijvoorbeeld 🔥 Vuur tegenover ⛰️ Grond — dan gebeurt er niets, dat is neutraal. Zelfde "
+        "element tegen elkaar is ook neutraal.\n\n"
+        "🌀 **Chaos** volgt de cirkel niet: staat er aan één van beide kanten een Chaos-pet, dan wordt "
+        "de uitkomst per matchup willekeurig geloot (bonus, malus of neutraal) — voor beide kanten "
+        "apart. Onvoorspelbaar dus, in je voordeel én in je nadeel.",
         [
             "`/lijst`, `/team`, `/info` — tonen het element per pet als emoji",
             "`/vecht` — de matchup-titel toont beide elementen tegen elkaar",
+            "`/critterdex` — filter alle soorten op element",
         ],
     ),
     (
         "🍖 Verzorgen",
-        "Honger daalt vanzelf over tijd (lazy berekend, dus je merkt het pas als je de pet weer "
-        "aanraakt). Energie herstelt alleen passief terwijl een pet in **rust** staat — niet tijdens "
-        "werk of in je team. Voed een pet met `/verzorg` om honger aan te vullen, of gebruik `/slaap` "
-        "voor instant volle energie (kost wel honger, max 1x per dag per pet). **Voerbakken** "
-        "(Simpele/Slimme, per pet uit te rusten) voeren een pet automatisch met écht voer uit je "
-        "inventaris zodra dat nodig is — Simpele voerbak alleen met Basis brokjes, Slimme voerbak met "
-        "je goedkoopste beschikbare voer. Geen voer meer? Dan gebeurt er niets, gewoon normaal verval. "
-        "Het **Zelfreinigend systeem** laat energie ook buiten rust herstellen.",
+        "Honger daalt vanzelf over tijd. Energie herstelt alleen passief terwijl een pet in **rust** "
+        "staat — niet tijdens werk of in je team. Beide worden pas herberekend op het moment dat je de "
+        "pet ergens aanraakt (`/lijst`, `/verzorg`, `/werk`, …), dus verwacht geen live tikkende "
+        "teller.\n\n"
+        "**Twee grenzen bepalen of een pet inzetbaar is**: bij **energie onder de 20** of **honger op "
+        "0** kan een pet niet aan het werk en niet in je team. Dat is meestal de reden dat `/werk` of "
+        "`/team` je weigert. Voed met `/verzorg`, of gebruik `/slaap` voor instant volle energie (kost "
+        "wel honger, max 1x per dag per pet).\n\n"
+        "**Voerbakken** (per pet uit te rusten) voeren een pet automatisch met écht voer uit je "
+        "inventaris — telkens wanneer de stats bijgewerkt worden, tot de honger weer vol is of het voer "
+        "op is. De **Simpele voerbak** gebruikt alleen Basis brokjes; de **Slimme voerbak** begint bij "
+        "je goedkoopste voer en schuift door naar duurder voer zodra dat op is. Heb je niks meer in "
+        "voorraad? Dan doet de voerbak niets — gewoon normaal verval, geen gratis vangnet. Het "
+        "**Zelfreinigend systeem** laat energie óók buiten rust herstellen, dus ook tijdens werk.",
         [
             "`/verzorg <pet_id> [item] [aantal]` — bekijk stats, of voer een pet",
             "`/slaap <pet_id>` — instant volle energie",
@@ -55,11 +68,18 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     (
         "👷 Werken & grondstoffen",
         "Zet een pet aan het werk op een werkplek (Moestuin/Vijver/Werkbank/Bos/Nachtwacht/Mijnschacht) "
-        "voor een gekozen shift-duur. Bij het ophalen krijg je Chaos Coins + de grondstof van die "
-        "werkplek + XP, en een kleine kans op een zeldzamere bonus-grondstof. Elke werkplek heeft een "
-        "**gedeelde capaciteit** over spelers heen — vol is vol, probeer het later opnieuw. Zit je in "
-        "een clan, dan deel je die capaciteit alleen met je eigen clangenoten (een eigen pool per "
-        "clan). Grondstoffen zijn nodig om bepaalde shop-items te maken via **recepten** (`/craft`).",
+        "en kies een shift: **korte**, **lange** of **overnacht**. Langere shifts leveren meer op, maar "
+        "kosten ook meer energie — die wordt meteen bij de start afgetrokken. Als de shift klaar is "
+        "haal je met hetzelfde commando de opbrengst op: Chaos Coins + de grondstof van die werkplek + "
+        "XP, plus een kans op een zeldzamere bonus-grondstof. Je krijgt een seintje in het kanaal zodra "
+        "een pet klaar is.\n\n"
+        "**Twee limieten om rekening mee te houden**: je kan maximaal **2 pets tegelijk** aan het werk "
+        "hebben, en elke werkplek heeft een eigen **gedeelde capaciteit** (Moestuin heeft 3 plekken, de "
+        "rest 2). Die capaciteit deel je met andere spelers: zit je in een clan, dan alleen met je "
+        "clangenoten; zit je in geen enkele clan, dan met alle andere clanloze spelers. Vol is vol — "
+        "even later opnieuw proberen.\n\n"
+        "De grondstoffen die je zo verzamelt heb je nodig voor **recepten**: bepaalde shop-items kosten "
+        "naast Chaos Coins ook grondstoffen, en die maak je via `/craft`.",
         [
             "`/werk <pet_id> [werkplek] [cyclus]` — start een shift, of haal 'm op als hij klaar is",
             "`/craft [item] [aantal]` — maak een item met een grondstof-recept, kosten vooraf zichtbaar",
@@ -67,25 +87,54 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     ),
     (
         "⚔️ Vechten & ranked",
-        "Stel eerst een team van 3 pets samen. Een gevecht is best-of-3: per matchup kies je een "
-        "tactiek (**Aggressief** = hoog risico/hoge variantie, **Gebalanceerd** = gemiddeld, "
-        "**Voorzichtig** = laag risico) of je rent weg. Elementen tellen mee als bonus/malus op de "
-        "macht (zie hierboven). Winnen levert MMR op (Elo-systeem) plus Chaos Coins en XP voor je "
-        "pets; verliezen kost een beetje MMR en geeft de verslagen pet een tijdelijke blessure. Je hebt "
-        "een beperkt aantal gratis **ranked**-pogingen per dag. Geen zin in het risico of de limiet? "
-        "Kies de **vriendschappelijke modus** — altijd beschikbaar, maar zonder MMR/beloning/blessures.",
+        "Je hebt een **volledig team van 3 inzetbare pets** nodig om te kunnen vechten. Een gevecht is "
+        "best-of-3: je pets nemen het één voor één tegen elkaar op. Per matchup kies je een tactiek "
+        "(**Aggressief** = hoog risico, grote uitschieters; **Gebalanceerd** = gemiddeld; "
+        "**Voorzichtig** = veilig, kleine marges) of je rent weg. Elementen tellen mee als bonus/malus "
+        "op de macht (zie het onderwerp Elementen).\n\n"
+        "**Elke verloren matchup levert een tijdelijke blessure op** voor díé pet — ook als je het "
+        "gevecht daarna alsnog wint. Een geblesseerde pet is even niet inzetbaar. Elk gevecht kost je "
+        "pets sowieso wat energie.\n\n"
+        "**XP krijg je altijd**, of je nu wint of verliest — je hele team deelt mee, bij winst flink "
+        "meer dan bij verlies. Winnen levert daarnaast MMR op (Elo-systeem: van een sterkere "
+        "tegenstander winnen telt zwaarder) plus Chaos Coins die meeschalen met de MMR van je "
+        "tegenstander. Verliezen kost MMR.\n\n"
+        "Je hebt **3 gratis ranked-pogingen per dag**. Op? Dan kan je een **Extra match token** "
+        "gebruiken om er tóch nog een te doen.",
         [
             "`/team` — stel je team van 3 pets samen",
-            "`/vecht [tegenstander] [modus]` — vecht tegen een simulatie of een speler",
+            "`/vecht` — vecht tegen een gesimuleerde tegenstander (wilde dieren)",
+            "`/critterdex`, `/info <soort>` — check vooraf de gevecht-stats van een soort",
+        ],
+    ),
+    (
+        "🤝 PvP & inzet",
+        "Geef `/vecht` een **tegenstander** mee om een echte speler uit te dagen. Je krijgt eerst een "
+        "paneel waarin je optioneel een **inzet** samenstelt: Chaos Coins en/of een item uit je "
+        "inventaris. De uitgedaagde speler accepteert of weigert; bij acceptatie gaat de volledige "
+        "inzet van de verliezer naar de winnaar. Bij PvP kiezen **beide spelers** per matchup hun eigen "
+        "tactiek — de matchup lost pas op als jullie allebei gekozen hebben.\n\n"
+        "Wil je gewoon oefenen zonder gedoe? Kies **`modus: vriendschappelijk`**. Die is altijd "
+        "beschikbaar (ook als je ranked-pogingen op zijn) en kost je niets: geen MMR-verandering, geen "
+        "Chaos Coins, **geen XP**, geen blessures, en geen inzet. Puur voor de lol dus — je pets worden "
+        "er niet beter van.",
+        [
+            "`/vecht <tegenstander>` — daag een speler uit (opent het inzet-paneel)",
+            "`/vecht [tegenstander] modus:vriendschappelijk` — oefenpotje zonder gevolgen",
+            "`/items` — kijk wat je kan inzetten",
         ],
     ),
     (
         "🔁 Traden & releasen",
-        "Met `/trade` stel je een ruilvoorstel samen met een ander speler: items en/of een pet van "
-        "elke kant, plus optioneel Chaos Coins. De ontvanger accepteert of weigert eerst, en daarna "
-        "moet jij het nog een keer definitief bevestigen — een extra stap tegen typefouten. Wil je een "
-        "pet gewoon kwijt in ruil voor wat Chaos Coins (zonder tegenpartij), gebruik dan `/release` — "
-        "de opbrengst schaalt met tier en level, plus een kleine kans op een bonus-grondstof. Dit is "
+        "Met `/trade` stel je een ruilvoorstel samen met een andere speler. Per kant bied je **óf één "
+        "item (in een gewenst aantal), óf één pet** aan — niet allebei tegelijk — en daar mag je "
+        "optioneel Chaos Coins bij doen. Pets die aan het werk zijn kan je niet ruilen.\n\n"
+        "Er zitten bewust twee bevestigingen in: de ontvanger accepteert of weigert eerst, en daarna "
+        "moet jij als voorsteller nóg een keer definitief bevestigen. Vlak vóór de overdracht wordt "
+        "opnieuw gecontroleerd of beide kanten alles nog écht bezitten. Een geruilde pet krijgt bij de "
+        "nieuwe eigenaar een nieuw petnummer.\n\n"
+        "Wil je een pet gewoon kwijt zonder tegenpartij? `/release` ruilt 'm in voor Chaos Coins — de "
+        "opbrengst schaalt met tier en level — plus een kleine kans op een bonus-grondstof. Dit is "
         "onomkeerbaar.",
         [
             "`/trade <speler>` — open het ruil-paneel",
@@ -94,13 +143,17 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     ),
     (
         "🏰 Clans",
-        "Een clan is een groep spelers die een deel van de werkplek-capaciteit met elkaar delen: elke "
-        "clan krijgt zijn **eigen** capaciteit-pool per werkplek, volledig los van andere clans en van "
-        "spelers zonder clan. Meer clans in de server betekent dus meer totale werkplek-ruimte voor "
-        "iedereen. Het leaderboard laat zien welke clan cumulatief het meest heeft verdiend via werken "
-        "— dat blijft staan ook als leden het geld weer uitgeven.",
+        "Een clan is een groep spelers die de werkplek-capaciteit met elkaar deelt: elke clan krijgt "
+        "zijn **eigen** pool per werkplek, volledig los van andere clans en van spelers zonder clan. "
+        "Meer clans in de server betekent dus meer totale werkplek-ruimte voor iedereen — maar binnen "
+        "je eigen clan concurreer je wél met je clangenoten om de plekken.\n\n"
+        "Je kan in één clan tegelijk zitten; verlaat je huidige clan eerst als je wilt overstappen. "
+        "Vertrekt het laatste lid, dan wordt de clan automatisch ontbonden. Alleen de oprichter kan een "
+        "clan handmatig ontbinden (ook mét leden erin).\n\n"
+        "Het leaderboard toont de top 10 clans op **cumulatieve werk-opbrengst**: alles wat de leden "
+        "samen ooit via `/werk` verdiend hebben. Dat telt alleen maar op — uitgeven doet er niets aan af.",
         [
-            "`/clan-aanmaken <naam>` — richt een nieuwe clan op",
+            "`/clan-aanmaken <naam>` — richt een nieuwe clan op (max 32 tekens)",
             "`/clan-join <naam>` — word lid van een bestaande clan",
             "`/clan-verlaten`, `/clan-ontbinden` — clan verlaten, of ontbinden (alleen oprichter)",
             "`/clan-info [naam]`, `/clan-leaderboard` — info bekijken",
@@ -108,10 +161,14 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     ),
     (
         "✨ Leveling",
-        "Pets verdienen XP via voltooide werk-shifts en gevechten. Bij `level × 100` XP levelt een pet "
-        "op, tot maximaal level 50 — elke level-up geeft een kleine samengestelde groei op zowel "
-        "gevecht- als werk-genen, dus oudere/hoger-level pets zijn geleidelijk sterker en productiever "
-        "dan een vers gevangen exemplaar van dezelfde soort.",
+        "Pets verdienen XP via voltooide werk-shifts en via gevechten (winst én verlies). Een pet "
+        "levelt op zodra hij `huidig level × 100` XP heeft — level 1 → 2 kost dus 100 XP, level 2 → 3 "
+        "kost er 200, enzovoort. **Level 50 is het maximum.**\n\n"
+        "Elke level-up geeft een kleine samengestelde groei op **zowel gevecht- als werk-genen**, dus "
+        "een hoger-level pet is zowel sterker in gevechten als productiever op de werkplek dan een vers "
+        "gevangen exemplaar van dezelfde soort. Voor **gevechten** telt je level daarnaast nog een "
+        "tweede keer mee als losse machtsbonus bovenop die genen-groei — het verschil tussen een verse "
+        "en een uitgelevelde pet is in de arena dus veel groter dan op de werkplek.",
         [
             "`/lijst` — level en XP-voortgang per pet",
             "`/critterdex`, `/info <soort>` — basisstats per soort (vóór levels/genen)",
