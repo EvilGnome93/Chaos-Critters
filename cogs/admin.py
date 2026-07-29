@@ -14,73 +14,39 @@ from utils.discord_log import fmt_log, send_log, set_log_channel
 # doorspitten. Leegmaken/vervangen na elke aangekondigde testronde.
 NIEUW_OM_TE_TESTEN = [
     (
-        "⚖️ Balans-audit: sneller levelen, receptkosten fors omhoog",
-        "Levelen gaat nu ~19x sneller (doel: ~2-4 weken naar level 50 i.p.v. maanden). Korte/lange "
-        "werk-shifts zijn ook een stuk aantrekkelijker geworden t.o.v. overnacht (was 4,5x zo "
-        "efficiënt per uur, nu nog maar 1,3x). Daartegenover staan **fors hogere receptkosten**: elk "
-        "shop-item met een recept (Slimme voerbak, Zelfreinigend systeem, Extra match token, "
-        "Naamkaartje, etc.) vereist nu **2 verschillende grondstoffen** i.p.v. 1, in flink hogere "
-        "hoeveelheden — Slimme voerbak kost bijv. nu 40x Schroot + 20x Erts (was 5x Schroot). Ook: "
-        "Nachtwacht-capaciteit ging van 1 naar 2, en max. pets tegelijk aan het werk per speler van 3 "
-        "naar 2 (voorkomt dat 1 speler een hele werkplek solo kan opvullen).\n\n"
-        "Wat te testen: laat een pet werken en kijk of 'ie merkbaar sneller levelt dan je gewend was; "
-        "probeer een duur shop-item (bijv. Slimme voerbak) te kopen zonder genoeg grondstoffen en "
-        "check de foutmelding; probeer met een 3e pet te werken terwijl je er al 2 hebt lopen (moet nu "
-        "geweigerd worden).",
+        "📖 Begin hier: /wiki — de spelregels, in de bot zelf",
+        "**Nieuw, en het belangrijkste om even door te nemen.** `/wiki` legt uit *hoe* het spel werkt "
+        "— niet alleen wélke commando's er zijn (dat blijft `/commands`).\n\n"
+        "**Hoe je 'm gebruikt:** één bericht met bovenin een **dropdown** om direct naar een onderwerp "
+        "te springen, en onderin **◀ Vorige / Volgende ▶** om rustig door te bladeren. **9 "
+        "onderwerpen**: Vangen & Tiers, Elementen, Verzorgen, Werken & grondstoffen, Vechten & ranked, "
+        "PvP & inzet, Traden & releasen, Clans en Leveling — elk met de bijbehorende commando's.\n\n"
+        "**Waarom nuttig:** hier staan de dingen die je anders zelf moet uitvogelen. Waarom `/werk` je "
+        "soms weigert (energie onder 20, of honger op 0), dat je maar **2 pets tegelijk** kan laten "
+        "werken, hoe de element-cirkel je gevecht beïnvloedt, en dat de tier van een pet je "
+        "**werk**-opbrengst niet beïnvloedt (alleen gevechten).\n\n"
+        "**Graag horen we:** lees minstens 3 onderwerpen. Iets onduidelijk, te lang, of klopt het niet "
+        "met wat je ziet gebeuren? Zeg het vooral.",
     ),
     (
-        "🛠️ Nieuw: /craft voor recept-items",
-        "Items met een grondstof-recept (Slimme voerbak, Zelfreinigend systeem, Extra match token, "
-        "etc.) koop je voortaan makkelijker via `/craft item aantal` — toont alle kosten (Chaos Coins "
-        "+ elke grondstof, met ✅/❌ of je genoeg hebt) in een preview, met een Bevestigen-knop die "
-        "uitgeschakeld is zolang je iets te kort komt. `/craft` zonder item geeft een overzicht van "
-        "alle recept-items. `/shop` werkt voor deze items ook nog gewoon (met de bestaande "
-        "foutmelding-bij-tekort).\n\n"
-        "Wat te testen: `/craft item:Simpele voerbak` proberen zonder genoeg Water/Fruit (Bevestigen "
-        "moet uitgeschakeld zijn), dan grondstoffen verzamelen en opnieuw `/craft` draaien om te "
-        "bevestigen.",
+        "🐛 Opgeloste bugs — probeer opnieuw als je dit eerder zag",
+        "Een paar serieuze fouten zijn gevonden en gefixt:\n"
+        "• **Ruilen** kon bij dubbelklikken items verdubbelen — nu dicht.\n"
+        "• **Clans** konden onontbindbaar worden als de oprichter vertrok; het oprichterschap gaat nu "
+        "automatisch over op het langstzittende lid.\n"
+        "• **Dubbelklikken** op Bevestigen bij `/craft`, `/release` en `/trade` doet nu niets geks meer.\n"
+        "• Gevechten konden vastlopen rond het **Extra match token**.\n\n"
+        "Wat te testen: gewoon normaal ruilen, craften en releasen — en als je eerder iets vreemds zag "
+        "gebeuren, probeer dat nu nog eens.",
     ),
     (
-        "🏰 Nieuw: clan-systeem",
-        "`/clan-aanmaken naam`, `/clan-join naam`, `/clan-verlaten`, `/clan-ontbinden` (alleen de "
-        "oprichter), `/clan-info [naam]` en `/clan-leaderboard`. Elke clan krijgt zijn **eigen "
-        "capaciteit-pool per werkplek**, los van andere clans en van spelers zonder clan — dus meer "
-        "clans betekent meer totale werkplek-ruimte in de server. Het leaderboard telt de cumulatieve "
-        "Chaos Coins-opbrengst van alle `/werk`-shifts van de leden samen bij elkaar op.\n\n"
-        "Wat te testen: met 2 accounts dezelfde clan joinen en dezelfde (kleine) werkplek tegelijk "
-        "vol proberen te zetten, en met een 3e (clanloos of andere clan) account checken dat die "
-        "gewoon nog kan werken.",
-    ),
-    (
-        "📖 Nieuw: /critterdex en /info",
-        "`/critterdex` toont alle pet-soorten (gepagineerd, 10 per pagina), met dropdown-filters voor "
-        "tier én element, en of/hoe vaak je elke soort al gevangen hebt. `/info soort` (autocomplete) "
-        "geeft de details van één specifieke soort: gevecht/werk-stats als woord (Laag/Gemiddeld/"
-        "Hoog/...), werkplek-voorkeur en je eigen vangst-aantal.\n\n"
-        "Wat te testen: filter in `/critterdex` op een tier + element tegelijk en check of de lijst "
-        "klopt, en vergelijk `/info` van een soort die je al gevangen hebt met een die je nog niet "
-        "hebt.",
-    ),
-    (
-        "🍽️ Voerbakken gebruiken nu écht voer uit je inventaris",
-        "Eerder gaven voerbakken een abstracte honger-regen los van je inventaris. Nu voeren ze een "
-        "pet automatisch met voedingsitems die je echt bezit: **Simpele voerbak** alleen met Basis "
-        "brokjes, **Slimme voerbak** met je goedkoopste beschikbare voer (Basis brokjes → Graanvrije "
-        "premium voeding → Vers vlees/vis). Geen voer meer over? Dan gebeurt er niets, gewoon normaal "
-        "verval — geen gratis vangnet.\n\n"
-        "Wat te testen: rust een pet uit met een voerbak zonder voeding in je inventaris (moet gewoon "
-        "honger verliezen), koop dan wat voeding en kijk of de pet zichzelf voert zodra je 'm ergens "
-        "aanraakt (bijv. `/lijst`).",
-    ),
-    (
-        "❓ Nieuw: /wiki",
-        "Doorbladerbare uitleg van hoe Chaos Critters werkt, met een dropdown om direct naar een "
-        "onderwerp te springen en Vorige/Volgende-knoppen om erdoorheen te bladeren: Vangen & Tiers, "
-        "Elementen & contra's, Verzorgen, Werken & grondstoffen, Vechten & ranked, Traden & releasen, "
-        "Clans, en Leveling. Elk onderwerp legt uit hoe de mechaniek werkt én welke commando's erbij "
-        "horen — een aanvulling op `/commands` (dat alleen de command-syntax toont).\n\n"
-        "Wat te testen: blader met de dropdown en de knoppen door alle onderwerpen, en laat weten als "
-        "er een uitleg onduidelijk of onjuist aanvoelt.",
+        "⚔️ Verder: alles mag getest worden",
+        "De bot is inmiddels compleet, dus laat je gaan: pets vangen, aan het werk zetten, verzorgen, "
+        "vechten (ranked én `modus:vriendschappelijk`), onderling ruilen, een clan oprichten, dure "
+        "items craften en door `/critterdex` bladeren.\n\n"
+        "`/commands` geeft het volledige overzicht, `/todo` laat zien wat er nog komt. Alles wat raar "
+        "voelt — of het nou de werking is of de balans (te duur, te traag, te makkelijk) — horen we "
+        "graag.",
     ),
 ]
 
