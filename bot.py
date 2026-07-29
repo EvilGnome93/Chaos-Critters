@@ -25,6 +25,7 @@ COGS = (
     "cogs.release",
     "cogs.clan",
     "cogs.critterdex",
+    "cogs.wiki",
     "cogs.fokken",
     "cogs.admin",
 )

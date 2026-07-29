@@ -6,7 +6,6 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("❓ Mini-wiki", "Doorbladerbaar overzicht van alle commando's, met een dropdown per onderwerp."),
     ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
     ("🐣 Fokken (lange termijn)", "Nieuwe pets kweken van je bestaande pets. Pas echt interessant vanaf 250 pet-soorten, dus staat achteraan."),
 ]
@@ -37,6 +36,7 @@ TEST_COMMANDOS = [
     ("/clan-leaderboard", "Top 10 clans op cumulatieve werk-opbrengst."),
     ("/critterdex", "Bekijk alle pet-soorten (gepagineerd), filterbaar op tier en element, met per soort of en hoe vaak je 'm al gevangen hebt."),
     ("/info soort", "Bekijk gevecht/werk-stats (als Laag/Gemiddeld/Hoog/...), tier, element, werkplek-voorkeur en je eigen vangst-aantal van één specifieke pet-soort."),
+    ("/wiki", "Blader door uitleg van hoe de spelmechanieken werken (elementen, verzorgen, werken, vechten, clans, enz.), gegroepeerd per onderwerp."),
     ("/todo", "Bekijk wat er nog gepland staat voor Chaos Critters."),
     ("/spawn [tier] [naam]", "(admin) Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
     ("/give speler item [aantal]", "(admin) Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),

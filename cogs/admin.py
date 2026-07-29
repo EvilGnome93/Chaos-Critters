@@ -72,6 +72,16 @@ NIEUW_OM_TE_TESTEN = [
         "honger verliezen), koop dan wat voeding en kijk of de pet zichzelf voert zodra je 'm ergens "
         "aanraakt (bijv. `/lijst`).",
     ),
+    (
+        "❓ Nieuw: /wiki",
+        "Doorbladerbare uitleg van hoe Chaos Critters werkt, met een dropdown om direct naar een "
+        "onderwerp te springen en Vorige/Volgende-knoppen om erdoorheen te bladeren: Vangen & Tiers, "
+        "Elementen & contra's, Verzorgen, Werken & grondstoffen, Vechten & ranked, Traden & releasen, "
+        "Clans, en Leveling. Elk onderwerp legt uit hoe de mechaniek werkt én welke commando's erbij "
+        "horen — een aanvulling op `/commands` (dat alleen de command-syntax toont).\n\n"
+        "Wat te testen: blader met de dropdown en de knoppen door alle onderwerpen, en laat weten als "
+        "er een uitleg onduidelijk of onjuist aanvoelt.",
+    ),
 ]
 
 class AdminCog(commands.Cog):
