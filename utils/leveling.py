@@ -8,11 +8,20 @@ from db.models import Huisdier
 
 MAX_LEVEL = 50
 GENEN_GROEI_PER_LEVEL = 0.02  # +2% samengesteld per level (sectie 9, letterlijk voorbeeld)
-# 2026-07-28, Balans-audit: was 5, gaf ~227 dagen tot MAX_LEVEL bij continu
-# overnacht-werken op 1 pet. Gebruiker wilde ~2-4 weken; met de gelijkgetrokken
-# output_multiplier (cogs/werk.py) komt 95 uit op ~21 dagen (3 weken) voor
-# datzelfde referentiescenario.
-XP_PER_EFFECTIEVE_UUR = 95
+# 2026-07-28, Balans-audit: was 5, gaf ~227 dagen tot MAX_LEVEL. Verhoogd naar
+# 95 met als doel ~2-4 weken — maar die berekening ging uit van *continu*
+# overnacht-werken, en dat kan niet: een overnacht-shift kost 70 energie en
+# energie herstelt alleen tijdens rust (+6/uur, utils/stats.py). Een pet is dus
+# 10u aan het werk en daarna ~11,7u aan het bijkomen; in de praktijk kwam 95
+# uit op ~45 dagen i.p.v. 21.
+#
+# Bijgesteld naar 180 (2026-07-28, na de codebase-review), waarmee hetzelfde
+# scenario inclusief energie-herstel op ~24 dagen uitkomt. Referentie per
+# shift-type (1 pet, volledige energie-cyclus meegerekend):
+#   korte ~38 dagen | lange ~30 dagen | overnacht ~24 dagen
+# Met een Zelfreinigend systeem (energie herstelt ook tijdens werk) halveert
+# dat ruwweg — dat item is daarmee een echte upgrade i.p.v. een randgeval.
+XP_PER_EFFECTIEVE_UUR = 180
 
 
 def xp_voor_volgend_level(huidig_level: int) -> int:

@@ -73,7 +73,7 @@ Volgens de backlog-volgorde hierboven is nu alleen nog over: **Admin panel** (ap
 
 Alle 7 audit-vragen zijn met de gebruiker doorgenomen en doorgevoerd (code + 1 nieuwe migratie `2b8a6f31c9de`, toegepast op de live DB). Alle testscripts in `scripts/` zijn bijgewerkt en slagen (zie hieronder).
 
-1. **XP-tempo, opgelost**: doel was ~2-4 weken tot level 50 (was ~227 dagen). `utils/leveling.py:XP_PER_EFFECTIEVE_UUR` 5 → **95**. Samen met de gelijkgetrokken shift-multipliers (punt 5) komt dit uit op ~21 dagen (3 weken) bij continu overnacht-werken op 1 pet, zelfde referentiemethode als de oude 227-dagen-schatting.
+1. **XP-tempo, opgelost**: doel was ~2-4 weken tot level 50 (was ~227 dagen). `utils/leveling.py:XP_PER_EFFECTIEVE_UUR` 5 → **95**. ⚠️ **De schatting van "~21 dagen" hierbij was fout** — zie de correctie onder "Balans-hercontrole" hieronder; 95 kwam in werkelijkheid uit op ~45 dagen en is later bijgesteld naar 180.
 2. **Receptkosten, fors omhoog + multi-ingredient**: eerste voorstel (3-4x hoger) bleek bij doorrekenen nog steeds triviaal (1 lange shift dekte een heel recept) — hoofdgrondstoffen leverden simpelweg te veel per shift op. Definitieve `RECEPT_KOSTEN` (`cogs/verzorging.py`), nu allemaal met 2 ingrediënten uit 2 verschillende werkplekken (breed toegepast, verzoek van de gebruiker, niet alleen op de 2 "OP"-items):
    - Graanvrije premium voeding: Groente x12 + Water x1
    - Vers vlees/vis: Algen x15 + Takken x8
@@ -103,7 +103,7 @@ Alle 7 audit-vragen zijn met de gebruiker doorgenomen en doorgevoerd (code + 1 n
 - `cogs/werk.py`: `CURRENCY_PER_GRONDSTOF` = 2, `BONUS_GRONDSTOF_AANTAL` = 1, cyclus `energie_kost` (20/50/70, ongewijzigd) en `output_multiplier` (**2.0/2.3/2.6**, was 1.0/2.8/4.5) voor korte/lange/overnacht.
 - `scripts/seed.py`: stat-schaal `ZEER_LAAG..HOOGSTE` = 10/20/40/60/80/95; `WERKPLEKKEN[].output_per_uur` (Moestuin 5.0, Vijver 6.0, Werkbank 6.0, Bos 5.5, Nachtwacht 7.0, Mijnschacht 6.5) en `.capaciteit` (3/2/2/2/**2**/2, Nachtwacht was 1); `TIERS[].spawnkans` (45/25/18/9/3%) en `.stat_multiplier` (1.0/1.2/1.4/1.7/2.0); alle `ITEMS[].prijs` (ongewijzigd).
 - `db/models.py` / migratie `86eb7fa1f495`: `Werkplek.opbrengst_2_kans` default 0.25 voor iedere werkplek (ongewijzigd).
-- `utils/leveling.py`: `XP_PER_EFFECTIEVE_UUR` = **95** (was 5), `MAX_LEVEL` = 50, `GENEN_GROEI_PER_LEVEL` = 0.02, level-curve `huidig_level * 100` (ongewijzigd).
+- `utils/leveling.py`: `XP_PER_EFFECTIEVE_UUR` = **180** (was 5, tussentijds 95 — zie "Balans-hercontrole"), `MAX_LEVEL` = 50, `GENEN_GROEI_PER_LEVEL` = 0.02, level-curve `huidig_level * 100` (ongewijzigd).
 - `cogs/verzorging.py`: `RECEPT_KOSTEN` — zie "Balans-audit resultaat" hierboven voor de volledige, herziene tabel.
 - `utils/stats.py`: `_HONGER_VERVAL_MINUTEN_ECHT` = 20, `_ENERGIE_HERSTEL_MINUTEN_ECHT` = 10, `ENERGIE_MINIMUM` = 20, `SIMPELE_VOERBAK_FACTOR` = 2, `SLAAP_HONGER_KOST` = 20, `_SLAAP_COOLDOWN_UUR_ECHT` = 24, `_BLESSURE_DUUR_UUR_ECHT` = 2 (allemaal ongewijzigd).
 - `cogs/release.py`: `RELEASE_BASIS_COINS` = 15, `BONUS_ITEM_KANS` = 0.15 (ongewijzigd).
@@ -127,6 +127,28 @@ Volledige review van de productiecode (testscripts bewust overgeslagen op verzoe
 - **Verouderde comments bijgewerkt**: de module-docstring van `utils/gevechten.py` beweerde nog dat de PvP-tegenstander passief "gebalanceerd" speelt (achterhaald sinds 2026-07-22, beide spelers kiezen zelf), `Werkplek.capaciteit` beschreef nog één globale pool (sinds het clan-systeem één per clan), en de `voerbak_niveau`-comment verwees naar "sync_stats() is een pure functie zonder DB-sessie" terwijl `sync_stats_met_voerbak()` juist wél een sessie gebruikt.
 - **Afbeeldingen: gedeelde HTTP-sessie + LRU-cache** (`utils/afbeeldingen.py`): elke `download_afbeelding()` opende voorheen een eigen `aiohttp.ClientSession` en haalde het plaatje opnieuw op — een PvP-gevecht deed 6 downloads (3 matchups × 2 pets) van statische GitHub-URL's. Nu één gedeelde sessie plus een cache van 64 gedecodeerde afbeeldingen; gemeten scheelt dat ~449 ms → ~2 ms per herhaalde download. De cache geeft bewust een `.copy()` terug omdat aanroepers de afbeelding bewerken (bijsnijden/plakken). `bot.py` sluit de sessie netjes af in een `close()`-override, anders logt aiohttp bij shutdown een "Unclosed client session"-waarschuwing.
 - **`scripts/seed.py` werkt instelling-beschrijvingen nu bij** bij een herrun (de *waarde* blijft bewust staan, want die kan via het admin panel afgestemd zijn) — voorheen bleef een gewijzigde beschrijving alleen in de code staan en niet in de database.
+
+## Balans-hercontrole (2026-07-28, vraag van de gebruiker: "is alles nu netjes in balans?")
+
+Het speeltempo doorgerekend met de productie-waarden (niet de dev-versnelling). Eén echte fout gevonden in de eerdere audit:
+
+**De "~21 dagen tot level 50"-schatting klopte niet.** Die ging uit van *continu* overnacht-werken, maar dat kan een pet niet: een overnacht-shift kost 70 energie en energie herstelt alleen tijdens **rust** (+6/uur). Een pet werkt dus 10 uur en doet er daarna ~11,7 uur over om bij te komen — een cyclus van 21,7 uur, niet 10. Met `XP_PER_EFFECTIEVE_UUR = 95` kwam level 50 daardoor uit op **~45 dagen** (overnacht), 56 (lange shifts) of 72 (korte), ruim buiten het doel van 2-4 weken.
+
+**Opgelost met optie 1 (keuze van de gebruiker): `XP_PER_EFFECTIEVE_UUR` 95 → 180.** Nieuw tempo naar level 50, inclusief energie-herstel:
+
+| Shift | Zonder Zelfreinigend systeem | Met Zelfreinigend systeem |
+|---|---|---|
+| Korte | ~38 dagen | ~24 dagen |
+| Lange | ~29 dagen | ~17 dagen |
+| Overnacht | **~24 dagen** | ~13 dagen |
+
+Coins- en grondstof-opbrengsten zijn hierdoor **niet** veranderd (XP staat los van de opbrengstberekening), dus de craft-economie blijft zoals na de audit.
+
+**Twee observaties die bewust níét aangepast zijn** (geen bug, wel goed om te weten):
+
+- **Korte shifts zijn ~4x efficiënter voor bonus-grondstoffen.** De 25%-kans geldt *per shift*, niet per uur: twee pets op korte shifts leveren ~2,2 bonus-grondstoffen per dag, op overnacht ~0,6. Daardoor bestaat er een verborgen optimale strategie (kort = craften, lang = XP). Dat is op zich een aardige keuze, maar hij staat nergens uitgelegd — kandidaat voor een regel in `/wiki` of een bewuste balansaanpassing (bijv. kans schalen met shiftduur).
+- **Het Zelfreinigend systeem halveert de leveltijd** doordat energie ook tijdens werk herstelt. Dat maakt het veruit het krachtigste item in het spel, wat prima verdedigbaar is voor iets van 300 coins + 3 Sterrenstof + 20 Schroot — maar het is daarmee eerder een must-have dan een luxe.
+- **Vechten levert nauwelijks XP** vergeleken met werken: één korte shift (720 XP) staat gelijk aan 24 gewonnen ranked-gevechten (`XP_WINST` = 30). Vechten heeft eigen beloningen (MMR, coins, inzet), dus dit is geen probleem zolang leveling bewust een werk-pad is.
 
 ## Bekende balans-issues
 
