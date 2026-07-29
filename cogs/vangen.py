@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import random
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -24,6 +26,23 @@ else:
     # 2026-07-29, verzoek van de gebruiker: was 2-4 uur, verlaagd naar 1-2 uur.
     TIJD_TRIGGER_MIN_SECONDEN = 1 * 3600
     TIJD_TRIGGER_MAX_SECONDEN = 2 * 3600
+
+# 2026-07-29, verzoek van de gebruiker: geen tijd-gebaseerde spawns tussen
+# 23:00 en 07:00 Amsterdamse tijd (zomer-/wintertijd via ZoneInfo, dus geen
+# handmatige UTC-offset-correctie nodig). Geldt bewust alleen in productie —
+# in dev zou dit 's nachts gewoon kunnen blijven testen hinderen. De
+# activiteit-gebaseerde trigger (on_message) blijft te allen tijde actief,
+# op expliciet verzoek: "spawnen door chats is prima".
+STILLE_PERIODE_START_UUR = 23
+STILLE_PERIODE_EIND_UUR = 7
+AMSTERDAM_TZ = ZoneInfo("Europe/Amsterdam")
+
+
+def _in_stille_periode() -> bool:
+    if config.ENVIRONMENT == "dev":
+        return False
+    uur = datetime.now(AMSTERDAM_TZ).hour
+    return uur >= STILLE_PERIODE_START_UUR or uur < STILLE_PERIODE_EIND_UUR
 
 TIER_KLEUREN = {
     1: 0x95A5A6,  # Common grijs
@@ -159,6 +178,8 @@ class VangenCog(commands.Cog):
         try:
             while True:
                 await asyncio.sleep(random.uniform(TIJD_TRIGGER_MIN_SECONDEN, TIJD_TRIGGER_MAX_SECONDEN))
+                if _in_stille_periode():
+                    continue
                 channel = self.bot.get_channel(channel_id)
                 if channel is None:
                     try:
