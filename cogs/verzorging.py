@@ -825,7 +825,7 @@ class VerzorgingCog(commands.Cog):
             return
 
         view = PetLijstView(pets, interaction.user.id, soort_elementen)
-        await interaction.response.send_message(embed=view.huidige_embed(), view=view)
+        await interaction.response.send_message(embed=view.huidige_embed(), view=view, ephemeral=True)
         view.message = await interaction.original_response()
 
 

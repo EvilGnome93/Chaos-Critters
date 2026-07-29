@@ -98,9 +98,8 @@ class AlgemeenCog(commands.Cog):
             for commando, uitleg in commandos:
                 embed.add_field(name=commando, value=uitleg, inline=False)
             embeds.append(embed)
-        # Voor nu publiek zichtbaar (verzoek van de gebruiker), later evt. weer ephemeral maken.
         # Max. 10 embeds per bericht (Discord-limiet); ruim voldoende voor de huidige 6 categorieën.
-        await interaction.response.send_message(embeds=embeds, ephemeral=False)
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

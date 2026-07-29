@@ -21,8 +21,9 @@ GENEN_VARIANTIE = 0.10  # +/- 10% rond de soort-basiswaarde
 if config.ENVIRONMENT == "dev":
     TIJD_TRIGGER_MIN_SECONDEN = TIJD_TRIGGER_MAX_SECONDEN = 30 * 60
 else:
-    TIJD_TRIGGER_MIN_SECONDEN = 2 * 3600
-    TIJD_TRIGGER_MAX_SECONDEN = 4 * 3600
+    # 2026-07-29, verzoek van de gebruiker: was 2-4 uur, verlaagd naar 1-2 uur.
+    TIJD_TRIGGER_MIN_SECONDEN = 1 * 3600
+    TIJD_TRIGGER_MAX_SECONDEN = 2 * 3600
 
 TIER_KLEUREN = {
     1: 0x95A5A6,  # Common grijs
