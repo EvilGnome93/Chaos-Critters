@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import config
+from utils.afbeeldingen import sluit_http_sessie
 from utils.discord_log import fmt_log, send_log
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -81,6 +82,12 @@ class GameNameBot(commands.Bot):
         else:
             synced = await self.tree.sync()
             log.info("%d command(s) globaal gesynct", len(synced))
+
+    async def close(self) -> None:
+        # De gedeelde aiohttp-sessie voor pet-afbeeldingen (utils/afbeeldingen.py)
+        # leeft zo lang als de bot; hier netjes opruimen bij afsluiten.
+        await sluit_http_sessie()
+        await super().close()
 
     async def on_ready(self) -> None:
         log.info("Ingelogd als %s (id: %s)", self.user, self.user.id)

@@ -8,9 +8,10 @@ team-vs-team vergelijking. Per matchup kiest de aanvaller een tactiek
 lossen meerdere interne rondes automatisch op tot een pet 0 HP heeft of
 de rondelimiet bereikt is.
 
-Bij PvP is de tegenstander-kant (nog) passief: die speelt altijd
-"gebalanceerd". Echte beurt-voor-beurt inbreng van beide spelers is een
-mogelijke latere uitbreiding.
+Bij PvP kiezen beide spelers per matchup hun eigen tactiek (sinds
+2026-07-22); de matchup lost pas op zodra allebei gekozen hebben. Bij PvE
+is de gesimuleerde tegenstander passief en speelt die altijd
+"gebalanceerd" — vandaar de default van `tegenstander_tactiek` hieronder.
 """
 
 import random
@@ -96,9 +97,11 @@ def currency_beloning(tegenstander_mmr: int) -> int:
 class MatchupResultaat:
     ronde_log: list[str]
     eigen_wint: bool
+    # HP-restanten zijn (nog) puur informatief: de aanroeper gebruikt ze niet,
+    # maar ze maken het resultaat wel zelfstandig te interpreteren en zijn
+    # handig zodra een matchup-embed de eindstand in HP wil tonen.
     eigen_hp_over: int
     tegenstander_hp_over: int
-    gevlucht: bool = False
 
 
 def speel_matchup(

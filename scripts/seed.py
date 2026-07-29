@@ -412,7 +412,10 @@ WERKPLEK_BONUS_OPBRENGSTEN = {
 }
 
 INSTELLINGEN = [
-    ("vang_cooldown_seconden", "30", "Cooldown per speler na een succesvolle vangst"),
+    # LET OP: nog niet geïmplementeerd — cogs/vangen.py leest deze waarde
+    # nergens, dus er is op dit moment geen vang-cooldown. De brief (sectie 1)
+    # noemt 'm wel; blijft staan tot dat gebouwd is (2026-07-28, review).
+    ("vang_cooldown_seconden", "30", "Cooldown per speler na een succesvolle vangst (NOG NIET ACTIEF)"),
     ("ranked_gratis_per_dag", "3", "Aantal gratis ranked pogingen per dag"),
     ("spawn_interval_min_berichten", "25", "Ondergrens van de activiteit-trigger voor spawns"),
     ("spawn_interval_max_berichten", "40", "Bovengrens van de activiteit-trigger voor spawns"),
@@ -505,6 +508,14 @@ async def seed() -> None:
         await session.execute(
             insert(Instelling).on_conflict_do_nothing(index_elements=["sleutel"]), instelling_rows
         )
+        # De *waarde* van een bestaande instelling blijft bewust staan (die
+        # kan via het admin panel afgestemd zijn), maar de beschrijving is
+        # puur documentatie voor de beheerder — die mag wel meelopen met de
+        # code, net als bij de items hierboven (2026-07-28).
+        for sleutel, _waarde, beschrijving in INSTELLINGEN:
+            await session.execute(
+                update(Instelling).where(Instelling.sleutel == sleutel).values(beschrijving=beschrijving)
+            )
 
         await session.commit()
 

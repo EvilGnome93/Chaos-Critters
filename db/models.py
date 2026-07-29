@@ -55,11 +55,17 @@ class Werkplek(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[str] = mapped_column(String(32), unique=True)
+    # Vrije omschrijving van het soort werk_genen dat hier goed van pas komt
+    # ("Water-affiniteit", "Kracht/graafvermogen", ...). De brief (sectie 1)
+    # bedoelt dit als basis voor een efficiëntie-bonus per werkplek; die
+    # mechaniek bestaat nog niet, dus het veld wordt nu alleen geseed en
+    # nergens gelezen. Gereserveerd, geen dood hout (2026-07-28, review).
     vereiste_werk_genen: Mapped[str] = mapped_column(String(32))
     output_per_uur: Mapped[float] = mapped_column(Numeric(6, 2))
-    # Gedeelde capaciteit over alle spelers heen: max. dit aantal pets
-    # (van willekeurig welke eigenaar) mag tegelijk op deze werkplek
-    # werken. Afgedwongen in cogs/werk.py (2026-07-26).
+    # Gedeelde capaciteit: max. dit aantal pets mag tegelijk op deze
+    # werkplek werken. Sinds het clan-systeem (2026-07-27) is dat geen
+    # globale pool meer maar één per clan, plus één gedeelde pool voor
+    # alle clanloze spelers. Afgedwongen in cogs/werk.py.
     capaciteit: Mapped[int] = mapped_column(default=1)
     opbrengst_item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"), nullable=True)
     # Tweede, zeldzamere grondstof per werkplek (2026-07-26, verzoek van de
@@ -99,6 +105,10 @@ class Speler(Base):
 
     discord_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     currency: Mapped[int] = mapped_column(default=0)
+    # Speler-level/XP staat in de brief (sectie 1) maar is nog nergens
+    # geïmplementeerd: alleen pets levelen op dit moment. Bewust behouden als
+    # gereserveerd veld, net als blijdschap hieronder — niet verwijderen in
+    # de veronderstelling dat het dood hout is (2026-07-28, review).
     level: Mapped[int] = mapped_column(default=1)
     xp: Mapped[int] = mapped_column(default=0)
     mmr: Mapped[int] = mapped_column(default=1000)
@@ -183,9 +193,10 @@ class Huisdier(Base):
 
     # Per-pet uitrusting (2026-07-27, verzoek van de gebruiker: Item-overhaul
     # deel 1 — voerbakken/zelfreinigend systeem krijgen hun beloofde effect).
-    # Geen FK naar Item nodig: sync_stats() (utils/stats.py) is een pure
-    # synchrone functie zonder DB-sessie, dus een simpele naam/vlag i.p.v.
-    # een join houdt dat zo. "simpel"/"slim"/None; mutually exclusive (1 slot).
+    # Bewust een simpele naam/vlag i.p.v. een FK naar Item: het effect wordt
+    # toegepast in utils/stats.py, waar een join per pet niets toevoegt (de
+    # namen liggen vast in VOERBAK_ITEMS_PER_NIVEAU). "simpel"/"slim"/None;
+    # de twee voerbakken delen één slot, het zelfreinigend systeem een eigen.
     voerbak_niveau: Mapped[str | None] = mapped_column(String(16), nullable=True)
     zelfreinigend_actief: Mapped[bool] = mapped_column(default=False)
 
