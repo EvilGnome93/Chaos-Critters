@@ -8,6 +8,7 @@ op `/`, dus er is geen aparte hosting of CORS-configuratie nodig.
 """
 
 import logging
+import os
 from pathlib import Path
 
 import aiohttp
@@ -82,7 +83,13 @@ class PortalServer:
     async def start(self) -> None:
         ontbrekend = config.portal_config_ontbreekt()
         if not config.PORTAL_ENABLED:
-            log.info("Portal: uitgeschakeld via PORTAL_ENABLED, server niet gestart.")
+            if config.ENVIRONMENT == "dev" and os.environ.get("PORTAL_ENABLED") is None:
+                log.info(
+                    "Portal: staat standaard uit in dev (het panel is voor prod). "
+                    "Zet PORTAL_ENABLED=true om 'm hier toch te draaien."
+                )
+            else:
+                log.info("Portal: uitgeschakeld via PORTAL_ENABLED, server niet gestart.")
             return
         if ontbrekend:
             # Bewust geen crash: de bot moet het gewoon doen, ook als het panel

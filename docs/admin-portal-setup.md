@@ -34,12 +34,25 @@ later puur een kwestie van deze twee env-vars wijzigen — geen codewijziging.
 | `ADMIN_GUILD_ID` | ID van de Discord-server waarop adminrechten gecheckt worden | ja in prod |
 | `ADMIN_ROLE_ID` | Rol die naast Administrator ook toegang krijgt | optioneel |
 | `PORTAL_SESSIE_DAGEN` | Hoe lang een login geldig blijft (standaard 7) | optioneel |
-| `PORTAL_ENABLED` | `false` om de portal uit te zetten | optioneel |
+| `PORTAL_ENABLED` | `true`/`false` om de standaard te overrulen | optioneel |
 
 `PORT` wordt door Railway zelf gezet; lokaal valt de server terug op 8080.
 
 `ADMIN_GUILD_ID` valt terug op `DEV_GUILD_ID`, dus in dev hoef je die niet apart
 te zetten.
+
+### Alleen op prod
+
+Het panel is bedoeld voor main/prod. Daarom staat het **standaard uit zodra
+`ENVIRONMENT=dev`**, ook als de OAuth-vars daar wél gezet zijn — zo kan er nooit
+per ongeluk een tweede paneel meedraaien dat dezelfde database beheert. Wil je
+het toch even in dev testen, zet dan expliciet `PORTAL_ENABLED=true` op die
+service.
+
+Zet de vars uit de tabel hierboven dus alleen op de **prod-service**. Let op: er
+was tot nu toe nog geen aparte prod-bot-service (alleen de dev-bot met de
+gedeelde Postgres) — controleer of die er inmiddels is, want zonder prod-service
+is er geen plek waar het panel volgens deze regel aan zou gaan.
 
 ## 3. Railway: publiek domein
 

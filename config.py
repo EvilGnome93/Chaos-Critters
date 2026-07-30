@@ -24,10 +24,20 @@ _admin_role_id = os.environ.get("ADMIN_ROLE_ID")
 ADMIN_ROLE_ID = int(_admin_role_id) if _admin_role_id else None
 
 # ── Web-adminpanel (portal/) ────────────────────────────────────────────────
-# Draait als aiohttp-server in hetzelfde proces als de bot. Zonder
-# PORTAL_CLIENT_SECRET start de server niet: inloggen zou dan onmogelijk zijn,
-# en een panel zonder werkende login heeft geen zin.
-PORTAL_ENABLED = os.environ.get("PORTAL_ENABLED", "true").lower() not in ("false", "0", "no")
+# Draait als aiohttp-server in hetzelfde proces als de bot. Zonder de OAuth-
+# env-vars start de server niet: inloggen zou dan onmogelijk zijn, en een panel
+# zonder werkende login heeft geen zin.
+#
+# **Standaard alleen in prod** (2026-07-29, verzoek van de gebruiker: het panel
+# is voor main/prod). In dev staat 'ie dus uit, ook als de OAuth-vars daar wél
+# gezet zijn — zo kan er nooit per ongeluk een tweede paneel meedraaien dat
+# dezelfde database beheert. Wil je 'm toch in dev testen: zet expliciet
+# PORTAL_ENABLED=true.
+_portal_enabled_ruw = os.environ.get("PORTAL_ENABLED")
+if _portal_enabled_ruw is None:
+    PORTAL_ENABLED = ENVIRONMENT != "dev"
+else:
+    PORTAL_ENABLED = _portal_enabled_ruw.lower() not in ("false", "0", "no")
 
 # Railway zet PORT zelf; lokaal valt het terug op 8080.
 PORTAL_PORT = int(os.environ.get("PORT", "8080"))
