@@ -23,9 +23,21 @@ GENEN_GROEI_PER_LEVEL = 0.02  # +2% samengesteld per level (sectie 9, letterlijk
 # dat ruwweg — dat item is daarmee een echte upgrade i.p.v. een randgeval.
 XP_PER_EFFECTIEVE_UUR = 180
 
+# 2026-07-30, gemeld door de gebruiker: een pet ging in één overnacht-shift
+# (4680 XP) van level 1 naar 10, omdat de oude curve (level x 100) de eerste
+# stappen bijna gratis maakte t.o.v. wat een shift oplevert — de eerste 9
+# levels kostten samen maar 4500 XP. Vervangen door een vlakkere curve die
+# bewust hetzelfde totaal (122.500 XP voor level 1->50) nodig heeft, dus de
+# ~24-dagen-tuning van XP_PER_EFFECTIEVE_UUR hierboven blijft geldig — alleen
+# nu gelijkmatig verdeeld (2020 XP voor level 1, 2980 voor level 49) i.p.v.
+# bijna gratis begin en heel duur einde (was 100 vs. 4900). Dezelfde shift
+# geeft nu 2 levels i.p.v. 9.
+LEVEL_XP_BASIS = 2000
+LEVEL_XP_PER_LEVEL = 20
+
 
 def xp_voor_volgend_level(huidig_level: int) -> int:
-    return huidig_level * 100
+    return LEVEL_XP_BASIS + huidig_level * LEVEL_XP_PER_LEVEL
 
 
 def voeg_xp_toe(huisdier: Huisdier, xp: int) -> list[int]:

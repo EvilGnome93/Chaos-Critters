@@ -161,9 +161,9 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
     ),
     (
         "✨ Leveling",
-        "Pets verdienen XP via voltooide werk-shifts en via gevechten (winst én verlies). Een pet "
-        "levelt op zodra hij `huidig level × 100` XP heeft — level 1 → 2 kost dus 100 XP, level 2 → 3 "
-        "kost er 200, enzovoort. **Level 50 is het maximum.**\n\n"
+        "Pets verdienen XP via voltooide werk-shifts en via gevechten (winst én verlies). Elk level "
+        "kost XP om te bereiken, en dat kost-per-level loopt geleidelijk op naarmate een pet hoger "
+        "levelt. **Level 50 is het maximum.**\n\n"
         "Elke level-up geeft een kleine samengestelde groei op **zowel gevecht- als werk-genen**, dus "
         "een hoger-level pet is zowel sterker in gevechten als productiever op de werkplek dan een vers "
         "gevangen exemplaar van dezelfde soort. Voor **gevechten** telt je level daarnaast nog een "

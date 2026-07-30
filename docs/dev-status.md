@@ -236,6 +236,14 @@ De uitgebreide voorbereidingsnotitie die hier stond is vervangen door de uitkoms
 
 Aanvullende keuze tijdens het bouwen: **pet-soorten volledig beheersbaar maken** (toevoegen/bewerken/verwijderen), met een afbeelding-URL-veld i.p.v. upload. Dat vervangt de `scripts/seed.py` + `scripts/link_afbeeldingen.py`-route voor nieuwe soorten, zonder nieuwe infrastructuur (upload naar een Railway volume zou de plaatjes uit git halen en dus zonder versiebeheer/backup laten).
 
+## Level-curve gefixt: vroege levels waren bijna gratis (2026-07-30)
+
+Gemeld door de gebruiker met een concreet voorbeeld: een pet ging in één overnacht-shift (4680 XP) van level 1 naar **level 10**. Oorzaak: `xp_voor_volgend_level()` was lineair (`level × 100`), dus de eerste 9 levels kostten samen maar 4500 XP — bijna niets vergeleken met wat één shift oplevert (shifts leveren duizenden XP op sinds de `XP_PER_EFFECTIEVE_UUR`-verhoging naar 180).
+
+**Fix**: curve veranderd naar `LEVEL_XP_BASIS (2000) + huidig_level × LEVEL_XP_PER_LEVEL (20)` (`utils/leveling.py`). Bewust zo gekozen dat het **totaal** aan XP voor level 1→50 exact gelijk blijft (122.500 XP, zelfde als de oude curve) — de eerder getunede "~24 dagen tot level 50"-balans blijft dus geldig, alleen nu gelijkmatig verdeeld (2020 XP voor level 1, 2980 voor level 49) in plaats van bijna gratis begin/heel duur einde (was 100 vs. 4900). Dezelfde gerapporteerde shift geeft nu level 1 → 3 in plaats van 1 → 10.
+
+`scripts/test_leveling.py` gebruikte een hardcoded `1000` XP voor de "meerdere levels tegelijk"-test (paste bij de oude curve, niet bij de nieuwe) — vervangen door een dynamische berekening via `xp_voor_volgend_level()`, zodat de test bij toekomstige curve-aanpassingen blijft kloppen. `cogs/wiki.py`'s Leveling-onderwerp noemde de exacte oude formule (`huidig level × 100`) — dat is precies het soort concreet getal waarvan bij de wiki-review (2026-07-28) al was afgesproken het weg te laten omdat het bij balans-tweaks fout zou lopen; nu kwalitatief herschreven ("het kost-per-level loopt geleidelijk op"). Volledige testsuite (14 scripts) draait groen.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

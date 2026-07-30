@@ -57,7 +57,13 @@ async def main() -> None:
             assert abs(float(huisdier.gevecht_genen) - round(gevecht_voor * 1.02, 2)) < 0.01
 
             print("\n-- grote hoeveelheid xp, meerdere levels in 1x --")
-            levels = voeg_xp_toe(huisdier, 1000)
+            # Exact genoeg voor 3 level-ups (level 2->5) + een klein restje,
+            # dynamisch berekend i.p.v. hardcoded: moet blijven kloppen
+            # ongeacht de vorm van de curve (zie xp_voor_volgend_level).
+            xp_voor_drie_levels = (
+                xp_voor_volgend_level(2) + xp_voor_volgend_level(3) + xp_voor_volgend_level(4) + 50
+            )
+            levels = voeg_xp_toe(huisdier, xp_voor_drie_levels)
             print(f"level={huisdier.level} xp={huisdier.xp} levels={levels}")
             assert levels == [3, 4, 5]
             assert huisdier.level == 5
