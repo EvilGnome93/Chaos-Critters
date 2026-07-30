@@ -217,7 +217,7 @@ class VangenCog(commands.Cog):
                 description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
                 color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
             )
-            embed.set_footer(text=f"Tier: {tier.naam}")
+            embed.set_footer(text=f"Tier: {tier.naam} - critters.casualchaos.nl")
             embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
             bericht = await channel.send(embed=embed)
             self.actieve_spawns[channel.id] = (soort, bericht)
