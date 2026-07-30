@@ -60,23 +60,89 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 
 **Doorlopend, geen afvinkbaar punt**: nieuwe pet-soorten blijven erbij komen naast het onderstaande werk — dat is nooit "klaar".
 
-1. **Admin panel fase 2: balansconstanten naar de database** (2026-07-29, bewust gefaseerd op keuze van de gebruiker). Fase 1 (alles wat al in de database stond) is af — zie "Wat werkt". Wat nog **hardcoded** is en dus niet via de portal aanpasbaar: `XP_PER_EFFECTIEVE_UUR`/`MAX_LEVEL`/`GENEN_GROEI_PER_LEVEL`/de level-curve (`utils/leveling.py`), de 3 werk-cycli met hun duur/energiekosten/output-multiplier + `CURRENCY_PER_GRONDSTOF`/`BONUS_GRONDSTOF_AANTAL` (`cogs/werk.py`), honger-verval/energie-herstel/`ENERGIE_MINIMUM`/slaap/blessureduur/de honger-herstelwaarden per voedingsitem (`utils/stats.py`), de hele gevecht-economie (`ELO_K`, currency-basis+bonus, `XP_WINST`/`XP_VERLIES`, energie-kosten, `TACTIEK_VARIANTIE`, `MAX_INTERNE_RONDES`, `SCHADE_FRACTIE` in `utils/gevechten.py`), elementen-`BONUS`/`MALUS` (`utils/elementen.py`), `RELEASE_BASIS_COINS`/`BONUS_ITEM_KANS` (`cogs/release.py`) en de 10 crafting-recepten (`RECEPT_KOSTEN` in `cogs/verzorging.py`) — samen ~50 waarden. **Aanpak-advies voor die stap**: niet elke call-site async DB-reads laten doen (die waarden worden in loops gelezen), maar een cache-module (bijv. `utils/balans.py`) die bij opstart uit de `Instelling`-tabel laadt en door de portal geïnvalideerd wordt bij een save; dan blijven de call-sites bijna identiek (`balans.get_int("xp_per_effectieve_uur", 180)` i.p.v. de module-constante). `WERK_CYCLI` is het lastigste geval: dat is nu een dict van frozen dataclasses die op import-tijd wordt opgebouwd, dus die moet naar een functie. Per blok bouwen + testen, niet alles in één keer.
+1. **Admin panel fase 2: balansconstanten naar de database** (2026-07-29, bewust gefaseerd op keuze van de gebruiker). Fase 1 (alles wat al in de database stond) is af — zie "Wat werkt". Wat nog hardcoded is (~27 losse getallen + ~40 in gestructureerde vorm), waar het staat, het aanpak-advies en een volgorde-voorstel: zie **"Voorbereiding volgende sessie: Admin panel fase 2"** hieronder — daar staat de volledige, geverifieerde inventaris met bestand + regelnummer.
 2. **Actieve spawns bewaren over een herstart** (2026-07-29, opgemerkt bij de redeploy-vraag): `cogs/vangen.py` houdt de actieve spawn per kanaal in het geheugen (`actieve_spawns: dict[channel_id, (soort, message)]`). Bij een redeploy is die weg: de spawn-embed blijft in Discord staan, maar `/vang` antwoordt "geen spawn actief", dus die pet is onvangbaar geworden. Op te lossen door de actieve spawn in de database te zetten (soort_id + channel_id + message_id) en bij `cog_load` weer in te laden. Klein en op zichzelf staand; niet urgent, wel merkbaar voor spelers omdat er nu bij elke deploy een spawn kan sneuvelen.
 3. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **lange termijn, verzet naar achteraan** (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150).
 
-## Voorbereiding volgende sessie (2026-07-29)
+## Voorbereiding volgende sessie: Admin panel fase 2 (2026-07-29)
 
-Alles tot en met fase 1 van het web-adminpanel is gecommit + gepusht naar `dev`, inclusief migratie `a7d41e8b3f52` (`portal_sessies`, al toegepast op de live DB) en `scripts/test_portal.py`. Alle 14 testscripts slagen.
+**Fase 1 is af en staat op `main` én `dev`** (laatste commit `fbeda4c`). Alle 14 testscripts slagen. De volgende sessie draait op een andere machine: begin met `git pull` op de juiste branch.
 
-**Eerst dit, vóór er nieuwe code komt**: de portal draait nog niet, want de env-vars ontbreken (`PORTAL_CLIENT_ID`, `PORTAL_CLIENT_SECRET`, `PORTAL_BASIS_URL`, `ADMIN_GUILD_ID`) en er is nog geen publiek Railway-domein. De bot start intussen gewoon door met alleen een waarschuwing in de log. Het stappenplan staat in **`docs/admin-portal-setup.md`** — dat zijn handmatige stappen in de Discord Developer Portal en op Railway die de gebruiker zelf moet doen. Vraag bij het begin van de sessie of dat gelukt is en of het paneel werkt; pas daarna is het zinvol om verder te bouwen.
+### Stand van zaken van de portal zelf
 
-Bekende punten die blijven staan:
+De code is klaar en de env-vars staan op de production-service (`ENVIRONMENT=prod`). De DNS klopt inmiddels ook: `critters.casualchaos.nl` is een CNAME naar `xxofwhn6.up.railway.app.` en het TXT-record `_railway-verify.critters` staat erin. HTTP geeft al een 301 naar HTTPS (dus Railway's edge pikt de naam op), maar **op het moment van schrijven had Railway het TLS-certificaat nog niet uitgegeven** — HTTPS gaf nog niets. Eerste actie volgende sessie: `https://critters.casualchaos.nl/health` proberen. Komt daar JSON uit, dan werkt de portal en kan je meteen inloggen. Blijft het stil, dan in het Railway-dashboard bij het custom domain kijken wat de status zegt.
 
-- **`scripts/test_vangen.py` is stuk** (`VangenCog._vind_soort` bestaat niet meer, hernoemd tijdens eerdere refactors) — nog steeds niet gefixt, bewust buiten scope. Oppakken zodra er tijd voor is.
-- **`/craft-lijst` is expliciet tijdelijk** (verzoek van de gebruiker) — overwegen te verwijderen zodra `/craft` (zonder argumenten) bekend genoeg is bij de testgroep.
-- **`/give` en `/herstel`** worden door de portal grotendeels overbodig (spelerbeheer kan nu via het web). Nog niet verwijderd: eerst kijken of de portal in de praktijk fijner werkt dan de commando's.
+### Wat fase 2 inhoudt
 
-Daarna volgens de backlog: **Admin panel fase 2** (de ~50 hardcoded balansconstanten naar de database, met het aanpak-advies bij backlog-punt 1) of **Fokken** (lange termijn, pas interessant vanaf 250 soorten — nu 150).
+De balanswaarden die nog **hardcoded Python-constanten** zijn, naar de database verhuizen zodat de portal ze kan aanpassen. Onderstaande inventaris is geverifieerd op 2026-07-29 (bestand + regelnummer + huidige waarde), dus die hoeft niet opnieuw uitgezocht te worden.
+
+**Losse getallen — 27 stuks, direct geschikt voor de bestaande key/value `Instelling`-tabel:**
+
+| Bestand | Constanten |
+|---|---|
+| `utils/leveling.py` | `MAX_LEVEL`=50 (r9), `GENEN_GROEI_PER_LEVEL`=0.02 (r10), `XP_PER_EFFECTIEVE_UUR`=180 (r24), plus de factor 100 die hardcoded in `xp_voor_volgend_level()` staat (r27) |
+| `cogs/werk.py` | `CURRENCY_PER_GRONDSTOF`=2 (r22), `BONUS_GRONDSTOF_AANTAL`=1 (r23) |
+| `utils/stats.py` | `_HONGER_VERVAL_MINUTEN_ECHT`=20 (r21), `_ENERGIE_HERSTEL_MINUTEN_ECHT`=10 (r22), `_DEV_VERSNELLING`=120 (r25), `ENERGIE_MINIMUM`=20 (r34), `_SLAAP_COOLDOWN_UUR_ECHT`=24 (r66), `SLAAP_HONGER_KOST`=20 (r70), `_BLESSURE_DUUR_UUR_ECHT`=2 (r72) |
+| `utils/gevechten.py` | `MAX_INTERNE_RONDES`=5 (r32), `SCHADE_FRACTIE`=0.35 (r33), `ELO_K`=32 (r35), `CURRENCY_BASIS_WINST`=20 (r36), `CURRENCY_BONUS_PER_100_MMR`=2 (r37), `XP_WINST`=30 (r38), `XP_VERLIES`=10 (r39), `ENERGIE_KOST_MIN`=10 (r40), `ENERGIE_KOST_MAX`=20 (r41), `_RANKED_RESET_UUR_ECHT`=24 (r43) |
+| `utils/elementen.py` | `BONUS`=1.15 (r28), `MALUS`=0.90 (r29) |
+| `cogs/release.py` | `RELEASE_BASIS_COINS`=15 (r16), `BONUS_ITEM_KANS`=0.15 (r17) |
+
+**Gestructureerde data — ~40 losse getallen, past níét in platte key/value:**
+
+| Wat | Waar | Vorm |
+|---|---|---|
+| `WERK_CYCLI` (3 cycli x duur/energie/multiplier = 9) | `cogs/werk.py` r38-41 | dict van frozen dataclasses, opgebouwd op **import-tijd** |
+| `TACTIEK_VARIANTIE` (3 tactieken x min/max = 6) | `utils/gevechten.py` r26 | dict van tuples |
+| `RECEPT_KOSTEN` (10 recepten x 2 ingredienten = 20) | `cogs/verzorging.py` r71 | dict van lijsten van tuples, met itemnamen als string |
+| Voer-effecten (5) | `utils/stats.py` r56-64 | `HONGER_HERSTEL_WAARDEN`, `VOLLEDIG_HERSTEL_ITEMS`, `VOERBAK_ITEMS_PER_NIVEAU` — allemaal op itemnaam |
+
+### Aanpak-advies
+
+**Niet** elke call-site een async DB-read laten doen: deze waarden worden in loops gelezen (bijv. per gevechtsronde), dat wordt traag en invasief. Beter een cache-module, bijvoorbeeld `utils/balans.py`:
+
+- laadt bij het opstarten van de bot alle rijen uit `Instelling` in een dict;
+- biedt synchrone getters met een default: `balans.get_int("xp_per_effectieve_uur", 180)`, `get_float(...)`;
+- wordt door de portal geinvalideerd/herladen zodra daar iets opgeslagen wordt (de portal draait in hetzelfde proces, dus dat is een directe functieaanroep — geen polling nodig).
+
+Call-sites veranderen dan van `XP_PER_EFFECTIEVE_UUR` naar `balans.get_int(...)`, wat een kleine, mechanische wijziging is.
+
+**Drie valkuilen die tijd gaan kosten:**
+
+1. **De dev-versnelling wordt op import-tijd berekend.** `HONGER_VERVAL_MINUTEN`, `ENERGIE_HERSTEL_MINUTEN`, `SLAAP_COOLDOWN_UUR`, `BLESSURE_DUUR_UUR` (`utils/stats.py`) en `RANKED_RESET_UUR` (`utils/gevechten.py`) zijn afgeleide module-constanten met `config.ENVIRONMENT` er al in verwerkt. Die moeten functies worden, anders bevriest de oude waarde bij import.
+2. **`WERK_CYCLI` is het lastigste geval.** Dict van `frozen=True` dataclasses, opgebouwd op import-tijd, en op meerdere plekken geimporteerd (`cogs/werk.py`, `cogs/verzorging.py`, `scripts/`). Wordt een functie `werk_cycli()` die de dataclasses per aanroep opbouwt uit de cache.
+3. **De gestructureerde data verdient eigen tabellen, geen JSON-in-een-string.** `RECEPT_KOSTEN` is in feite al een relatie (item -> benodigde items met aantal); een `recepten`-tabel met FK's naar `items` is netter dan JSON, en de portal kan er dan een fatsoenlijke editor voor krijgen met dropdowns i.p.v. een tekstveld. Zelfde voor de werk-cycli.
+
+### Volgorde-advies
+
+Per blok bouwen en na elk blok testen, niet alles in een keer. Voorstel:
+
+1. `utils/balans.py` + de cache-invalidatie vanuit de portal + een portal-tab die de losse getallen toont. Begin met een klein, ongevaarlijk blok (bijv. `utils/elementen.py`: maar 2 waarden) om de hele keten te bewijzen.
+2. De overige losse getallen per bestand (leveling, release, gevechten, stats, werk).
+3. `WERK_CYCLI` (aparte tabel + portal-editor).
+4. `RECEPT_KOSTEN` (aparte tabel met FK's + portal-editor).
+5. De voer-effecten en `TACTIEK_VARIANTIE`.
+
+**Na elk blok**: het bijbehorende testscript draaien, en aan het eind de volledige suite. Let vooral op `test_leveling.py`, `test_werk.py`, `test_elementen.py`, `test_vecht_friendly.py` en `test_grondstof_recepten.py` — die lezen de constanten die je aanpast.
+
+De volledige suite (14 scripts, allemaal groen op 2026-07-29) — `test_vangen.py` staat er bewust niet in, die is stuk:
+
+```bash
+for f in test_clan test_craft test_critterdex test_elementen test_grondstof_recepten \
+         test_item_overhaul test_leveling test_portal test_pvp_namen test_trading \
+         test_vecht_friendly test_verzorging test_werk test_wiki; do
+  python3 scripts/$f.py >/dev/null 2>&1 && echo "PASS  $f" || echo "FAIL  $f"
+done
+```
+
+Ze draaien tegen een echte database, dus `DATABASE_URL` moet gezet zijn (de dev-database — níét de prod-database, de scripts maken en verwijderen testdata).
+
+### Losse eindjes die blijven staan
+
+- **`scripts/test_vangen.py` is stuk** (`VangenCog._vind_soort` bestaat niet meer, hernoemd tijdens eerdere refactors). Nog steeds niet gefixt, bewust buiten scope. Dit is het enige testscript dat niet meedraait in de suite.
+- **Actieve spawns overleven geen herstart** — zie het aparte backlog-punt hierboven. Klein en op zichzelf staand.
+- **`/craft-lijst` is expliciet tijdelijk** — overwegen te verwijderen zodra `/craft` bekend genoeg is.
+- **`/give` en `/herstel`** zijn door de portal grotendeels overbodig geworden. Nog niet verwijderd: eerst kijken of het paneel in de praktijk fijner werkt.
+- **Credentials**: de gebruiker heeft de Discord client secret geroteerd. De twee database-wachtwoorden (dev + prod) zijn tijdens die sessie in de chat geplakt en zouden ook geroteerd moeten worden; op 2026-07-29 was dat nog niet gebeurd.
 
 ## Balans-audit resultaat (2026-07-28)
 
