@@ -255,6 +255,14 @@ Het panel was tot nu toe volledig admin-only, óók inloggen. Uitgebreid met een
 - **Frontend (`web/admin.html`)**: puur CSS-gestuurd via een `body.readonly-mode`-class (i.p.v. per render-functie knoppen verbergen, want de content wordt dynamisch ververst) — verbergt `.save-row`, `.btn-danger` en `[data-write-action]` (de "+ Nieuwe soort"-knop, die niet in een save-row zit), zet alle formuliervelden op `pointer-events:none` (behalve zoekvelden, die blijven bruikbaar), en verbergt de Spelers/Kanalen-navigatie-items + het "Admin"-sectielabel via `[data-admin-only]`. Een `zetTab()`-guard voorkomt dat een niet-admin via een oude/geplakte URL-hash toch op die tabs belandt (de backend blokkeert het sowieso, dit voorkomt alleen een verwarrende lege/foutmelding-pagina). Klein "Alleen-lezen"-label naast de gebruikersnaam.
 - **Getest** via een nieuwe `test_alleen_lezen_toegang()` in `scripts/test_portal.py`: een lid-sessie (`is_admin=False`) kan alle balans-/content-endpoints lezen maar krijgt 403 op Spelers/Kanalen (ook GET) en op elke geteste schrijf-actie (instellingen/items/soorten/clans), met een expliciete check dat een geweigerde schrijfpoging de database-waarde ook echt niet raakte. Volledige suite (14 scripts) draait groen.
 
+## Wiki-tekst opgeschoond (2026-07-30, verzoek van de gebruiker)
+
+Drie kleine correcties op `cogs/wiki.py`:
+
+- **Werkplek-overzicht toegevoegd** aan "Werken & grondstoffen": een lijst welke hoofdgrondstof en bonus-grondstof elke werkplek oplevert (Moestuin→Groente/Fruit, Vijver→Algen/Water, Werkbank→Schroot/Spijker, Bos→Takken/Bladeren, Nachtwacht→Maanschijnkristal/Sterrenstof, Mijnschacht→Erts/Edelsteen), geverifieerd tegen de database in plaats van uit het geheugen overgetypt.
+- **"werk_genen" hernoemd naar "werk-motivatie"** in speler-facing tekst (2x in "Vangen & Tiers", 1x in "Leveling") — de interne kolomnaam hoort niet in tekst die spelers lezen.
+- **Alle em-dashes (—) verwijderd** uit de wiki-tekst (was 48x), vervangen door komma's, dubbele punten of haakjes al naar gelang de zin. Ook de command-lijst-separator ging van " — " naar ": ". Getest dat alle 9 onderwerpen nog binnen Discord's embed-limieten passen (grootste: 1320/4096 tekens voor "Werken & grondstoffen" na de toevoeging).
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.
