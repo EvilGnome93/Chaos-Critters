@@ -70,7 +70,7 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 
 ### Stand van zaken van de portal zelf
 
-De code is klaar en de env-vars staan op de production-service (`ENVIRONMENT=prod`). De DNS klopt inmiddels ook: `critters.casualchaos.nl` is een CNAME naar `xxofwhn6.up.railway.app.` en het TXT-record `_railway-verify.critters` staat erin. HTTP geeft al een 301 naar HTTPS (dus Railway's edge pikt de naam op), maar **op het moment van schrijven had Railway het TLS-certificaat nog niet uitgegeven** — HTTPS gaf nog niets. Eerste actie volgende sessie: `https://critters.casualchaos.nl/health` proberen. Komt daar JSON uit, dan werkt de portal en kan je meteen inloggen. Blijft het stil, dan in het Railway-dashboard bij het custom domain kijken wat de status zegt.
+**Bevestigd werkend (2026-07-30, gebruiker heeft ingelogd en het paneel gecheckt)** — het TLS-certificaat is inmiddels uitgegeven, `https://critters.casualchaos.nl` werkt end-to-end. Fase 1 is daarmee volledig afgerond, niets meer open op dit punt.
 
 ### Wat fase 2 inhoudt
 
