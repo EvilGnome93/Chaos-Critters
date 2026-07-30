@@ -142,7 +142,7 @@ Ze draaien tegen een echte database, dus `DATABASE_URL` moet gezet zijn (de dev-
 - **Actieve spawns overleven geen herstart** — zie het aparte backlog-punt hierboven. Klein en op zichzelf staand.
 - **`/craft-lijst` is expliciet tijdelijk** — overwegen te verwijderen zodra `/craft` bekend genoeg is.
 - **`/give` en `/herstel`** zijn door de portal grotendeels overbodig geworden. Nog niet verwijderd: eerst kijken of het paneel in de praktijk fijner werkt.
-- **Credentials**: de gebruiker heeft de Discord client secret geroteerd. De twee database-wachtwoorden (dev + prod) zijn tijdens die sessie in de chat geplakt en zouden ook geroteerd moeten worden; op 2026-07-29 was dat nog niet gebeurd.
+- **Credentials, opgelost (2026-07-30)**: zowel de Discord client secret als de twee database-wachtwoorden (dev + prod) — die tijdens de vorige sessie in de chat hadden gestaan — zijn inmiddels geroteerd door de gebruiker.
 
 ## Balans-audit resultaat (2026-07-28)
 
