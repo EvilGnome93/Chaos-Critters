@@ -49,10 +49,9 @@ per ongeluk een tweede paneel meedraaien dat dezelfde database beheert. Wil je
 het toch even in dev testen, zet dan expliciet `PORTAL_ENABLED=true` op die
 service.
 
-Zet de vars uit de tabel hierboven dus alleen op de **prod-service**. Let op: er
-was tot nu toe nog geen aparte prod-bot-service (alleen de dev-bot met de
-gedeelde Postgres) — controleer of die er inmiddels is, want zonder prod-service
-is er geen plek waar het panel volgens deze regel aan zou gaan.
+De production-omgeving op Railway draait met **`ENVIRONMENT=prod`**; de check is
+"alles behalve `dev`", dus zowel `prod` als `production` zet het panel aan. Zet
+de vars uit de tabel hierboven dus alleen op de prod-service.
 
 ## 3. Railway: publiek domein
 
