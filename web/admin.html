@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chaos Critters — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Stijl overgenomen van het bestaande Casual Chaos-adminpaneel
+       (casualchaos.nl/admin) zodat de twee panelen bij elkaar horen. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --blurple: #5865F2; --blurple-dim: rgba(88,101,242,0.15);
+      --blurple-border: rgba(88,101,242,0.35); --blurple-hover: #4752C4;
+      --green: #57F287; --bg: #0d0f17; --surface: #12141f;
+      --card: #181b2e; --border: rgba(255,255,255,0.07);
+      --text: #e6e8f0; --muted: #8e9aaf; --accent-text: #a5acfc;
+      --red: #ED4245; --red-text: #f28b8d; --amber: #faad14;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* LOGIN */
+    #login { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    #login[hidden] { display: none !important; }
+    .login-box { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border); padding: 2.5rem; text-align: center; }
+    .login-logo { font-family: 'Rajdhani', sans-serif; font-size: 1.4rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.2rem; }
+    .login-logo span { color: var(--accent-text); }
+    .login-sub { font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 2rem; }
+    .login-error { font-size: 0.82rem; color: var(--red-text); margin-bottom: 0.75rem; min-height: 1.2rem; }
+    .btn-discord {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; background: var(--blurple); color: #fff;
+      font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 0.85rem 1.5rem; text-decoration: none; border: none; cursor: pointer;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+      transition: background 0.2s;
+    }
+    .btn-discord:hover { background: var(--blurple-hover); }
+    .login-note { font-size: 0.72rem; color: var(--muted); margin-top: 1rem; line-height: 1.6; }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 0.7rem 1.5rem; border: none; cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--blurple); color: #fff; clip-path: polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%); }
+    .btn-primary:not(:disabled):hover { background: var(--blurple-hover); }
+    .btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border); font-size: 0.8rem; padding: 0.45rem 1rem; }
+    .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .btn-danger { background: rgba(237,66,69,0.1); color: var(--red-text); border: 1px solid rgba(237,66,69,0.25); font-size: 0.75rem; padding: 0.35rem 0.8rem; }
+    .btn-danger:hover { background: rgba(237,66,69,0.2); }
+    .btn-add { background: var(--blurple-dim); color: var(--accent-text); border: 1px solid var(--blurple-border); font-size: 0.78rem; padding: 0.4rem 1rem; }
+    .btn-add:hover { background: rgba(88,101,242,0.25); }
+
+    /* HEADER */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 60px;
+      background: rgba(13,15,23,0.92); backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+    }
+    .h-logo { font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .h-logo span { color: var(--accent-text); }
+    .h-tag { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: var(--blurple-dim); border: 1px solid var(--blurple-border); padding: 0.2rem 0.55rem; margin-left: 0.6rem; }
+    .h-right { display: flex; align-items: center; gap: 1rem; }
+    .h-user { font-size: 0.78rem; color: var(--muted); }
+    .h-back { color: var(--muted); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
+    .h-back:hover { color: var(--text); }
+
+    /* LAYOUT */
+    .app-layout { display: flex; align-items: flex-start; }
+    .hamburger-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0.25rem 0.5rem 0.25rem 0; }
+    .sidebar {
+      width: 230px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border);
+      padding: 1.5rem 0.75rem; position: sticky; top: 60px; height: calc(100vh - 60px);
+      overflow-y: auto; z-index: 20;
+    }
+    .nav-item {
+      display: flex; align-items: center; width: 100%; text-align: left;
+      background: none; border: none; border-left: 3px solid transparent;
+      color: var(--muted); font-family: 'Rajdhani', sans-serif; font-size: 0.85rem;
+      font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 0.7rem 0.9rem; margin-bottom: 0.2rem; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: var(--accent-text); background: var(--blurple-dim); border-left-color: var(--blurple); }
+    .nav-section-label { font-family: 'Rajdhani', sans-serif; font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); padding: 0.5rem 0.9rem 0.4rem; }
+    .nav-divider { height: 1px; background: var(--border); margin: 0.6rem 0.9rem; }
+    .sidebar-overlay { display: none; }
+    main { flex: 1 1 auto; min-width: 0; max-width: 940px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    @media (max-width: 860px) {
+      .hamburger-btn { display: inline-flex; }
+      .sidebar { position: fixed; top: 60px; left: 0; bottom: 0; height: auto; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: 4px 0 24px rgba(0,0,0,0.4); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.show { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 15; }
+      main { max-width: 100%; padding: 1.5rem 1rem 3rem; }
+      header { padding: 0 1rem; }
+      .h-back, .h-user { display: none; }
+    }
+
+    /* STATUS */
+    .status { padding: 0.8rem 1.2rem; margin-bottom: 1.5rem; font-size: 0.85rem; font-weight: 600; border-left: 3px solid; }
+    .status.ok   { background: rgba(87,242,135,0.08); border-color: var(--green); color: var(--green); }
+    .status.fail { background: rgba(237,66,69,0.08); border-color: var(--red); color: var(--red-text); }
+
+    /* CARD */
+    .card { background: var(--card); border: 1px solid var(--border); padding: 1.75rem; margin-bottom: 1.5rem; }
+    .card[hidden] { display: none !important; }
+    .card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.5px; color: #fff;
+      margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    .card-intro { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.6; }
+
+    /* FORM */
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; }
+    .field input, .field textarea, .field select {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.88rem;
+      padding: 0.6rem 0.85rem; outline: none; transition: border-color 0.2s;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--blurple-border); }
+    .field input:disabled { color: var(--muted); cursor: not-allowed; }
+    .field textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+    .field select { cursor: pointer; }
+    .field select option { background: var(--card); }
+    .field-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* BLOCKS */
+    .rule-block { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blurple); padding: 1.25rem; margin-bottom: 1rem; }
+    .rule-block.nieuw { border-left-color: var(--green); }
+    .rule-block-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; font-family: 'Rajdhani', sans-serif; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-text); }
+    .rule-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .rule-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 640px) { .rule-row, .rule-row-3 { grid-template-columns: 1fr; } }
+    .save-row { display: flex; gap: 1rem; align-items: center; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .save-row .btn-primary { width: auto; min-width: 160px; }
+    .mini-status { font-size: 0.8rem; color: var(--muted); }
+
+    /* WAARSCHUWING */
+    .notice { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--amber); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.78rem; color: var(--muted); line-height: 1.7; }
+    .notice strong { color: var(--text); }
+
+    /* STAT TILES */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .stat-tile { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blurple); padding: 1rem 1.1rem; }
+    .stat-value { font-family: 'Rajdhani', sans-serif; font-size: 1.7rem; font-weight: 700; color: #fff; line-height: 1.1; }
+    .stat-label { font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 0.25rem; }
+
+    /* CHIPS / TAGS */
+    .chip-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; min-height: 2rem; }
+    .chip { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 0.78rem; padding: 0.2rem 0.45rem 0.2rem 0.6rem; }
+    .chip-meta { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; color: var(--muted); border-left: 1px solid var(--border); padding-left: 0.4rem; margin-left: 0.1rem; }
+    .chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.85rem; line-height: 1; padding: 0; transition: color 0.15s; }
+    .chip button:hover { color: var(--red-text); }
+    .add-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .add-row input, .add-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.82rem; padding: 0.5rem 0.75rem; outline: none; }
+    .add-row input:focus, .add-row select:focus { border-color: var(--blurple-border); }
+    .add-row .grow { flex: 1; min-width: 140px; }
+
+    /* FILTERS */
+    .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center; }
+    .filter { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'Rajdhani', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0.3rem 0.7rem; cursor: pointer; transition: all 0.15s; }
+    .filter.active, .filter:hover { border-color: var(--blurple-border); color: var(--accent-text); background: var(--blurple-dim); }
+    .zoek-input { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.82rem; padding: 0.5rem 0.75rem; outline: none; margin-bottom: 0.75rem; }
+    .zoek-input:focus { border-color: var(--blurple-border); }
+
+    /* LIJST-RIJEN */
+    .lijst-rij { display: flex; align-items: center; gap: 0.85rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .lijst-rij:last-child { border-bottom: none; }
+    .lijst-rij:hover { background: rgba(255,255,255,0.02); }
+    .lijst-rij.statisch { cursor: default; }
+    .lijst-rij.statisch:hover { background: none; }
+    .lijst-body { flex: 1; min-width: 0; }
+    .lijst-titel { font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+    .lijst-meta { font-size: 0.74rem; color: var(--muted); margin-top: 0.15rem; }
+    .lijst-thumb { width: 34px; height: 34px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; object-fit: cover; }
+    .badge { font-size: 0.62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0.15rem 0.4rem; border: 1px solid var(--blurple-border); background: var(--blurple-dim); color: var(--accent-text); }
+    .badge.groen { border-color: rgba(87,242,135,0.3); background: rgba(87,242,135,0.12); color: var(--green); }
+    .badge.grijs { border-color: var(--border); background: var(--surface); color: var(--muted); }
+    .leeg { font-size: 0.82rem; color: var(--muted); padding: 1rem 0; text-align: center; }
+    .detail-paneel { padding: 0 0 1rem; border-bottom: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-logo">Chaos <span>Critters</span></div>
+    <div class="login-sub">Admin Paneel</div>
+    <div class="login-error" id="login-err"></div>
+    <a href="/auth/discord" class="btn-discord">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028Z"/></svg>
+      Login met Discord
+    </a>
+    <p class="login-note">Alleen toegankelijk voor server admins.<br/>Je Discord account wordt geverifieerd.</p>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div id="panel" hidden>
+  <header>
+    <div style="display:flex; align-items:center;">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">☰</button>
+      <span class="h-logo">Chaos <span>Critters</span></span>
+      <span class="h-tag">Admin</span>
+    </div>
+    <div class="h-right">
+      <span class="h-user" id="h-user"></span>
+      <a href="https://casualchaos.nl" class="h-back">← Terug naar site</a>
+      <button class="btn btn-ghost" id="logout-btn">Uitloggen</button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="nav-section-label">Algemeen</div>
+      <button class="nav-item" data-tab="overzicht">Overzicht</button>
+      <button class="nav-item" data-tab="instellingen">Instellingen</button>
+      <div class="nav-divider"></div>
+      <div class="nav-section-label">Balans &amp; content</div>
+      <button class="nav-item" data-tab="items">Items &amp; prijzen</button>
+      <button class="nav-item" data-tab="werkplekken">Werkplekken</button>
+      <button class="nav-item" data-tab="tiers">Tiers</button>
+      <button class="nav-item" data-tab="soorten">Pet-soorten</button>
+      <div class="nav-divider"></div>
+      <div class="nav-section-label">Beheer</div>
+      <button class="nav-item" data-tab="spelers">Spelers</button>
+      <button class="nav-item" data-tab="clans">Clans</button>
+      <button class="nav-item" data-tab="kanalen">Kanalen</button>
+    </nav>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <main>
+    <div id="status" hidden></div>
+
+    <!-- OVERZICHT -->
+    <div class="card" data-tab-panel="overzicht">
+      <div class="card-head">Overzicht
+        <button class="btn btn-add" onclick="laadStatistieken()">Verversen</button>
+      </div>
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="rule-row">
+        <div>
+          <div class="rule-block-head">Meest gevangen soorten</div>
+          <div id="top-soorten"></div>
+        </div>
+        <div>
+          <div class="rule-block-head">Rijkste spelers</div>
+          <div id="rijkste-spelers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTELLINGEN -->
+    <div class="card" data-tab-panel="instellingen">
+      <div class="card-head">Instellingen</div>
+      <p class="card-intro">Waarden die de bot live uit de database leest — een wijziging werkt meteen, zonder herstart.</p>
+      <div id="instellingen-editor"></div>
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="slaInstellingenOp(this)">Instellingen opslaan</button>
+        <span class="mini-status" id="instellingen-status"></span>
+      </div>
+    </div>
+
+    <!-- ITEMS -->
+    <div class="card" data-tab-panel="items">
+      <div class="card-head">Items &amp; prijzen</div>
+      <div class="notice">
+        <strong>Naam en type zijn niet aanpasbaar.</strong> Alle itemnamen staan als tekst in de botcode
+        (recepten, voer-effecten, de uitrusting-slots en het Extra match token), dus hernoemen zou stil
+        dingen breken. Prijs en beschrijving kan je vrij aanpassen. Items toevoegen of verwijderen kan
+        alleen via code, omdat een nieuw item zonder code-ondersteuning niets doet.
+      </div>
+      <div id="items-editor"></div>
+    </div>
+
+    <!-- WERKPLEKKEN -->
+    <div class="card" data-tab-panel="werkplekken">
+      <div class="card-head">Werkplekken</div>
+      <div class="notice">
+        <strong>Het type is niet aanpasbaar</strong> en werkplekken kunnen niet toegevoegd of verwijderd
+        worden: de keuzelijst van <code>/werk</code> staat hardcoded in de botcode, dus een nieuwe
+        werkplek zou onbereikbaar zijn voor spelers. Output, capaciteit, grondstoffen en de bonus-kans
+        zijn wel vrij aanpasbaar. <strong>Capaciteit geldt per clan</strong> (en clanloze spelers delen
+        samen één pool).
+      </div>
+      <div id="werkplekken-editor"></div>
+    </div>
+
+    <!-- TIERS -->
+    <div class="card" data-tab-panel="tiers">
+      <div class="card-head">Tiers</div>
+      <p class="card-intro">
+        Spawnkans bepaalt hoe vaak een tier verschijnt; binnen een tier is elke soort even waarschijnlijk.
+        De stat-multiplier werkt alleen op gevechten en de release-beloning — <strong>niet</strong> op de
+        werk-opbrengst (die gebruikt alleen werk_genen).
+      </p>
+      <div id="tiers-waarschuwing"></div>
+      <div id="tiers-editor"></div>
+    </div>
+
+    <!-- PET-SOORTEN -->
+    <div class="card" data-tab-panel="soorten">
+      <div class="card-head">Pet-soorten
+        <button class="btn btn-add" onclick="toonNieuweSoort()">+ Nieuwe soort</button>
+      </div>
+      <div class="notice">
+        Nieuwe soort toevoegen? Push de afbeelding eerst naar <code>docs/assets/</code> op GitHub en plak
+        daarna de raw-URL hieronder. <strong>Altijd in die volgorde</strong> — Discord onthoudt een
+        mislukte afbeelding-fetch per URL, dus als een pet spawnt vóórdat het plaatje online staat, blijft
+        het permanent leeg voor die URL.
+      </div>
+      <div id="nieuwe-soort" hidden></div>
+      <input type="text" class="zoek-input" id="soort-zoek" placeholder="Zoek op naam..." />
+      <div class="filters" id="soort-filters"></div>
+      <div id="soorten-lijst"></div>
+    </div>
+
+    <!-- SPELERS -->
+    <div class="card" data-tab-panel="spelers">
+      <div class="card-head">Spelers
+        <button class="btn btn-add" onclick="laadSpelers()">Verversen</button>
+      </div>
+      <p class="card-intro">Klik een speler aan om pets, inventaris en saldo te beheren.</p>
+      <input type="text" class="zoek-input" id="speler-zoek" placeholder="Zoek op naam of Discord-ID..." />
+      <div id="spelers-lijst"></div>
+    </div>
+
+    <!-- CLANS -->
+    <div class="card" data-tab-panel="clans">
+      <div class="card-head">Clans
+        <button class="btn btn-add" onclick="laadClans()">Verversen</button>
+      </div>
+      <p class="card-intro">Elke clan heeft een eigen capaciteit-pool per werkplek. Ontbinden maakt alle leden clanloos.</p>
+      <div id="clans-lijst"></div>
+    </div>
+
+    <!-- KANALEN -->
+    <div class="card" data-tab-panel="kanalen">
+      <div class="card-head">Spawn-kanalen</div>
+      <p class="card-intro">Kanalen waar pets automatisch kunnen spawnen. Wijzigingen werken meteen, zonder bot-herstart.</p>
+      <div class="chip-list" id="spawn-lijst"></div>
+      <div class="add-row">
+        <select id="spawn-select" class="grow"></select>
+        <button class="btn btn-add" onclick="voegSpawnkanaalToe(this)">+ Toevoegen</button>
+      </div>
+    </div>
+    <div class="card" data-tab-panel="kanalen">
+      <div class="card-head">Logkanalen</div>
+      <p class="card-intro">Eén kanaal per categorie, per server. Zelfde als <code>/setlog</code>.</p>
+      <div class="chip-list" id="log-lijst"></div>
+      <div class="add-row">
+        <select id="log-categorie"></select>
+        <select id="log-select" class="grow"></select>
+        <button class="btn btn-add" onclick="stelLogkanaalIn(this)">Instellen</button>
+      </div>
+    </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  // ── Basis ────────────────────────────────────────────────────────────────
+  // De API zit op dezelfde origin (de bot serveert dit bestand zelf), dus geen
+  // aparte base-URL en geen CORS nodig.
+  const TOKEN_KEY = 'critters_admin_token';
+  let token = localStorage.getItem(TOKEN_KEY) || '';
+
+  /** Escapen van alle waarden die in innerHTML terechtkomen. Nodig: pet-namen
+   *  en clan-namen zijn door spelers zelf te kiezen (Naamkaartje), dus zonder
+   *  dit zou een speler HTML in dit paneel kunnen injecteren.
+   *
+   *  LET OP: dit is alleen veilig voor HTML-tekst en attribuutwaarden, NIET
+   *  voor JavaScript binnen een attribuut (`onclick="f('...')"`). De browser
+   *  HTML-decodeert zo'n attribuut vóórdat het als JS geparsed wordt, dus een
+   *  ge-escapete apostrof (&#39;) wordt daar weer een echte quote en kan uit
+   *  de string breken. Daarom interpoleren we in onclick uitsluitend
+   *  numerieke ID's en zoeken we namen op uit de geladen data. */
+  function esc(waarde) {
+    return String(waarde ?? '').replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  async function api(pad, opties = {}) {
+    const resp = await fetch(pad, {
+      ...opties,
+      headers: {
+        ...(opties.body ? { 'Content-Type': 'application/json' } : {}),
+        Authorization: `Bearer ${token}`,
+        ...(opties.headers || {}),
+      },
+    });
+    if (resp.status === 401) {
+      logUit(true);
+      throw new Error('Sessie verlopen — log opnieuw in.');
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || 'Er ging iets mis.');
+    return data;
+  }
+
+  function toonStatus(bericht, type) {
+    const el = document.getElementById('status');
+    el.textContent = bericht;
+    el.className = `status ${type}`;
+    el.hidden = false;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    clearTimeout(toonStatus._t);
+    toonStatus._t = setTimeout(() => { el.hidden = true; }, 5000);
+  }
+
+  /** Knop-met-feedback: draait `actie`, zet de knop uit tijdens het werk en
+   *  schrijft het resultaat naar een mini-status of de statusbalk. */
+  async function metKnop(btn, actie, statusEl) {
+    const origineel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Bezig...';
+    try {
+      await actie();
+      if (statusEl) {
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '✓ Opgeslagen';
+        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+      } else {
+        toonStatus('Opgeslagen.', 'ok');
+      }
+    } catch (e) {
+      if (statusEl) {
+        statusEl.style.color = 'var(--red-text)';
+        statusEl.textContent = e.message;
+      } else {
+        toonStatus(e.message, 'fail');
+      }
+    }
+    btn.disabled = false;
+    btn.textContent = origineel;
+  }
+
+  // ── Login / sessie ───────────────────────────────────────────────────────
+  const urlParams = new URLSearchParams(location.search);
+  if (urlParams.get('token')) {
+    token = urlParams.get('token');
+    localStorage.setItem(TOKEN_KEY, token);
+    history.replaceState({}, '', location.pathname);
+  }
+  if (urlParams.get('error')) {
+    const FOUTEN = {
+      cancelled: 'Login geannuleerd.',
+      state: 'Login verlopen of ongeldig. Probeer het opnieuw.',
+      token_failed: 'Discord login mislukt, probeer opnieuw.',
+      unauthorized: 'Je hebt geen beheerdersrechten op deze server.',
+      server_error: 'Serverfout, probeer het later opnieuw.',
+    };
+    document.getElementById('login-err').textContent =
+      FOUTEN[urlParams.get('error')] || 'Er is een fout opgetreden.';
+    history.replaceState({}, '', location.pathname);
+  }
+
+  function logUit(verlopen) {
+    localStorage.removeItem(TOKEN_KEY);
+    token = '';
+    document.getElementById('panel').hidden = true;
+    document.getElementById('login').hidden = false;
+    if (verlopen) document.getElementById('login-err').textContent = 'Sessie verlopen, log opnieuw in.';
+  }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    try { await api('/api/logout', { method: 'POST', body: '{}' }); } catch {}
+    logUit(false);
+  });
+
+  if (token) {
+    api('/api/verify')
+      .then(info => {
+        document.getElementById('h-user').textContent = info.naam;
+        document.getElementById('login').hidden = true;
+        document.getElementById('panel').hidden = false;
+        zetTab(location.hash.slice(1));
+      })
+      .catch(() => logUit(false));
+  }
+
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
+  const LADERS = {
+    overzicht: laadStatistieken,
+    instellingen: laadInstellingen,
+    items: laadItems,
+    werkplekken: laadWerkplekken,
+    tiers: laadTiers,
+    soorten: laadSoorten,
+    spelers: laadSpelers,
+    clans: laadClans,
+    kanalen: laadKanalen,
+  };
+  const sidebarEl = document.getElementById('sidebar');
+  const overlayEl = document.getElementById('sidebar-overlay');
+
+  function sluitSidebar() {
+    sidebarEl.classList.remove('open');
+    overlayEl.classList.remove('show');
+  }
+
+  function zetTab(tab) {
+    if (!TABS.includes(tab)) tab = TABS[0];
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('[data-tab-panel]').forEach(c => { c.hidden = c.dataset.tabPanel !== tab; });
+    sluitSidebar();
+    LADERS[tab]?.();
+  }
+
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (location.hash.slice(1) === btn.dataset.tab) zetTab(btn.dataset.tab);
+      else location.hash = btn.dataset.tab;
+    });
+  });
+  addEventListener('hashchange', () => zetTab(location.hash.slice(1)));
+
+  document.getElementById('hamburger-btn').addEventListener('click', () => {
+    sidebarEl.classList.toggle('open');
+    overlayEl.classList.toggle('show');
+  });
+  overlayEl.addEventListener('click', sluitSidebar);
+
+  // ── Overzicht ────────────────────────────────────────────────────────────
+  async function laadStatistieken() {
+    try {
+      const s = await api('/api/statistieken');
+      const tegels = [
+        ['Spelers', s.spelers], ['Pets gevangen', s.pets], ['Pet-soorten', s.soorten],
+        ['Nooit gevangen', s.soorten_nooit_gevangen], ['Clans', s.clans],
+        ['Pets aan het werk', s.pets_aan_het_werk], ['Chaos Coins totaal', s.totaal_coins],
+      ];
+      document.getElementById('stat-grid').innerHTML = tegels.map(([label, waarde]) =>
+        `<div class="stat-tile"><div class="stat-value">${esc(waarde)}</div><div class="stat-label">${esc(label)}</div></div>`
+      ).join('');
+
+      document.getElementById('top-soorten').innerHTML = s.top_soorten.length
+        ? s.top_soorten.map(t => `<div class="lijst-rij statisch"><div class="lijst-body"><div class="lijst-titel">${esc(t.naam)}</div></div><span class="badge">${esc(t.aantal)}x</span></div>`).join('')
+        : '<div class="leeg">Nog niets gevangen.</div>';
+
+      document.getElementById('rijkste-spelers').innerHTML = s.rijkste_spelers.length
+        ? s.rijkste_spelers.map(p => `<div class="lijst-rij statisch"><div class="lijst-body"><div class="lijst-titel">${esc(p.naam)}</div></div><span class="badge groen">${esc(p.coins)}</span></div>`).join('')
+        : '<div class="leeg">Nog geen spelers.</div>';
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  // ── Instellingen ─────────────────────────────────────────────────────────
+  async function laadInstellingen() {
+    try {
+      const rijen = await api('/api/instellingen');
+      document.getElementById('instellingen-editor').innerHTML = rijen.map(i => `
+        <div class="field">
+          <label>${esc(i.sleutel)}</label>
+          <input type="text" data-sleutel="${esc(i.sleutel)}" value="${esc(i.waarde)}" />
+          <div class="field-hint">${esc(i.beschrijving || '')}</div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function slaInstellingenOp(btn) {
+    const body = {};
+    document.querySelectorAll('#instellingen-editor [data-sleutel]').forEach(el => {
+      body[el.dataset.sleutel] = el.value;
+    });
+    metKnop(btn, () => api('/api/instellingen', { method: 'POST', body: JSON.stringify(body) }),
+      document.getElementById('instellingen-status'));
+  }
+
+  // ── Items ────────────────────────────────────────────────────────────────
+  const TYPE_LABELS = { voeding: '🍖 Voeding', grondstof: '🌾 Grondstof', materiaal: '🔧 Materiaal', boost: '✨ Boost', overig: '📦 Overig' };
+
+  async function laadItems() {
+    try {
+      const items = await api('/api/items');
+      document.getElementById('items-editor').innerHTML = items.map(i => `
+        <div class="rule-block" data-id="${i.id}">
+          <div class="rule-block-head">
+            <span>${esc(i.naam)}</span>
+            <span class="badge ${i.koopbaar ? '' : 'grijs'}">${esc(TYPE_LABELS[i.type] || i.type)}${i.koopbaar ? '' : ' · niet in shop'}</span>
+          </div>
+          <div class="field">
+            <label>Prijs in Chaos Coins${i.koopbaar ? '' : ' (0 = niet koopbaar, alleen via werken)'}</label>
+            <input type="number" min="0" data-veld="prijs" value="${i.prijs}" />
+          </div>
+          <div class="field">
+            <label>Beschrijving (zichtbaar in /shop en /craft)</label>
+            <textarea data-veld="beschrijving">${esc(i.beschrijving || '')}</textarea>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="slaItemOp(${i.id}, this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function velden(blok) {
+    const uit = {};
+    blok.querySelectorAll('[data-veld]').forEach(el => {
+      uit[el.dataset.veld] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return uit;
+  }
+
+  function slaItemOp(id, btn) {
+    const blok = btn.closest('.rule-block');
+    metKnop(btn, () => api(`/api/items/${id}`, { method: 'POST', body: JSON.stringify(velden(blok)) }),
+      blok.querySelector('.mini-status'));
+  }
+
+  // ── Werkplekken ──────────────────────────────────────────────────────────
+  async function laadWerkplekken() {
+    try {
+      const { werkplekken, grondstoffen } = await api('/api/werkplekken');
+      const opties = (geselecteerd) => `<option value="">— geen —</option>` + grondstoffen.map(g =>
+        `<option value="${g.id}" ${g.id === geselecteerd ? 'selected' : ''}>${esc(g.naam)}</option>`).join('');
+
+      document.getElementById('werkplekken-editor').innerHTML = werkplekken.map(w => `
+        <div class="rule-block" data-id="${w.id}">
+          <div class="rule-block-head"><span>${esc(w.type)}</span></div>
+          <div class="rule-row-3">
+            <div class="field">
+              <label>Output per uur</label>
+              <input type="number" step="0.1" min="0.1" data-veld="output_per_uur" value="${w.output_per_uur}" />
+            </div>
+            <div class="field">
+              <label>Capaciteit (per clan)</label>
+              <input type="number" min="1" data-veld="capaciteit" value="${w.capaciteit}" />
+            </div>
+            <div class="field">
+              <label>Kans op bonus-grondstof (%)</label>
+              <input type="number" step="0.1" min="0" max="100" data-veld="kans_pct" value="${(w.opbrengst_2_kans * 100).toFixed(1)}" />
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="field">
+              <label>Hoofdgrondstof (elke shift)</label>
+              <select data-veld="opbrengst_item_id">${opties(w.opbrengst_item_id)}</select>
+            </div>
+            <div class="field">
+              <label>Bonus-grondstof (kans per shift)</label>
+              <select data-veld="opbrengst_item_2_id">${opties(w.opbrengst_item_2_id)}</select>
+            </div>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="slaWerkplekOp(${w.id}, this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function slaWerkplekOp(id, btn) {
+    const blok = btn.closest('.rule-block');
+    const v = velden(blok);
+    const body = {
+      output_per_uur: v.output_per_uur,
+      capaciteit: v.capaciteit,
+      opbrengst_2_kans: (parseFloat(v.kans_pct) || 0) / 100,
+      opbrengst_item_id: v.opbrengst_item_id,
+      opbrengst_item_2_id: v.opbrengst_item_2_id,
+    };
+    metKnop(btn, () => api(`/api/werkplekken/${id}`, { method: 'POST', body: JSON.stringify(body) }),
+      blok.querySelector('.mini-status'));
+  }
+
+  // ── Tiers ────────────────────────────────────────────────────────────────
+  async function laadTiers() {
+    try {
+      const tiers = await api('/api/tiers');
+      const totaal = tiers.reduce((s, t) => s + t.spawnkans, 0);
+      document.getElementById('tiers-waarschuwing').innerHTML =
+        Math.abs(totaal - 1) < 0.0001
+          ? ''
+          : `<div class="notice"><strong>De spawnkansen tellen op tot ${(totaal * 100).toFixed(2)}%</strong>, niet 100%.
+             De bot verdeelt naar verhouding, dus het spel blijft werken — maar de percentages hieronder
+             komen dan niet overeen met de werkelijke kans.</div>`;
+
+      document.getElementById('tiers-editor').innerHTML = tiers.map(t => `
+        <div class="rule-block" data-id="${t.id}">
+          <div class="rule-block-head">
+            <span>${esc(t.naam)} (id ${t.id})</span>
+            <span class="badge grijs">${t.aantal_soorten} soorten</span>
+          </div>
+          <div class="rule-row-3">
+            <div class="field"><label>Naam</label><input type="text" data-veld="naam" value="${esc(t.naam)}" /></div>
+            <div class="field">
+              <label>Spawnkans (%)</label>
+              <input type="number" step="0.01" min="0" max="100" data-veld="kans_pct" value="${(t.spawnkans * 100).toFixed(2)}" />
+              <div class="field-hint">${t.aantal_soorten ? `≈ ${(t.spawnkans * 100 / t.aantal_soorten).toFixed(2)}% per soort` : 'geen soorten'}</div>
+            </div>
+            <div class="field">
+              <label>Stat-multiplier</label>
+              <input type="number" step="0.05" min="0.1" data-veld="stat_multiplier" value="${t.stat_multiplier}" />
+              <div class="field-hint">alleen gevechten + release</div>
+            </div>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="slaTierOp(${t.id}, this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function slaTierOp(id, btn) {
+    const blok = btn.closest('.rule-block');
+    const v = velden(blok);
+    const body = {
+      naam: v.naam,
+      spawnkans: (parseFloat(v.kans_pct) || 0) / 100,
+      stat_multiplier: v.stat_multiplier,
+    };
+    metKnop(btn, async () => {
+      await api(`/api/tiers/${id}`, { method: 'POST', body: JSON.stringify(body) });
+      laadTiers();
+    }, blok.querySelector('.mini-status'));
+  }
+
+  // ── Pet-soorten ──────────────────────────────────────────────────────────
+  let soortData = { soorten: [], werkplekken: [], tiers: [], elementen: [] };
+  let soortTierFilter = 'alle';
+  const ELEMENT_EMOJI = { grond: '⛰️', water: '🌊', lucht: '🌪️', vuur: '🔥', chaos: '🌀' };
+
+  async function laadSoorten() {
+    try {
+      soortData = await api('/api/soorten');
+      document.getElementById('soort-filters').innerHTML =
+        [['alle', 'Alle tiers'], ...soortData.tiers.map(t => [String(t.id), t.naam])]
+          .map(([waarde, label]) =>
+            `<button class="filter ${soortTierFilter === waarde ? 'active' : ''}" data-tier="${esc(waarde)}">${esc(label)}</button>`
+          ).join('') + `<span class="mini-status" style="margin-left:auto" id="soort-teller"></span>`;
+
+      document.querySelectorAll('#soort-filters .filter').forEach(b => {
+        b.addEventListener('click', () => { soortTierFilter = b.dataset.tier; laadSoorten(); });
+      });
+      rendersoorten();
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function tierNaam(id) { return soortData.tiers.find(t => t.id === id)?.naam ?? `tier ${id}`; }
+  function werkplekNaam(id) { return soortData.werkplekken.find(w => w.id === id)?.naam ?? null; }
+
+  function rendersoorten() {
+    const zoek = document.getElementById('soort-zoek').value.trim().toLowerCase();
+    const lijst = soortData.soorten.filter(s =>
+      (soortTierFilter === 'alle' || String(s.tier_id) === soortTierFilter) &&
+      (!zoek || s.naam.toLowerCase().includes(zoek))
+    );
+    document.getElementById('soort-teller').textContent = `${lijst.length} van ${soortData.soorten.length}`;
+    document.getElementById('soorten-lijst').innerHTML = lijst.length ? lijst.map(s => `
+      <div class="lijst-rij" onclick="wisselSoort(${s.id})">
+        ${s.afbeelding_url ? `<img class="lijst-thumb" src="${esc(s.afbeelding_url)}" alt="" onerror="this.style.visibility='hidden'">` : '<div class="lijst-thumb"></div>'}
+        <div class="lijst-body">
+          <div class="lijst-titel">
+            ${esc(ELEMENT_EMOJI[s.element] || '')} ${esc(s.naam)}
+            ${s.is_wilde_tegenstander ? '<span class="badge grijs">wilde tegenstander</span>' : ''}
+          </div>
+          <div class="lijst-meta">
+            ${esc(tierNaam(s.tier_id))} · gevecht ${s.gevecht_basis} · werk ${s.werk_basis}
+            ${werkplekNaam(s.werkplek_voorkeur_id) ? ' · ' + esc(werkplekNaam(s.werkplek_voorkeur_id)) : ''}
+            · ${s.aantal_gevangen}x gevangen
+          </div>
+        </div>
+      </div>
+      <div id="soort-detail-${s.id}" hidden></div>`).join('') : '<div class="leeg">Geen soorten gevonden.</div>';
+  }
+
+  document.getElementById('soort-zoek').addEventListener('input', rendersoorten);
+
+  function soortFormulier(s, isNieuw) {
+    const tierOpties = soortData.tiers.map(t =>
+      `<option value="${t.id}" ${t.id === s.tier_id ? 'selected' : ''}>${esc(t.naam)}</option>`).join('');
+    const wpOpties = `<option value="">— geen voorkeur —</option>` + soortData.werkplekken.map(w =>
+      `<option value="${w.id}" ${w.id === s.werkplek_voorkeur_id ? 'selected' : ''}>${esc(w.naam)}</option>`).join('');
+    const elOpties = `<option value="">— geen —</option>` + soortData.elementen.map(e =>
+      `<option value="${esc(e)}" ${e === s.element ? 'selected' : ''}>${esc(ELEMENT_EMOJI[e] || '')} ${esc(e)}</option>`).join('');
+
+    return `
+      <div class="rule-block ${isNieuw ? 'nieuw' : ''}">
+        <div class="rule-block-head">
+          <span>${isNieuw ? 'Nieuwe pet-soort' : esc(s.naam)}</span>
+          ${isNieuw ? '' : `<button class="btn btn-danger" onclick="verwijderSoort(${s.id})">Verwijderen</button>`}
+        </div>
+        <div class="rule-row">
+          <div class="field"><label>Naam</label><input type="text" data-veld="naam" value="${esc(s.naam || '')}" placeholder="Eekhoorn" /></div>
+          <div class="field"><label>Tier</label><select data-veld="tier_id">${tierOpties}</select></div>
+        </div>
+        <div class="rule-row-3">
+          <div class="field">
+            <label>Gevecht-basis</label>
+            <input type="number" step="1" min="1" data-veld="gevecht_basis" value="${s.gevecht_basis ?? 40}" />
+            <div class="field-hint">10 zeer laag · 20 laag · 40 gem. · 60 hoog · 80 zeer hoog · 95 hoogste</div>
+          </div>
+          <div class="field">
+            <label>Werk-basis</label>
+            <input type="number" step="1" min="1" data-veld="werk_basis" value="${s.werk_basis ?? 40}" />
+            <div class="field-hint">meestal omgekeerd aan gevecht</div>
+          </div>
+          <div class="field"><label>Element</label><select data-veld="element">${elOpties}</select></div>
+        </div>
+        <div class="field"><label>Werkplek-voorkeur</label><select data-veld="werkplek_voorkeur_id">${wpOpties}</select></div>
+        <div class="field"><label>Flavor-tekst (optioneel)</label><textarea data-veld="beschrijving" placeholder="Bouwt constructies die niemand gevraagd heeft">${esc(s.beschrijving || '')}</textarea></div>
+        <div class="field">
+          <label>Afbeelding-URL</label>
+          <input type="url" data-veld="afbeelding_url" value="${esc(s.afbeelding_url || '')}" placeholder="https://raw.githubusercontent.com/EvilGnome93/Chaos-Critters/dev/docs/assets/naam.png" />
+          <div class="field-hint">Push het plaatje eerst naar GitHub, dan pas hier invullen.</div>
+        </div>
+        <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+          <button class="btn btn-add" onclick="${isNieuw ? 'maakSoort(this)' : `slaSoortOp(${s.id}, this)`}">${isNieuw ? '+ Soort toevoegen' : 'Opslaan'}</button>
+          <span class="mini-status"></span>
+          ${isNieuw ? '<button class="btn btn-ghost" onclick="document.getElementById(\'nieuwe-soort\').hidden = true">Annuleren</button>' : ''}
+        </div>
+      </div>`;
+  }
+
+  function wisselSoort(id) {
+    const el = document.getElementById(`soort-detail-${id}`);
+    if (!el.hidden) { el.hidden = true; el.innerHTML = ''; return; }
+    const soort = soortData.soorten.find(s => s.id === id);
+    el.innerHTML = soortFormulier(soort, false);
+    el.hidden = false;
+  }
+
+  function toonNieuweSoort() {
+    const el = document.getElementById('nieuwe-soort');
+    el.innerHTML = soortFormulier({ tier_id: soortData.tiers[0]?.id, gevecht_basis: 40, werk_basis: 40 }, true);
+    el.hidden = false;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function maakSoort(btn) {
+    const blok = btn.closest('.rule-block');
+    metKnop(btn, async () => {
+      await api('/api/soorten', { method: 'POST', body: JSON.stringify(velden(blok)) });
+      document.getElementById('nieuwe-soort').hidden = true;
+      await laadSoorten();
+      toonStatus('Soort toegevoegd — hij kan nu spawnen.', 'ok');
+    }, blok.querySelector('.mini-status'));
+  }
+
+  function slaSoortOp(id, btn) {
+    const blok = btn.closest('.rule-block');
+    metKnop(btn, async () => {
+      await api(`/api/soorten/${id}`, { method: 'POST', body: JSON.stringify(velden(blok)) });
+      await laadSoorten();
+    }, blok.querySelector('.mini-status'));
+  }
+
+  async function verwijderSoort(id) {
+    const naam = soortData.soorten.find(s => s.id === id)?.naam ?? `#${id}`;
+    if (!confirm(`'${naam}' definitief verwijderen?`)) return;
+    try {
+      await api(`/api/soorten/${id}`, { method: 'DELETE' });
+      await laadSoorten();
+      toonStatus(`'${naam}' verwijderd.`, 'ok');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  // ── Spelers ──────────────────────────────────────────────────────────────
+  let spelerData = [];
+  // Pet-namen per id, zodat bevestigingsvragen de naam kunnen tonen zonder
+  // die in een onclick-attribuut te hoeven interpoleren (zie esc()).
+  const petNamen = new Map();
+
+  async function laadSpelers() {
+    try {
+      spelerData = await api('/api/spelers');
+      renderSpelers();
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function renderSpelers() {
+    const zoek = document.getElementById('speler-zoek').value.trim().toLowerCase();
+    const lijst = spelerData.filter(s =>
+      !zoek || s.naam.toLowerCase().includes(zoek) || s.discord_id.includes(zoek));
+    document.getElementById('spelers-lijst').innerHTML = lijst.length ? lijst.map(s => `
+      <div class="lijst-rij" onclick="wisselSpeler('${esc(s.discord_id)}')">
+        <div class="lijst-body">
+          <div class="lijst-titel">${esc(s.naam)} ${s.clan ? `<span class="badge">${esc(s.clan)}</span>` : ''}</div>
+          <div class="lijst-meta">${esc(s.currency)} coins · ${s.aantal_pets} pets · MMR ${s.mmr} · ID ${esc(s.discord_id)}</div>
+        </div>
+      </div>
+      <div id="speler-detail-${esc(s.discord_id)}" hidden></div>`).join('')
+      : '<div class="leeg">Geen spelers gevonden.</div>';
+  }
+
+  document.getElementById('speler-zoek').addEventListener('input', renderSpelers);
+
+  async function wisselSpeler(discordId) {
+    const el = document.getElementById(`speler-detail-${discordId}`);
+    if (!el.hidden) { el.hidden = true; el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="leeg">Laden...</div>';
+    el.hidden = false;
+    try {
+      const s = await api(`/api/spelers/${discordId}`);
+      s.pets.forEach(p => petNamen.set(p.id, p.naam));
+      el.innerHTML = spelerFormulier(s);
+    } catch (e) {
+      el.innerHTML = `<div class="leeg">${esc(e.message)}</div>`;
+    }
+  }
+
+  const STATUS_LABELS = { rust: '😴 Rust', werkplek: '👷 Aan het werk', team: '⚔️ In team' };
+
+  function spelerFormulier(s) {
+    const itemOpties = s.alle_items.map(i => `<option value="${i.id}">${esc(i.naam)}</option>`).join('');
+    return `
+      <div class="detail-paneel">
+        <div class="rule-block">
+          <div class="rule-block-head"><span>Saldo &amp; ranked</span></div>
+          <div class="rule-row-3">
+            <div class="field"><label>Chaos Coins</label><input type="number" min="0" data-veld="currency" value="${s.currency}" /></div>
+            <div class="field"><label>MMR</label><input type="number" min="0" data-veld="mmr" value="${s.mmr}" /></div>
+            <div class="field">
+              <label>Ranked-pogingen vandaag</label>
+              <input type="number" min="0" data-veld="ranked_pogingen_vandaag" value="${s.ranked_pogingen_vandaag}" />
+              <div class="field-hint">op 0 zetten = weer gratis matches</div>
+            </div>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="slaSpelerOp('${esc(s.discord_id)}', this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>
+
+        <div class="rule-block">
+          <div class="rule-block-head"><span>Inventaris (${s.inventaris.length})</span></div>
+          <div class="chip-list">${s.inventaris.length
+            ? s.inventaris.map(i => `<span class="chip">${esc(i.naam)}<span class="chip-meta">${i.aantal}x</span></span>`).join('')
+            : '<span class="mini-status">Leeg.</span>'}</div>
+          <div class="add-row">
+            <select class="grow" data-item-select>${itemOpties}</select>
+            <input type="number" data-item-aantal value="1" style="width:90px" title="Negatief = afnemen" />
+            <button class="btn btn-add" onclick="geefItem('${esc(s.discord_id)}', this)">Toepassen</button>
+            <span class="mini-status"></span>
+          </div>
+          <div class="field-hint" style="margin-top:0.5rem">Een negatief aantal neemt items af.</div>
+        </div>
+
+        <div class="rule-block">
+          <div class="rule-block-head"><span>Pets (${s.pets.length})</span></div>
+          ${s.pets.length ? s.pets.map(p => `
+            <div class="rule-block" style="margin-bottom:0.75rem" data-pet="${p.id}">
+              <div class="rule-block-head">
+                <span>#${p.volgnummer} ${esc(ELEMENT_EMOJI[p.element] || '')} ${esc(p.naam)}</span>
+                <span>
+                  <span class="badge grijs">${esc(p.soort)} · ${esc(p.tier)}</span>
+                  <button class="btn btn-danger" onclick="verwijderPet(${p.id})">Verwijderen</button>
+                </span>
+              </div>
+              <div class="rule-row">
+                <div class="field"><label>Naam</label><input type="text" data-veld="naam" value="${esc(p.naam)}" /></div>
+                <div class="field">
+                  <label>Status</label>
+                  <input type="text" value="${esc(STATUS_LABELS[p.status] || p.status)}" disabled />
+                </div>
+              </div>
+              <div class="rule-row-3">
+                <div class="field"><label>Honger</label><input type="number" min="0" max="100" data-veld="honger" value="${p.honger}" /></div>
+                <div class="field"><label>Energie</label><input type="number" min="0" max="100" data-veld="energie" value="${p.energie}" /></div>
+                <div class="field"><label>Level</label><input type="number" min="1" data-veld="level" value="${p.level}" /></div>
+              </div>
+              <div class="rule-row">
+                <div class="field"><label>XP</label><input type="number" min="0" data-veld="xp" value="${p.xp}" /></div>
+                <div class="field">
+                  <label>Genen (alleen-lezen)</label>
+                  <input type="text" value="gevecht ${p.gevecht_genen} · werk ${p.werk_genen}" disabled />
+                </div>
+              </div>
+              <div class="chip-list" style="margin-bottom:0.75rem">
+                ${p.voerbak_niveau ? `<span class="chip">Voerbak: ${esc(p.voerbak_niveau)}</span>` : ''}
+                ${p.zelfreinigend_actief ? '<span class="chip">Zelfreinigend systeem</span>' : ''}
+                ${p.geblesseerd_tot ? '<span class="chip">🤕 Geblesseerd</span>' : ''}
+              </div>
+              <div class="save-row" style="margin-top:0;padding-top:0.75rem;">
+                <button class="btn btn-add" onclick="slaPetOp(${p.id}, this, false, false)">Opslaan</button>
+                ${p.geblesseerd_tot ? `<button class="btn btn-ghost" onclick="slaPetOp(${p.id}, this, true, false)">Blessure opheffen</button>` : ''}
+                ${p.status === 'werkplek' ? `<button class="btn btn-ghost" onclick="slaPetOp(${p.id}, this, false, true)">Van werk halen</button>` : ''}
+                <span class="mini-status"></span>
+              </div>
+            </div>`).join('') : '<div class="leeg">Deze speler heeft geen pets.</div>'}
+        </div>
+      </div>`;
+  }
+
+  function slaSpelerOp(discordId, btn) {
+    const blok = btn.closest('.rule-block');
+    metKnop(btn, () => api(`/api/spelers/${discordId}`, { method: 'POST', body: JSON.stringify(velden(blok)) }),
+      blok.querySelector('.mini-status'));
+  }
+
+  function geefItem(discordId, btn) {
+    const rij = btn.closest('.add-row');
+    const body = {
+      item_id: rij.querySelector('[data-item-select]').value,
+      aantal: rij.querySelector('[data-item-aantal]').value,
+    };
+    metKnop(btn, async () => {
+      await api(`/api/spelers/${discordId}/items`, { method: 'POST', body: JSON.stringify(body) });
+      const detail = document.getElementById(`speler-detail-${discordId}`);
+      detail.hidden = true;
+      await wisselSpeler(discordId);
+    }, rij.querySelector('.mini-status'));
+  }
+
+  function slaPetOp(petId, btn, blessureOpheffen, vanWerkHalen) {
+    const blok = btn.closest('[data-pet]');
+    const body = { ...velden(blok), blessure_opheffen: blessureOpheffen, van_werk_halen: vanWerkHalen };
+    metKnop(btn, async () => {
+      await api(`/api/pets/${petId}`, { method: 'POST', body: JSON.stringify(body) });
+      if (blessureOpheffen || vanWerkHalen) {
+        const detail = blok.closest('[id^="speler-detail-"]');
+        const discordId = detail.id.replace('speler-detail-', '');
+        detail.hidden = true;
+        await wisselSpeler(discordId);
+      }
+    }, blok.querySelector('.mini-status'));
+  }
+
+  async function verwijderPet(petId) {
+    const naam = petNamen.get(petId) ?? `#${petId}`;
+    if (!confirm(`Pet '${naam}' definitief verwijderen? Dit kan niet ongedaan gemaakt worden.`)) return;
+    try {
+      await api(`/api/pets/${petId}`, { method: 'DELETE' });
+      toonStatus(`'${naam}' verwijderd.`, 'ok');
+      await laadSpelers();
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  // ── Clans ────────────────────────────────────────────────────────────────
+  let clanData = [];
+
+  async function laadClans() {
+    try {
+      clanData = await api('/api/clans');
+      document.getElementById('clans-lijst').innerHTML = clanData.length ? clanData.map(c => `
+        <div class="lijst-rij statisch">
+          <div class="lijst-body">
+            <div class="lijst-titel">${esc(c.naam)}</div>
+            <div class="lijst-meta">Oprichter ${esc(c.oprichter)} · ${c.leden} leden · ${esc(c.totale_werk_opbrengst)} coins verdiend</div>
+          </div>
+          <button class="btn btn-danger" onclick="ontbindClan(${c.id})">Ontbinden</button>
+        </div>`).join('') : '<div class="leeg">Nog geen clans.</div>';
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  async function ontbindClan(id) {
+    const naam = clanData.find(c => c.id === id)?.naam ?? `#${id}`;
+    if (!confirm(`Clan '${naam}' ontbinden? Alle leden worden clanloos.`)) return;
+    try {
+      await api(`/api/clans/${id}`, { method: 'DELETE' });
+      toonStatus(`Clan '${naam}' ontbonden.`, 'ok');
+      laadClans();
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  // ── Kanalen ──────────────────────────────────────────────────────────────
+  async function laadKanalen() {
+    try {
+      const d = await api('/api/kanalen');
+      const kanaalOpties = d.beschikbaar.map(k =>
+        `<option value="${esc(k.id)}">${esc(k.server)} / #${esc(k.naam)}</option>`).join('');
+
+      document.getElementById('spawn-lijst').innerHTML = d.spawn.length
+        ? d.spawn.map(k => `<span class="chip">#${esc(k.naam || k.channel_id)}<button onclick="verwijderSpawnkanaal(${k.id})" title="Verwijderen">×</button></span>`).join('')
+        : '<span class="mini-status">Nog geen spawn-kanalen ingesteld.</span>';
+      document.getElementById('spawn-select').innerHTML = kanaalOpties;
+
+      document.getElementById('log-lijst').innerHTML = d.logs.length
+        ? d.logs.map(k => `<span class="chip">${esc(k.categorie)}<span class="chip-meta">#${esc(k.naam || k.channel_id)}</span><button onclick="verwijderLogkanaal(${k.id})" title="Verwijderen">×</button></span>`).join('')
+        : '<span class="mini-status">Nog geen logkanalen ingesteld.</span>';
+      document.getElementById('log-categorie').innerHTML = d.log_categorieen.map(c =>
+        `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      document.getElementById('log-select').innerHTML = kanaalOpties;
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function voegSpawnkanaalToe(btn) {
+    const body = { channel_id: document.getElementById('spawn-select').value };
+    metKnop(btn, async () => {
+      await api('/api/kanalen/spawn', { method: 'POST', body: JSON.stringify(body) });
+      laadKanalen();
+    });
+  }
+
+  async function verwijderSpawnkanaal(id) {
+    try { await api(`/api/kanalen/spawn/${id}`, { method: 'DELETE' }); laadKanalen(); }
+    catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function stelLogkanaalIn(btn) {
+    const body = {
+      categorie: document.getElementById('log-categorie').value,
+      channel_id: document.getElementById('log-select').value,
+    };
+    metKnop(btn, async () => {
+      await api('/api/kanalen/log', { method: 'POST', body: JSON.stringify(body) });
+      laadKanalen();
+    });
+  }
+
+  async function verwijderLogkanaal(id) {
+    try { await api(`/api/kanalen/log/${id}`, { method: 'DELETE' }); laadKanalen(); }
+    catch (e) { toonStatus(e.message, 'fail'); }
+  }
+</script>
+</body>
+</html>

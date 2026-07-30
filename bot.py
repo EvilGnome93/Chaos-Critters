@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import config
+from portal.server import PortalServer
 from utils.afbeeldingen import sluit_http_sessie
 from utils.discord_log import fmt_log, send_log
 
@@ -68,11 +69,17 @@ class LoggingCommandTree(app_commands.CommandTree):
 class GameNameBot(commands.Bot):
     def __init__(self) -> None:
         super().__init__(command_prefix="!", intents=intents, tree_cls=LoggingCommandTree)
+        # Web-adminpanel (portal/): draait als aiohttp-server in dit proces.
+        self.portal = PortalServer(self)
 
     async def setup_hook(self) -> None:
         for cog in COGS:
             await self.load_extension(cog)
             log.info("Cog geladen: %s", cog)
+
+        # Na de cogs, zodat portal-endpoints die een cog nodig hebben (bijv. de
+        # spawn-kanaal-cache in cogs/vangen.py) er zeker al zijn.
+        await self.portal.start()
 
         if config.ENVIRONMENT == "dev":
             guild = discord.Object(id=config.DEV_GUILD_ID)
@@ -86,6 +93,7 @@ class GameNameBot(commands.Bot):
     async def close(self) -> None:
         # De gedeelde aiohttp-sessie voor pet-afbeeldingen (utils/afbeeldingen.py)
         # leeft zo lang als de bot; hier netjes opruimen bij afsluiten.
+        await self.portal.stop()
         await sluit_http_sessie()
         await super().close()
 

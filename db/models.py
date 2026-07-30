@@ -266,3 +266,20 @@ class SpawnKanaal(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     guild_id: Mapped[int] = mapped_column(BigInteger)
     channel_id: Mapped[int] = mapped_column(BigInteger)
+
+
+class PortalSessie(Base):
+    """Inloggsessies van het web-adminpanel (portal/auth.py, 2026-07-29).
+
+    Bewust in de database i.p.v. in het geheugen: Railway herstart de bot bij
+    elke deploy, en met een in-memory sessiestore zou je daarbij elke keer
+    uitgelogd worden. De token is een random secrets.token_urlsafe-waarde;
+    verlopen rijen worden opgeruimd bij het aanmaken van een nieuwe sessie."""
+
+    __tablename__ = "portal_sessies"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    discord_id: Mapped[int] = mapped_column(BigInteger)
+    weergavenaam: Mapped[str] = mapped_column(String(64))
+    verloopt_op: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

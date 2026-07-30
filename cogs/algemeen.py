@@ -6,7 +6,7 @@ from discord.ext import commands
 # bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
 # als daar iets bijkomt/wegvalt/klaar is.
 TODO_ITEMS = [
-    ("🛠️ Admin panel", "Web-based paneel op casualchaos.nl om balans aan te passen zonder code-wijziging (geen Discord-commando)."),
+    ("🛠️ Admin panel, deel 2", "Het web-paneel staat er (items, prijzen, werkplekken, tiers, pet-soorten, spelers, clans en kanalen zijn al instelbaar). Nog te doen: de balanswaarden die nu nog vast in de code staan — XP-tempo, de werk-shifts, honger/energie-verval, de gevecht-economie en de crafting-recepten — ook aanpasbaar maken."),
     ("🐣 Fokken (lange termijn)", "Nieuwe pets kweken van je bestaande pets. Pas echt interessant vanaf 250 pet-soorten, dus staat achteraan."),
 ]
 
