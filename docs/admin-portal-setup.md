@@ -55,27 +55,58 @@ de vars uit de tabel hierboven dus alleen op de prod-service.
 
 ## 3. Railway: publiek domein
 
-1. Railway → de bot-service → **Settings** → **Networking** → **Generate
-   Domain**. Daarmee is de portal meteen bereikbaar op een
-   `*.up.railway.app`-adres (handig om te testen vóór het subdomein er is).
+1. Railway → de **production**-service → **Settings** → **Networking** →
+   **Generate Domain**. De portal is dan meteen bereikbaar op een
+   `*.up.railway.app`-adres. Handig om alles te testen vóórdat je aan DNS begint.
 2. Voor `critters.casualchaos.nl`: klik **Custom Domain**, vul dat subdomein in,
-   en zet bij je DNS-provider het **CNAME**-record dat Railway laat zien.
-3. Zodra dat werkt: pas `PORTAL_BASIS_URL` aan én voeg de bijbehorende
-   `/auth/callback`-URL toe bij de Discord-redirects (stap 1).
+   en noteer het **CNAME**-doel dat Railway toont.
+3. Zodra dat werkt: voeg `https://critters.casualchaos.nl/auth/callback` toe bij
+   de Discord-redirects (stap 1). `PORTAL_BASIS_URL` staat al goed.
 
-Let op: een **pad** als `casualchaos.nl/critters-admin` kan niet met DNS alleen —
-daarvoor zou een reverse proxy nodig zijn op wat casualchaos.nl serveert. Een
-subdomein is de eenvoudigste route.
+### Belangrijk: het subdomein mag níét op de webhosting staan
+
+**Valkuil die we in de praktijk zijn tegengekomen (2026-07-29):**
+`critters.casualchaos.nl` was eerst aangemaakt als subdomein op de shared
+hosting (Etheron/DirectAdmin), met `admin.html` in
+`/domains/critters.casualchaos.nl/public_html`. Dat werkt niet: die hosting
+serveert alleen het statische bestand, terwijl `/health`, `/auth/discord` en
+`/api/*` op Railway draaien — vandaar een 404 van de hostingprovider (een
+donkere "404 Not Found"-pagina; onze eigen server geeft platte tekst terug).
+
+De juiste volgorde om dat om te zetten:
+
+1. Railway → Custom Domain toevoegen, CNAME-doel noteren.
+2. Etheron → **Subdomain Management** → `critters.casualchaos.nl` verwijderen.
+   Dat haalt de lokale vhost weg, zodat de hosting niet meer voor die naam
+   antwoordt. Het `admin.html`-bestand daar is niet meer nodig (het staat in git
+   en wordt door de bot zelf geserveerd).
+3. Etheron → **DNS Management** voor `casualchaos.nl` → een **CNAME**-record
+   `critters` → het Railway-doel. Doe dit ná stap 2: zolang er nog een
+   A-record van het subdomein staat, accepteren de meeste panelen geen CNAME
+   met dezelfde naam.
+4. Wachten tot DNS is doorgezet én Railway een TLS-certificaat heeft uitgegeven
+   (Railway toont de status bij het custom domain).
+
+Een **pad** als `casualchaos.nl/critters-admin` kan sowieso niet met DNS alleen —
+daarvoor zou een reverse proxy nodig zijn. Vandaar een subdomein.
 
 ## 4. Controleren
 
-- `https://<domein>/health` → moet JSON teruggeven zonder inloggen.
+- `https://<domein>/health` → moet JSON teruggeven zonder inloggen. Dit is de
+  snelste test: krijg je JSON, dan draait de server en is de rest alleen nog
+  OAuth. Krijg je de 404-pagina van je hostingprovider, dan wijst het domein nog
+  niet naar Railway (zie de valkuil hierboven).
 - `https://<domein>/` → loginscherm; na "Login met Discord" moet je in het
   paneel belanden.
 
 Krijg je `unauthorized` terug: je hebt geen Administrator-permissie (of de
 `ADMIN_ROLE_ID`-rol) op de server uit `ADMIN_GUILD_ID`. Krijg je `state`: de
 login duurde te lang of de pagina was een oude tab — opnieuw proberen.
+
+**Twee databases**: dev en prod hebben elk hun eigen Postgres op Railway. De bot
+draait bij het opstarten zelf `alembic upgrade head` tegen zijn eigen database,
+dus een nieuwe migratie landt vanzelf op prod bij de eerstvolgende deploy — je
+hoeft daar niets handmatig voor te doen.
 
 ## Wat je met de portal kan (v1)
 
