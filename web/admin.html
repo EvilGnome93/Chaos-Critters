@@ -191,6 +191,28 @@
     .badge.grijs { border-color: var(--border); background: var(--surface); color: var(--muted); }
     .leeg { font-size: 0.82rem; color: var(--muted); padding: 1rem 0; text-align: center; }
     .detail-paneel { padding: 0 0 1rem; border-bottom: 1px solid var(--border); }
+
+    /* ALLEEN-LEZEN MODUS (2026-07-30, "openheid voor spelers"): niet-admin
+       leden zien de balans-/content-tabs, maar kunnen niets opslaan. Puur
+       CSS-gestuurd (via een class op <body>) i.p.v. per render-functie
+       knoppen te verbergen, zodat het ook werkt op dynamisch ververste
+       content (opnieuw laden na een filter/zoekactie hoeft niet opnieuw
+       "vergrendeld" te worden). */
+    .readonly-badge { display: none; font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 0.2rem 0.55rem; margin-left: 0.6rem; }
+    body.readonly-mode .readonly-badge { display: inline-block; }
+    body.readonly-mode [data-admin-only],
+    body.readonly-mode .save-row,
+    body.readonly-mode .btn-danger,
+    body.readonly-mode [data-write-action] {
+      display: none !important;
+    }
+    body.readonly-mode main input:not(.zoek-input),
+    body.readonly-mode main textarea,
+    body.readonly-mode main select {
+      pointer-events: none;
+      opacity: 0.7;
+      background: var(--surface);
+    }
   </style>
 </head>
 <body>
@@ -219,6 +241,7 @@
     </div>
     <div class="h-right">
       <span class="h-user" id="h-user"></span>
+      <span class="readonly-badge">Alleen-lezen</span>
       <a href="https://casualchaos.nl" class="h-back">← Terug naar site</a>
       <button class="btn btn-ghost" id="logout-btn">Uitloggen</button>
     </div>
@@ -235,11 +258,14 @@
       <button class="nav-item" data-tab="werkplekken">Werkplekken</button>
       <button class="nav-item" data-tab="tiers">Tiers</button>
       <button class="nav-item" data-tab="soorten">Pet-soorten</button>
-      <div class="nav-divider"></div>
-      <div class="nav-section-label">Beheer</div>
-      <button class="nav-item" data-tab="spelers">Spelers</button>
       <button class="nav-item" data-tab="clans">Clans</button>
-      <button class="nav-item" data-tab="kanalen">Kanalen</button>
+      <!-- Alleen zichtbaar voor admins (2026-07-30, "openheid voor spelers"):
+           spelersaccounts en kanaalconfiguratie zijn geen spelbalans, en
+           hebben leden zonder adminrechten echt niets aan. -->
+      <div class="nav-divider" data-admin-only></div>
+      <div class="nav-section-label" data-admin-only>Admin</div>
+      <button class="nav-item" data-tab="spelers" data-admin-only>Spelers</button>
+      <button class="nav-item" data-tab="kanalen" data-admin-only>Kanalen</button>
     </nav>
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -315,7 +341,7 @@
     <!-- PET-SOORTEN -->
     <div class="card" data-tab-panel="soorten">
       <div class="card-head">Pet-soorten
-        <button class="btn btn-add" onclick="toonNieuweSoort()">+ Nieuwe soort</button>
+        <button class="btn btn-add" data-write-action onclick="toonNieuweSoort()">+ Nieuwe soort</button>
       </div>
       <div class="notice">
         Nieuwe soort toevoegen? Push de afbeelding eerst naar <code>docs/assets/</code> op GitHub en plak
@@ -379,6 +405,10 @@
   // aparte base-URL en geen CORS nodig.
   const TOKEN_KEY = 'critters_admin_token';
   let token = localStorage.getItem(TOKEN_KEY) || '';
+  // Bepaald na /api/verify (2026-07-30): niet-admin leden mogen nu ook
+  // inloggen, maar zien een alleen-lezen weergave (zie de .readonly-mode
+  // CSS-regels en de tab-guard in zetTab()).
+  let isAdmin = false;
 
   /** Escapen van alle waarden die in innerHTML terechtkomen. Nodig: pet-namen
    *  en clan-namen zijn door spelers zelf te kiezen (Naamkaartje), dus zonder
@@ -463,7 +493,7 @@
       cancelled: 'Login geannuleerd.',
       state: 'Login verlopen of ongeldig. Probeer het opnieuw.',
       token_failed: 'Discord login mislukt, probeer opnieuw.',
-      unauthorized: 'Je hebt geen beheerdersrechten op deze server.',
+      unauthorized: 'Je bent geen lid van de Chaos Critters-server.',
       server_error: 'Serverfout, probeer het later opnieuw.',
     };
     document.getElementById('login-err').textContent =
@@ -487,6 +517,8 @@
   if (token) {
     api('/api/verify')
       .then(info => {
+        isAdmin = !!info.is_admin;
+        document.body.classList.toggle('readonly-mode', !isAdmin);
         document.getElementById('h-user').textContent = info.naam;
         document.getElementById('login').hidden = true;
         document.getElementById('panel').hidden = false;
@@ -516,8 +548,15 @@
     overlayEl.classList.remove('show');
   }
 
+  const ADMIN_ONLY_TABS = ['spelers', 'kanalen'];
+
   function zetTab(tab) {
     if (!TABS.includes(tab)) tab = TABS[0];
+    // Beschermt tegen een oude/geplakte URL-hash: de backend blokkeert deze
+    // tabs sowieso (auth.vereist_admin), maar zonder deze guard zou een
+    // niet-admin een leeg paneel met een foutmelding te zien krijgen i.p.v.
+    // gewoon netjes terug te vallen op het overzicht.
+    if (!isAdmin && ADMIN_ONLY_TABS.includes(tab)) tab = TABS[0];
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('[data-tab-panel]').forEach(c => { c.hidden = c.dataset.tabPanel !== tab; });
     sluitSidebar();

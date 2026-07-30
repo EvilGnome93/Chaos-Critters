@@ -24,6 +24,7 @@ from db.models import (
     Speler,
     Tier,
 )
+from portal import auth
 from portal.api_content import ValidatieFout, _getal, _tekst
 from utils.stats import sync_stats_met_voerbak
 
@@ -365,15 +366,22 @@ async def clan_verwijderen(request: web.Request) -> web.Response:
 
 
 def routes_toevoegen(app: web.Application) -> None:
+    # Statistieken en de clan-lijst zijn bewust open voor elke ingelogde
+    # sessie (2026-07-30, "openheid voor spelers") — inclusief de "rijkste
+    # spelers"-lijst in statistieken, op expliciet verzoek van de gebruiker
+    # (volledige transparantie i.p.v. dat verbergen). De clan-lijst toont
+    # niets dat niet al via /clan-leaderboard en /clan-info publiek is.
     app.router.add_get("/api/statistieken", statistieken)
-
-    app.router.add_get("/api/spelers", spelers_ophalen)
-    app.router.add_get("/api/spelers/{discord_id}", speler_detail)
-    app.router.add_post("/api/spelers/{discord_id}", speler_opslaan)
-    app.router.add_post("/api/spelers/{discord_id}/items", speler_item_aanpassen)
-
-    app.router.add_post("/api/pets/{id}", pet_opslaan)
-    app.router.add_delete("/api/pets/{id}", pet_verwijderen)
-
     app.router.add_get("/api/clans", clans_ophalen)
-    app.router.add_delete("/api/clans/{id}", clan_verwijderen)
+    app.router.add_delete("/api/clans/{id}", auth.vereist_admin(clan_verwijderen))
+
+    # Individuele spelersaccounts (coins/MMR/inventaris/pets van specifieke
+    # spelers) zijn geen "spelbalans" maar privacygevoelige accountdata —
+    # volledig admin-only, ook het ophalen.
+    app.router.add_get("/api/spelers", auth.vereist_admin(spelers_ophalen))
+    app.router.add_get("/api/spelers/{discord_id}", auth.vereist_admin(speler_detail))
+    app.router.add_post("/api/spelers/{discord_id}", auth.vereist_admin(speler_opslaan))
+    app.router.add_post("/api/spelers/{discord_id}/items", auth.vereist_admin(speler_item_aanpassen))
+
+    app.router.add_post("/api/pets/{id}", auth.vereist_admin(pet_opslaan))
+    app.router.add_delete("/api/pets/{id}", auth.vereist_admin(pet_verwijderen))

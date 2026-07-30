@@ -36,6 +36,7 @@ from db.models import (
     Tier,
     Werkplek,
 )
+from portal import auth
 
 log = logging.getLogger("chaos_critters")
 
@@ -528,25 +529,33 @@ async def logkanaal_verwijderen(request: web.Request) -> web.Response:
 
 
 def routes_toevoegen(app: web.Application) -> None:
+    # GET-routes hieronder zijn bewust open voor elke ingelogde sessie, niet
+    # alleen admins (2026-07-30, "openheid voor spelers") — dit zijn precies
+    # de balanswaarden die ook via /wiki en /critterdex publiek zijn, alleen
+    # nu met de live cijfers erbij i.p.v. de bewust vage wiki-tekst. Elke
+    # schrijf-actie blijft achter auth.vereist_admin.
     app.router.add_get("/api/instellingen", instellingen_ophalen)
-    app.router.add_post("/api/instellingen", instellingen_opslaan)
+    app.router.add_post("/api/instellingen", auth.vereist_admin(instellingen_opslaan))
 
     app.router.add_get("/api/items", items_ophalen)
-    app.router.add_post("/api/items/{id}", item_opslaan)
+    app.router.add_post("/api/items/{id}", auth.vereist_admin(item_opslaan))
 
     app.router.add_get("/api/werkplekken", werkplekken_ophalen)
-    app.router.add_post("/api/werkplekken/{id}", werkplek_opslaan)
+    app.router.add_post("/api/werkplekken/{id}", auth.vereist_admin(werkplek_opslaan))
 
     app.router.add_get("/api/tiers", tiers_ophalen)
-    app.router.add_post("/api/tiers/{id}", tier_opslaan)
+    app.router.add_post("/api/tiers/{id}", auth.vereist_admin(tier_opslaan))
 
     app.router.add_get("/api/soorten", soorten_ophalen)
-    app.router.add_post("/api/soorten", soort_toevoegen)
-    app.router.add_post("/api/soorten/{id}", soort_opslaan)
-    app.router.add_delete("/api/soorten/{id}", soort_verwijderen)
+    app.router.add_post("/api/soorten", auth.vereist_admin(soort_toevoegen))
+    app.router.add_post("/api/soorten/{id}", auth.vereist_admin(soort_opslaan))
+    app.router.add_delete("/api/soorten/{id}", auth.vereist_admin(soort_verwijderen))
 
-    app.router.add_get("/api/kanalen", kanalen_ophalen)
-    app.router.add_post("/api/kanalen/spawn", spawnkanaal_toevoegen)
-    app.router.add_delete("/api/kanalen/spawn/{id}", spawnkanaal_verwijderen)
-    app.router.add_post("/api/kanalen/log", logkanaal_opslaan)
-    app.router.add_delete("/api/kanalen/log/{id}", logkanaal_verwijderen)
+    # Kanalen zijn operationele configuratie (spawn/log-kanalen, incl. namen
+    # van alle servers waar de bot in zit), geen spelbalans — volledig
+    # admin-only, ook het ophalen.
+    app.router.add_get("/api/kanalen", auth.vereist_admin(kanalen_ophalen))
+    app.router.add_post("/api/kanalen/spawn", auth.vereist_admin(spawnkanaal_toevoegen))
+    app.router.add_delete("/api/kanalen/spawn/{id}", auth.vereist_admin(spawnkanaal_verwijderen))
+    app.router.add_post("/api/kanalen/log", auth.vereist_admin(logkanaal_opslaan))
+    app.router.add_delete("/api/kanalen/log/{id}", auth.vereist_admin(logkanaal_verwijderen))

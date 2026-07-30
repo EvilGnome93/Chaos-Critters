@@ -41,6 +41,7 @@ from portal.server import maak_app
 
 SPELER = 999999999999999981
 TOKEN = "test-token-portal-abcdefghijklmnop"
+TOKEN_LID = "test-token-portal-lid-zonder-adminrol"
 TESTSOORT = "PortalTestdier"
 
 
@@ -75,14 +76,15 @@ def nep_bot() -> MagicMock:
     return bot
 
 
-async def _maak_sessie() -> None:
+async def _maak_sessie(token: str = TOKEN, *, is_admin: bool = True) -> None:
     async with async_session() as session:
-        await session.execute(delete(PortalSessie).where(PortalSessie.token == TOKEN))
+        await session.execute(delete(PortalSessie).where(PortalSessie.token == token))
         session.add(
             PortalSessie(
-                token=TOKEN,
+                token=token,
                 discord_id=SPELER,
-                weergavenaam="Portaltester",
+                weergavenaam="Portaltester" if is_admin else "Portaltester (lid)",
+                is_admin=is_admin,
                 verloopt_op=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
             )
         )
@@ -91,7 +93,7 @@ async def _maak_sessie() -> None:
 
 async def _opruimen(bot) -> None:
     async with async_session() as session:
-        await session.execute(delete(PortalSessie).where(PortalSessie.token == TOKEN))
+        await session.execute(delete(PortalSessie).where(PortalSessie.token.in_([TOKEN, TOKEN_LID])))
         await session.execute(delete(Huisdier).where(Huisdier.eigenaar_id == SPELER))
         await session.execute(delete(InventarisItem).where(InventarisItem.speler_id == SPELER))
         await session.execute(delete(Speler).where(Speler.discord_id == SPELER))
@@ -409,6 +411,70 @@ async def test_overige_lezers(client, auth) -> None:
         print(f"  {pad}: OK ({omvang} velden/rijen)")
 
 
+async def test_alleen_lezen_toegang(client, auth, auth_lid) -> None:
+    """2026-07-30, "openheid voor spelers": niet-admin leden mogen inloggen
+    en de balans-/content-tabs lezen, maar niets wijzigen en geen
+    spelers-/kanalendata zien. Admin-sessie (`auth`) blijft ter vergelijking
+    overal toegelaten."""
+    print("\n-- Alleen-lezen sessie (lid zonder adminrol) --")
+
+    async with async_session() as session:
+        origineel = await session.scalar(
+            select(Instelling.waarde).where(Instelling.sleutel == "ranked_gratis_per_dag")
+        )
+
+    resp = await client.get("/api/verify", headers=auth_lid)
+    assert resp.status == 200
+    info = await resp.json()
+    assert info["is_admin"] is False
+    resp = await client.get("/api/verify", headers=auth)
+    assert (await resp.json())["is_admin"] is True
+    print("verify() geeft het juiste is_admin-onderscheid terug.")
+
+    open_voor_iedereen = (
+        "/api/instellingen", "/api/items", "/api/werkplekken", "/api/tiers", "/api/soorten",
+        "/api/clans", "/api/statistieken",
+    )
+    for pad in open_voor_iedereen:
+        resp = await client.get(pad, headers=auth_lid)
+        assert resp.status == 200, f"{pad} gaf {resp.status} voor een lid, verwacht 200"
+    print(f"Balans-/content-endpoints ({len(open_voor_iedereen)}x) zijn leesbaar zonder adminrol.")
+
+    admin_only_get = ("/api/spelers", "/api/kanalen")
+    for pad in admin_only_get:
+        resp = await client.get(pad, headers=auth_lid)
+        assert resp.status == 403, f"{pad} gaf {resp.status} voor een lid, verwacht 403"
+    print(f"Spelers-/kanalendata ({len(admin_only_get)}x) blijft dicht voor een lid (403).")
+
+    # Voor de schrijf-checks een echt item-ID nodig — met de adminsessie
+    # opgehaald, want /api/items zelf is (terecht) ook voor het lid leesbaar.
+    resp = await client.get("/api/items", headers=auth)
+    item_id = (await resp.json())[0]["id"]
+
+    afwijkende_waarde = str(int(origineel) + 1)
+    schrijfacties = [
+        ("post", "/api/instellingen", {"ranked_gratis_per_dag": afwijkende_waarde}),
+        ("post", f"/api/items/{item_id}", {"prijs": 1, "beschrijving": "x"}),
+        ("post", "/api/soorten", {"naam": "should-not-exist"}),
+        ("delete", f"/api/soorten/{item_id}", None),
+        ("delete", f"/api/clans/{item_id}", None),
+    ]
+    for methode, pad, body in schrijfacties:
+        functie = getattr(client, methode)
+        resp = await functie(pad, headers=auth_lid, **({"json": body} if body is not None else {}))
+        assert resp.status == 403, f"{methode.upper()} {pad} gaf {resp.status} voor een lid, verwacht 403"
+    print(f"Alle geteste schrijf-acties ({len(schrijfacties)}x) worden geweigerd voor een lid (403).")
+
+    # Controle dat de geweigerde instellingen-write ook echt niet doorkwam
+    # (niet alleen de response-status, maar de daadwerkelijke database-rij).
+    async with async_session() as session:
+        waarde = await session.scalar(
+            select(Instelling.waarde).where(Instelling.sleutel == "ranked_gratis_per_dag")
+        )
+    assert waarde == origineel, f"instelling is toch gewijzigd door een 403'de request: {waarde}"
+    print("Instellingen-waarde in de database is ongemoeid gebleven.")
+
+
 async def main() -> None:
     bot = nep_bot()
     app = maak_app(bot)
@@ -416,17 +482,20 @@ async def main() -> None:
     client = TestClient(server)
     await client.start_server()
     auth = {"Authorization": f"Bearer {TOKEN}"}
+    auth_lid = {"Authorization": f"Bearer {TOKEN_LID}"}
 
     try:
         await _opruimen(bot)
         await test_auth_dicht(client)
-        await _maak_sessie()
+        await _maak_sessie(TOKEN, is_admin=True)
+        await _maak_sessie(TOKEN_LID, is_admin=False)
         await test_verify_en_instellingen(client, auth)
         await test_validatie(client, auth)
         await test_soorten_crud(client, auth)
         await test_spelerbeheer(client, auth)
         await test_kanalen(client, auth, bot)
         await test_overige_lezers(client, auth)
+        await test_alleen_lezen_toegang(client, auth, auth_lid)
         print("\nAlle checks geslaagd.")
     finally:
         await client.close()

@@ -99,9 +99,19 @@ daarvoor zou een reverse proxy nodig zijn. Vandaar een subdomein.
 - `https://<domein>/` → loginscherm; na "Login met Discord" moet je in het
   paneel belanden.
 
-Krijg je `unauthorized` terug: je hebt geen Administrator-permissie (of de
-`ADMIN_ROLE_ID`-rol) op de server uit `ADMIN_GUILD_ID`. Krijg je `state`: de
-login duurde te lang of de pagina was een oude tab — opnieuw proberen.
+Krijg je `unauthorized` terug: je bent geen lid van de server uit
+`ADMIN_GUILD_ID`. Krijg je `state`: de login duurde te lang of de pagina was
+een oude tab, opnieuw proberen.
+
+**Twee toegangsniveaus (2026-07-30, "openheid voor spelers")**: elk lid van de
+server mag inloggen, niet meer alleen admins. Wie geen Administrator-permissie
+(of de `ADMIN_ROLE_ID`-rol) heeft, ziet een alleen-lezen weergave: de
+balans-/content-tabs (Instellingen, Items, Werkplekken, Tiers, Pet-soorten,
+Clans, Overzicht) blijven zichtbaar zonder bewerk-knoppen, en Spelers/Kanalen
+verdwijnen helemaal uit het menu. Dat onderscheid (`PortalSessie.is_admin`)
+wordt bij het inloggen bepaald en pas bij een volgende login opnieuw
+gecontroleerd — een rolwijziging tijdens een lopende sessie vraagt dus om
+opnieuw inloggen.
 
 **Twee databases**: dev en prod hebben elk hun eigen Postgres op Railway. De bot
 draait bij het opstarten zelf `alembic upgrade head` tegen zijn eigen database,

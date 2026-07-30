@@ -281,5 +281,11 @@ class PortalSessie(Base):
     token: Mapped[str] = mapped_column(String(64), primary_key=True)
     discord_id: Mapped[int] = mapped_column(BigInteger)
     weergavenaam: Mapped[str] = mapped_column(String(64))
+    # 2026-07-30, verzoek van de gebruiker ("openheid voor spelers"): niet-admin
+    # serverleden mogen nu ook inloggen, maar alleen lezen. Vastgelegd op het
+    # moment van inloggen (member_is_admin), niet bij elk request herberekend —
+    # een rol-wijziging tijdens een lopende sessie vraagt dus om opnieuw
+    # inloggen. Schrijf-routes controleren dit via portal/auth.py:vereist_admin.
+    is_admin: Mapped[bool] = mapped_column(default=False)
     verloopt_op: Mapped[datetime]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

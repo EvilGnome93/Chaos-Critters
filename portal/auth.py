@@ -5,7 +5,7 @@ Flow:
    (CSRF-bescherming: Discord stuurt die onveranderd terug, en zonder een
    state die wij zelf hebben uitgegeven weigeren we de callback).
 2. `GET /auth/callback` → code inwisselen voor een access token, daarmee
-   `/users/@me` ophalen, en de admin-rechten controleren.
+   `/users/@me` ophalen, en het lidmaatschap controleren.
 3. Rechten worden **via de bot zelf** gecontroleerd (`guild.fetch_member`),
    niet via een extra OAuth-scope: dan is `identify` genoeg en gebruiken we
    exact dezelfde regel als de Discord-commando's (utils/checks.py).
@@ -13,7 +13,14 @@ Flow:
    members-intent, die deze bot niet aan heeft staan.
 4. Bij succes een sessietoken in `portal_sessies` (DB, dus een deploy logt je
    niet uit) en terug naar het panel met `?token=...` in de URL.
-"""
+
+**Twee toegangsniveaus (2026-07-30, verzoek van de gebruiker: "openheid voor
+spelers")**: elk lid van de server mag inloggen (stap 2 controleert alleen
+lidmaatschap, niet meer een adminrol), maar `PortalSessie.is_admin` — bepaald
+bij het inloggen via `member_is_admin()` — beslist wat iemand daarna mag.
+Alleen-lezen leden zien de balans-/overzicht-tabs; schrijf-acties en de
+spelers-/kanalen-tabs vereisen `is_admin` (zie `vereist_admin()` hieronder,
+gebruikt door `portal/api_content.py` en `portal/api_spelers.py`)."""
 
 import logging
 import secrets
@@ -65,7 +72,7 @@ def _state_gebruiken(state: str | None) -> bool:
     return aangemaakt >= _nu() - timedelta(minutes=_STATE_GELDIG_MINUTEN)
 
 
-async def _maak_sessie(discord_id: int, weergavenaam: str) -> str:
+async def _maak_sessie(discord_id: int, weergavenaam: str, is_admin: bool) -> str:
     token = secrets.token_urlsafe(32)
     async with async_session() as session:
         # Verlopen sessies opruimen bij elke nieuwe login: geen aparte
@@ -76,6 +83,7 @@ async def _maak_sessie(discord_id: int, weergavenaam: str) -> str:
                 token=token,
                 discord_id=discord_id,
                 weergavenaam=weergavenaam[:64],
+                is_admin=is_admin,
                 verloopt_op=_nu() + timedelta(days=config.PORTAL_SESSIE_DAGEN),
             )
         )
@@ -117,21 +125,36 @@ async def auth_middleware(request: web.Request, handler):
     return await handler(request)
 
 
-async def _admin_check(bot: discord.Client, discord_id: int) -> discord.Member | None:
-    """Geeft het Member-object terug als deze gebruiker admin is op de
-    ADMIN_GUILD_ID-server, anders None."""
+def vereist_admin(handler):
+    """Route-decorator voor schrijf-acties en admin-only content (2026-07-30,
+    verzoek van de gebruiker: "openheid voor spelers" — niet-admin leden mogen
+    nu ook inloggen en de balans-tabs lezen, maar niets wijzigen en geen
+    spelers-/kanalen-/statistiekdata zien). `auth_middleware` heeft de sessie
+    al gevalideerd, hier alleen nog de rol-check bovenop."""
+    async def wrapper(request: web.Request) -> web.Response:
+        sessie = request["sessie"]
+        if not sessie.is_admin:
+            return web.json_response({"error": "alleen voor admins"}, status=403)
+        return await handler(request)
+    return wrapper
+
+
+async def _lid_check(bot: discord.Client, discord_id: int) -> discord.Member | None:
+    """Geeft het Member-object terug als deze gebruiker lid is van de
+    ADMIN_GUILD_ID-server (ongeacht rol), anders None. Adminrechten worden
+    er apart bovenop bepaald via member_is_admin() — elk lid mag nu inloggen,
+    alleen wat je daarna mag zien/doen verschilt (zie vereist_admin)."""
     guild = bot.get_guild(config.ADMIN_GUILD_ID)
     if guild is None:
         log.warning("Portal: bot zit niet in ADMIN_GUILD_ID %s", config.ADMIN_GUILD_ID)
         return None
     try:
-        member = await guild.fetch_member(discord_id)
+        return await guild.fetch_member(discord_id)
     except discord.NotFound:
         return None
     except discord.HTTPException as e:
         log.warning("Portal: kon member %s niet ophalen: %s", discord_id, e)
         return None
-    return member if member_is_admin(member) else None
 
 
 async def start_login(request: web.Request) -> web.Response:
@@ -204,22 +227,24 @@ async def callback(request: web.Request) -> web.Response:
         raise _terug_naar_panel("error=server_error")
 
     discord_id = int(gebruiker["id"])
-    member = await _admin_check(request.app["bot"], discord_id)
+    member = await _lid_check(request.app["bot"], discord_id)
     if member is None:
-        log.info("Portal: login geweigerd voor %s (geen adminrechten)", discord_id)
+        log.info("Portal: login geweigerd voor %s (geen lid van de server)", discord_id)
         raise _terug_naar_panel("error=unauthorized")
 
-    token = await _maak_sessie(discord_id, member.display_name)
-    log.info("Portal: %s (%s) ingelogd", member.display_name, discord_id)
+    admin = member_is_admin(member)
+    token = await _maak_sessie(discord_id, member.display_name, admin)
+    log.info("Portal: %s (%s) ingelogd (admin: %s)", member.display_name, discord_id, admin)
     raise _terug_naar_panel(f"token={token}")
 
 
 async def verify(request: web.Request) -> web.Response:
     """GET /api/verify — het panel checkt hiermee of het opgeslagen token nog
-    geldig is. De auth-middleware heeft dat al gedaan, dus we hoeven alleen
-    nog te vertellen wie er is ingelogd."""
+    geldig is, en of het in admin- of alleen-lezen-modus moet renderen."""
     sessie = request["sessie"]
-    return web.json_response({"discord_id": str(sessie.discord_id), "naam": sessie.weergavenaam})
+    return web.json_response(
+        {"discord_id": str(sessie.discord_id), "naam": sessie.weergavenaam, "is_admin": sessie.is_admin}
+    )
 
 
 async def logout(request: web.Request) -> web.Response:
