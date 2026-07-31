@@ -433,6 +433,47 @@ INSTELLINGEN = [
     # (utils/elementen.py) naar hier, zodat de portal ze kan aanpassen.
     ("elementen_bonus", "1.15", "Machtsvermenigvuldiger bij een gunstig element in een gevecht-matchup"),
     ("elementen_malus", "0.90", "Machtsvermenigvuldiger bij een ongunstig element in een gevecht-matchup"),
+
+    # 2026-07-30, admin panel fase 2, blok 2: resterende losse balans-
+    # constanten verhuisd van hardcoded Python naar hier (zie utils/balans.py
+    # en de per-bestand functies in utils/gevechten.py, utils/stats.py,
+    # utils/leveling.py, cogs/werk.py, cogs/release.py).
+    ("dev_versnelling", "120", "Compressiefactor voor tijdgebonden waarden in dev (honger/energie/slaap/blessure/ranked-reset)"),
+
+    # utils/leveling.py
+    ("xp_per_effectieve_uur", "180", "XP per effectief gewerkt uur (bepaalt het leveltempo)"),
+    ("max_level", "50", "Maximumlevel voor pets"),
+    ("genen_groei_per_level", "0.02", "Samengestelde groei op gevecht-/werk-genen per level-up (0.02 = 2%)"),
+    ("level_xp_basis", "2000", "Vaste basis-XP die elk level kost, los van het levelnummer"),
+    ("level_xp_per_level", "20", "Extra XP per level bovenop de basis (level x dit getal)"),
+
+    # cogs/werk.py
+    ("currency_per_grondstof", "2", "Chaos Coins per opgehaalde grondstof bij het afronden van een werk-shift"),
+    ("bonus_grondstof_aantal", "1", "Aantal bonus-grondstof bij een geslaagde 2e-grondstof-roll"),
+
+    # utils/stats.py
+    ("honger_verval_minuten_echt", "20", "Echte minuten (buiten dev) voor -1 honger"),
+    ("energie_herstel_minuten_echt", "10", "Echte minuten (buiten dev) voor +1 energie in rust"),
+    ("energie_minimum", "20", "Onder dit energieniveau kan een pet niet ingezet worden"),
+    ("slaap_cooldown_uur_echt", "24", "Echte uren (buiten dev) tussen twee /slaap-beurten per pet"),
+    ("slaap_honger_kost", "20", "Hongerkosten van /slaap (instant volle energie)"),
+    ("blessure_duur_uur_echt", "2", "Echte uren (buiten dev) dat een pet geblesseerd blijft na een verloren matchup"),
+
+    # utils/gevechten.py
+    ("max_interne_rondes", "5", "Maximum aantal interne rondes per gevecht-matchup"),
+    ("schade_fractie", "0.35", "Aandeel van de macht-die-ronde dat als schade wordt toegebracht"),
+    ("elo_k", "32", "Elo K-factor voor MMR-aanpassing na een ranked-gevecht"),
+    ("currency_basis_winst", "20", "Vaste basis Chaos Coins bij het winnen van een ranked-gevecht"),
+    ("currency_bonus_per_100_mmr", "2", "Extra Chaos Coins per 100 MMR van de verslagen tegenstander"),
+    ("xp_winst", "30", "XP voor het hele team bij het winnen van een gevecht"),
+    ("xp_verlies", "10", "XP voor het hele team bij het verliezen van een gevecht"),
+    ("energie_kost_min", "10", "Minimale energiekosten per pet, per gevecht"),
+    ("energie_kost_max", "20", "Maximale energiekosten per pet, per gevecht"),
+    ("ranked_reset_uur_echt", "24", "Echte uren (buiten dev) tot de dagelijkse ranked-pogingen resetten"),
+
+    # cogs/release.py
+    ("release_basis_coins", "15", "Basis Chaos Coins bij /release, vóór de tier-/level-vermenigvuldiging"),
+    ("bonus_item_kans", "0.15", "Kans op een bonus-grondstof bij /release"),
 ]
 
 

@@ -294,6 +294,26 @@ Eerste stap van het fase 2-plan hierboven: nieuwe `utils/balans.py` met een in-m
 
 Volledige testsuite (16 scripts) draait groen, inclusief `test_elementen.py` (gedraaid zonder enige aanpassing nodig — bevestigt dat het gedrag exact hetzelfde bleef) en `test_portal.py` (de `/api/instellingen`-route inclusief de nieuwe herlaad-aanroep).
 
+## Admin panel fase 2, blok 2: alle overige losse balansconstanten verhuisd (2026-07-30)
+
+Vervolg op blok 1 (de balans-cache + het elementen-bewijs). Alle ~25 resterende losse getallen uit de fase 2-inventaris zijn nu `Instelling`-rijen, volgens hetzelfde sjabloon: module-constante → functie die `balans.get_int()`/`get_float()` aanroept met de oude hardcoded waarde als default.
+
+**Per bestand:**
+- `cogs/release.py`: `release_basis_coins`, `bonus_item_kans`.
+- `utils/gevechten.py`: `max_interne_rondes`, `schade_fractie`, `elo_k`, `currency_basis_winst`, `currency_bonus_per_100_mmr`, `xp_winst`, `xp_verlies`, `energie_kost_min`, `energie_kost_max`, `ranked_reset_uur_echt`. `TACTIEK_VARIANTIE` blijft bewust hardcoded (dat is blok 5, gestructureerde data).
+- `cogs/werk.py`: `currency_per_grondstof`, `bonus_grondstof_aantal`. `WERK_CYCLI` blijft bewust hardcoded (blok 3).
+- `utils/leveling.py`: `xp_per_effectieve_uur`, `max_level`, `genen_groei_per_level`, `level_xp_basis`, `level_xp_per_level`.
+- `utils/stats.py`: `honger_verval_minuten_echt`, `energie_herstel_minuten_echt`, `energie_minimum`, `slaap_cooldown_uur_echt`, `slaap_honger_kost`, `blessure_duur_uur_echt`. `HONGER_HERSTEL_WAARDEN`/`VOLLEDIG_HERSTEL_ITEMS`/`VOERBAK_ITEMS_PER_NIVEAU` blijven bewust hardcoded (blok 5).
+- **Gedeelde sleutel** `dev_versnelling` (was 2x los `_DEV_VERSNELLING = 120` in `utils/stats.py` én `utils/gevechten.py`): nu écht één instelling voor beide, in plaats van twee constanten die toevallig dezelfde waarde hadden en uit de pas hadden kunnen lopen.
+
+**De aangekondigde valkuil trad precies op zoals voorspeld**: `RANKED_RESET_UUR` (`utils/gevechten.py`), `HONGER_VERVAL_MINUTEN`/`ENERGIE_HERSTEL_MINUTEN`/`SLAAP_COOLDOWN_UUR`/`BLESSURE_DUUR_UUR` (`utils/stats.py`) waren afgeleide module-constanten (dev-versnelling er al op import-tijd in verwerkt) — die moesten functies worden (`ranked_reset_uur()`, `honger_verval_minuten()`, enz.), anders zou de waarde bevriezen op het moment vóór de eerste `balans.laad()`-aanroep.
+
+**Alle call-sites bijgewerkt** in `cogs/gevechten.py`, `cogs/verzorging.py`, `scripts/test_item_overhaul.py`, `scripts/test_verzorging.py`, `scripts/test_leveling.py` — importeren nu de functie i.p.v. de oude constante, en roepen 'm aan waar nodig.
+
+**Getest**: volledige suite (16 scripts) draait groen zonder dat de tests zelf `balans.laad()` hoeven aan te roepen (de cache valt terug op de hardcoded default zolang er niet expliciet geladen is, en die defaults zijn identiek aan de oude constanten — dus ongewijzigd testgedrag). Daarnaast een handmatige end-to-end-check (zelfde soort proef als bij blok 1) voor een steekproef van de nieuwe sleutels (`xp_per_effectieve_uur`, `max_level`, `xp_winst`, `energie_kost_min`, `ranked_reset_uur`, `honger_verval_minuten`, `slaap_cooldown_uur`): defaults kloppen, de dev-versnelling wordt correct toegepast, en een live databasewijziging heeft pas effect na `balans.laad()`.
+
+**Nog open van de fase 2-inventaris**: blok 3 (`WERK_CYCLI`, eigen tabel), blok 4 (`RECEPT_KOSTEN`, eigen tabel met FK's), blok 5 (`TACTIEK_VARIANTIE` + voer-effecten). Zie het aanpak-advies verderop in dit document voor de bekende valkuilen daarbij.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

@@ -13,14 +13,22 @@ from sqlalchemy.dialects.postgresql import insert
 import config
 from db.engine import async_session
 from db.models import Clan, Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
+from utils import balans
 from utils.discord_log import fmt_log, send_log
-from utils.leveling import XP_PER_EFFECTIEVE_UUR, voeg_xp_toe
+from utils.leveling import xp_per_effectieve_uur, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats_met_voerbak
 
 log = logging.getLogger("chaos_critters")
 
-CURRENCY_PER_GRONDSTOF = 2  # placeholder balans-waarde, later bij te stellen
-BONUS_GRONDSTOF_AANTAL = 1  # vaste hoeveelheid bij een geslaagde 2e-grondstof-roll
+
+def _currency_per_grondstof() -> int:
+    return balans.get_int("currency_per_grondstof", 2)
+
+
+def _bonus_grondstof_aantal() -> int:
+    return balans.get_int("bonus_grondstof_aantal", 1)
+
+
 NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120
 
 
@@ -338,7 +346,7 @@ class WerkCog(commands.Cog):
         grondstof_aantal = max(
             1, round(float(werkplek_obj.output_per_uur) * effectieve_uren * (float(huisdier.werk_genen) / 100))
         )
-        currency_aantal = round(grondstof_aantal * CURRENCY_PER_GRONDSTOF)
+        currency_aantal = round(grondstof_aantal * _currency_per_grondstof())
 
         speler = await session.get(Speler, interaction.user.id)
         speler.currency += currency_aantal
@@ -353,9 +361,9 @@ class WerkCog(commands.Cog):
         bonus_item = None
         if werkplek_obj.opbrengst_item_2_id and random.random() < float(werkplek_obj.opbrengst_2_kans):
             bonus_item = await session.get(Item, werkplek_obj.opbrengst_item_2_id)
-            await _voeg_toe_aan_inventaris(session, interaction.user.id, bonus_item.id, BONUS_GRONDSTOF_AANTAL)
+            await _voeg_toe_aan_inventaris(session, interaction.user.id, bonus_item.id, _bonus_grondstof_aantal())
 
-        xp_gewonnen = round(effectieve_uren * XP_PER_EFFECTIEVE_UUR)
+        xp_gewonnen = round(effectieve_uren * xp_per_effectieve_uur())
         nieuwe_levels = voeg_xp_toe(huisdier, xp_gewonnen)
 
         huisdier.status = PetStatus.rust
@@ -368,7 +376,7 @@ class WerkCog(commands.Cog):
         level_up_tekst = ""
         if nieuwe_levels:
             level_up_tekst = f"\n✨ **{huisdier.naam}** bereikte level {nieuwe_levels[-1]}!"
-        bonus_tekst = f"\n🍀 Bonus: {BONUS_GRONDSTOF_AANTAL}x {bonus_item.naam}!" if bonus_item else ""
+        bonus_tekst = f"\n🍀 Bonus: {_bonus_grondstof_aantal()}x {bonus_item.naam}!" if bonus_item else ""
 
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
@@ -385,7 +393,7 @@ class WerkCog(commands.Cog):
                 "werk",
                 f"{interaction.user.mention} haalde opbrengst op van **{huisdier.naam}** "
                 f"({werkplek_obj.type}): {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP"
-                + (f", bonus {BONUS_GRONDSTOF_AANTAL}x {bonus_item.naam}" if bonus_item else "")
+                + (f", bonus {_bonus_grondstof_aantal()}x {bonus_item.naam}" if bonus_item else "")
                 + (f", level-up naar {nieuwe_levels[-1]}" if nieuwe_levels else ""),
             ),
         )

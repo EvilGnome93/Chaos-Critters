@@ -16,19 +16,19 @@ from utils.discord_log import fmt_log, send_log
 from utils.elementen import elementen_modifier, emoji as element_emoji, soort_element_emojis, soort_elementen
 from utils.vecht_afbeelding import bouw_vs_afbeelding
 from utils.gevechten import (
-    ENERGIE_KOST_MAX,
-    ENERGIE_KOST_MIN,
-    RANKED_RESET_UUR,
-    XP_VERLIES,
-    XP_WINST,
     currency_beloning,
     elo_delta,
+    energie_kost_max,
+    energie_kost_min,
     pet_power,
+    ranked_reset_uur,
     speel_matchup,
     synthetische_tegenstander_macht,
+    xp_verlies,
+    xp_winst,
 )
 from utils.leveling import voeg_xp_toe
-from utils.stats import BLESSURE_DUUR_UUR, inzetbaarheid_probleem, sync_stats_met_voerbak
+from utils.stats import blessure_duur_uur, inzetbaarheid_probleem, sync_stats_met_voerbak
 
 TACTIEK_LABELS = {"aggressief": "🗡️ Aggressief", "gebalanceerd": "⚖️ Gebalanceerd", "voorzichtig": "🛡️ Voorzichtig"}
 
@@ -79,7 +79,7 @@ async def _ranked_gratis_per_dag(session) -> int:
 
 def _reset_ranked_indien_nodig(speler: Speler) -> None:
     nu = _nu()
-    if speler.ranked_reset_op is None or (nu - speler.ranked_reset_op) >= timedelta(hours=RANKED_RESET_UUR):
+    if speler.ranked_reset_op is None or (nu - speler.ranked_reset_op) >= timedelta(hours=ranked_reset_uur()):
         speler.ranked_reset_op = nu
         speler.ranked_pogingen_vandaag = 0
 
@@ -101,7 +101,7 @@ async def _heeft_ranked_poging(session, speler: Speler) -> tuple[bool, str | Non
     )
     if inv and inv.aantal >= 1:
         return True, None
-    resterend = timedelta(hours=RANKED_RESET_UUR) - (_nu() - speler.ranked_reset_op)
+    resterend = timedelta(hours=ranked_reset_uur()) - (_nu() - speler.ranked_reset_op)
     return False, (
         f"Je hebt je {limiet} gratis ranked pogingen van vandaag gebruikt (reset over "
         f"{_format_duur(resterend.total_seconds() / 3600)}), en geen Extra match token. Koop er een via `/shop`."
@@ -646,7 +646,7 @@ class VechtView(discord.ui.View):
         async with async_session() as session:
             pet = await session.get(Huisdier, pet_id)
             pet.energie = 0
-            pet.geblesseerd_tot = _nu() + timedelta(hours=BLESSURE_DUUR_UUR)
+            pet.geblesseerd_tot = _nu() + timedelta(hours=blessure_duur_uur())
             await session.commit()
 
     async def _kies_tactiek(self, interaction: discord.Interaction, tactiek: str) -> None:
@@ -788,7 +788,7 @@ class VechtView(discord.ui.View):
 
                 for pet in self.eigen_team:
                     pet_db = await session.get(Huisdier, pet.id)
-                    for nieuw_level in voeg_xp_toe(pet_db, XP_WINST if gewonnen else XP_VERLIES):
+                    for nieuw_level in voeg_xp_toe(pet_db, xp_winst() if gewonnen else xp_verlies()):
                         nieuwe_levels_eigen.append((pet_db.naam, nieuw_level))
 
                 # Lifetime-tellers voor /mystats (2026-07-30): PvE als er geen
@@ -815,7 +815,7 @@ class VechtView(discord.ui.View):
                         tegen_speler.pvp_gewonnen += 1
                     for pet in self.tegenstander_team:
                         pet_db = await session.get(Huisdier, pet.id)
-                        voeg_xp_toe(pet_db, XP_VERLIES if gewonnen else XP_WINST)
+                        voeg_xp_toe(pet_db, xp_verlies() if gewonnen else xp_winst())
 
                     winnaar_id = self.eigen_id if gewonnen else self.tegenstander_id
                     verliezer_id = self.tegenstander_id if gewonnen else self.eigen_id
@@ -1065,7 +1065,7 @@ class GevechtenCog(commands.Cog):
                 return
             for pet in eigen_team:
                 pet_db = await session.get(Huisdier, pet.id)
-                pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
+                pet_db.energie = max(0, pet_db.energie - random.randint(energie_kost_min(), energie_kost_max()))
             eigen_macht = await _team_macht_lijst(session, eigen_team)
             eigen_mmr = speler.mmr
             elementen_bij_soort = await soort_elementen(session)
@@ -1217,7 +1217,7 @@ class GevechtenCog(commands.Cog):
                         return
             for pet in [*eigen_team, *tegenstander_team]:
                 pet_db = await session.get(Huisdier, pet.id)
-                pet_db.energie = max(0, pet_db.energie - random.randint(ENERGIE_KOST_MIN, ENERGIE_KOST_MAX))
+                pet_db.energie = max(0, pet_db.energie - random.randint(energie_kost_min(), energie_kost_max()))
 
             eigen_macht = await _team_macht_lijst(session, eigen_team)
             tegenstander_macht = await _team_macht_lijst(session, tegenstander_team)

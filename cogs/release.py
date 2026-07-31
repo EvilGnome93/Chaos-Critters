@@ -11,23 +11,22 @@ from sqlalchemy import select
 from cogs.werk import _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, Item, ItemType, PetSoort, PetStatus, Speler, Tier, Werkplek
+from utils import balans
 from utils.discord_log import fmt_log, send_log
-
-RELEASE_BASIS_COINS = 15
-BONUS_ITEM_KANS = 0.15
 
 
 def _release_beloning(tier: Tier, level: int) -> int:
     """Zelfde groeipatroon als pet_power (utils/gevechten.py:pet_power):
     tier_multiplier x (1 + level x 0,05), zodat hogere tier/level pets ook
     hier meer waard zijn."""
-    return round(RELEASE_BASIS_COINS * float(tier.stat_multiplier) * (1 + level * 0.05))
+    basis = balans.get_int("release_basis_coins", 15)
+    return round(basis * float(tier.stat_multiplier) * (1 + level * 0.05))
 
 
 async def _bonus_item_voor(session, pet: Huisdier) -> Item | None:
     """Kleine kans op een grondstof terug: bij voorkeur de grondstof van de
     eigen werkplek-voorkeur, anders een willekeurige grondstof."""
-    if random.random() >= BONUS_ITEM_KANS:
+    if random.random() >= balans.get_float("bonus_item_kans", 0.15):
         return None
 
     soort = await session.get(PetSoort, pet.soort_id)

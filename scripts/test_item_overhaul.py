@@ -26,7 +26,7 @@ from sqlalchemy import select
 from cogs.verzorging import VerzorgingCog
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
-from utils.stats import ENERGIE_HERSTEL_MINUTEN, HONGER_VERVAL_MINUTEN, sync_stats, sync_stats_met_voerbak
+from utils.stats import energie_herstel_minuten, honger_verval_minuten, sync_stats, sync_stats_met_voerbak
 
 SPELER = 999999999999999941
 
@@ -52,7 +52,7 @@ def _pet_stub(**overrides) -> Huisdier:
     basis = dict(
         status=PetStatus.werkplek, honger=50, energie=50,
         voerbak_niveau=None, zelfreinigend_actief=False,
-        laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10),
+        laatste_verzorging_op=_verstreken(energie_herstel_minuten() * 10),
     )
     basis.update(overrides)
     return Huisdier(**basis)
@@ -66,13 +66,13 @@ def test_sync_stats_passief_effect() -> None:
     # normaal, ongeacht voerbak_niveau. Het voerbak-effect zit in de aparte,
     # async sync_stats_met_voerbak() (zie test_voerbak_verbruikt_echt_voer),
     # want dat is nu een echte inventaris-write en dus geen pure functie meer.
-    geen = _pet_stub(honger=50, laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10))
+    geen = _pet_stub(honger=50, laatste_verzorging_op=_verstreken(honger_verval_minuten() * 10))
     sync_stats(geen)
     print(f"Normaal verval: honger {geen.honger} (verwacht < 50)")
     assert geen.honger < 50
 
     met_voerbak_maar_pure_call = _pet_stub(
-        honger=50, voerbak_niveau="slim", laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10)
+        honger=50, voerbak_niveau="slim", laatste_verzorging_op=_verstreken(honger_verval_minuten() * 10)
     )
     sync_stats(met_voerbak_maar_pure_call)
     print(
@@ -83,13 +83,13 @@ def test_sync_stats_passief_effect() -> None:
 
     # Zelfreinigend systeem: laat ENERGIE ook buiten rust herstellen (het
     # effect dat voorheen aan de voerbak hing).
-    zonder_zelfreinigend = _pet_stub(energie=50, laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10))
+    zonder_zelfreinigend = _pet_stub(energie=50, laatste_verzorging_op=_verstreken(energie_herstel_minuten() * 10))
     sync_stats(zonder_zelfreinigend)
     print(f"Zonder zelfreinigend, buiten rust: energie bleef {zonder_zelfreinigend.energie} (verwacht ongewijzigd, 50)")
     assert zonder_zelfreinigend.energie == 50
 
     met_zelfreinigend = _pet_stub(
-        energie=50, zelfreinigend_actief=True, laatste_verzorging_op=_verstreken(ENERGIE_HERSTEL_MINUTEN * 10)
+        energie=50, zelfreinigend_actief=True, laatste_verzorging_op=_verstreken(energie_herstel_minuten() * 10)
     )
     sync_stats(met_zelfreinigend)
     print(f"Met zelfreinigend, buiten rust: energie {met_zelfreinigend.energie} (verwacht > 50)")
@@ -113,7 +113,7 @@ async def _pet_met_voerbak(session, speler_id: int, naam: str, niveau: str, hong
         eigenaar_id=speler_id, soort_id=soort.id, tier_id=soort.tier_id, naam=naam,
         volgnummer=speler.volgend_pet_nummer, gevecht_genen=50, werk_genen=50,
         status=PetStatus.werkplek, honger=honger, energie=50, voerbak_niveau=niveau,
-        laatste_verzorging_op=_verstreken(HONGER_VERVAL_MINUTEN * 10),
+        laatste_verzorging_op=_verstreken(honger_verval_minuten() * 10),
     )
     speler.volgend_pet_nummer += 1
     session.add(pet)

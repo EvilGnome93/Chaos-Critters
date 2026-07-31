@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from db.engine import async_session
 from db.models import Huisdier, PetSoort, Speler
-from utils.leveling import MAX_LEVEL, voeg_xp_toe, xp_voor_volgend_level
+from utils.leveling import max_level, voeg_xp_toe, xp_voor_volgend_level
 
 TEST_SPELER_ID = 999999999999999997
 
@@ -69,11 +69,11 @@ async def main() -> None:
             assert huisdier.level == 5
 
             print("\n-- max-level cap --")
-            huisdier.level = MAX_LEVEL
+            huisdier.level = max_level()
             huisdier.xp = 0
             levels = voeg_xp_toe(huisdier, 999999)
             print(f"level={huisdier.level} xp={huisdier.xp} levels={levels}")
-            assert huisdier.level == MAX_LEVEL and huisdier.xp == 0 and levels == []
+            assert huisdier.level == max_level() and huisdier.xp == 0 and levels == []
 
             print("\nAlle checks geslaagd.")
         finally:

@@ -16,22 +16,34 @@ from sqlalchemy import select
 
 import config
 from db.models import Huisdier, InventarisItem, Item, PetStatus
+from utils import balans
 
-# Placeholder balans-waarden (echte tijd), later bij te stellen.
-_HONGER_VERVAL_MINUTEN_ECHT = 20  # -1 honger per 20 min
-_ENERGIE_HERSTEL_MINUTEN_ECHT = 10  # +1 energie per 10 min in rust (brief sectie 6)
+# 2026-07-30, admin panel fase 2, blok 2: was hardcoded module-constanten
+# (sommige afgeleid op import-tijd met de dev-versnelling erin verwerkt),
+# nu functies die de actuele waarde uit de balans-cache lezen. Belangrijke
+# valkuil die dit oploste: een afgeleide constante op import-tijd bevriest
+# de waarde van vóór de eerste balans.laad()-aanroep bij bot-opstart, dus
+# dit moesten functies worden, geen module-constanten.
 
-# Zelfde compressie-factor als de werk-cycli in dev (2u shift -> 1 testminuut).
-_DEV_VERSNELLING = 120
 
-HONGER_VERVAL_MINUTEN = (
-    _HONGER_VERVAL_MINUTEN_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _HONGER_VERVAL_MINUTEN_ECHT
-)
-ENERGIE_HERSTEL_MINUTEN = (
-    _ENERGIE_HERSTEL_MINUTEN_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _ENERGIE_HERSTEL_MINUTEN_ECHT
-)
+def _dev_versnelling() -> float:
+    """Zelfde sleutel als utils/gevechten.py:ranked_reset_uur() — beide
+    moeten in dev even hard versneld worden, dus delen ze één instelling."""
+    return balans.get_float("dev_versnelling", 120)
 
-ENERGIE_MINIMUM = 20  # onder dit niveau kan een pet niet ingezet worden (brief sectie 6)
+
+def honger_verval_minuten() -> float:
+    echt = balans.get_float("honger_verval_minuten_echt", 20)  # -1 honger per 20 min
+    return echt / _dev_versnelling() if config.ENVIRONMENT == "dev" else echt
+
+
+def energie_herstel_minuten() -> float:
+    echt = balans.get_float("energie_herstel_minuten_echt", 10)  # +1 energie per 10 min in rust (brief sectie 6)
+    return echt / _dev_versnelling() if config.ENVIRONMENT == "dev" else echt
+
+
+def energie_minimum() -> int:
+    return balans.get_int("energie_minimum", 20)  # onder dit niveau kan een pet niet ingezet worden (brief sectie 6)
 
 # Passieve uitrustings-effecten (2026-07-27, verzoek van de gebruiker:
 # Item-overhaul deel 1 — voerbakken/zelfreinigend systeem krijgen hun
@@ -63,16 +75,20 @@ VOERBAK_ITEMS_PER_NIVEAU = {
     "slim": ["Basis brokjes", "Graanvrije premium voeding", "Vers vlees/vis"],
 }
 
-_SLAAP_COOLDOWN_UUR_ECHT = 24  # /slaap: instant volle energie, kost honger, max 1x per dag per pet
-SLAAP_COOLDOWN_UUR = (
-    _SLAAP_COOLDOWN_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _SLAAP_COOLDOWN_UUR_ECHT
-)
-SLAAP_HONGER_KOST = 20
+def slaap_cooldown_uur() -> float:
+    """/slaap: instant volle energie, kost honger, max 1x per dag per pet."""
+    echt = balans.get_float("slaap_cooldown_uur_echt", 24)
+    return echt / _dev_versnelling() if config.ENVIRONMENT == "dev" else echt
 
-_BLESSURE_DUUR_UUR_ECHT = 2  # tijdelijk niet inzetbaar na een verloren gevecht-matchup
-BLESSURE_DUUR_UUR = (
-    _BLESSURE_DUUR_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _BLESSURE_DUUR_UUR_ECHT
-)
+
+def slaap_honger_kost() -> int:
+    return balans.get_int("slaap_honger_kost", 20)
+
+
+def blessure_duur_uur() -> float:
+    """Tijdelijk niet inzetbaar na een verloren gevecht-matchup."""
+    echt = balans.get_float("blessure_duur_uur_echt", 2)
+    return echt / _dev_versnelling() if config.ENVIRONMENT == "dev" else echt
 
 
 def _nu() -> datetime:
@@ -88,10 +104,10 @@ def sync_stats(huisdier: Huisdier, nu: datetime | None = None) -> None:
     if verstreken_minuten <= 0:
         return
 
-    huisdier.honger = max(0, huisdier.honger - int(verstreken_minuten // HONGER_VERVAL_MINUTEN))
+    huisdier.honger = max(0, huisdier.honger - int(verstreken_minuten // honger_verval_minuten()))
 
     if huisdier.status == PetStatus.rust or huisdier.zelfreinigend_actief:
-        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // ENERGIE_HERSTEL_MINUTEN))
+        huisdier.energie = min(100, huisdier.energie + int(verstreken_minuten // energie_herstel_minuten()))
     huisdier.laatste_verzorging_op = nu
 
 
@@ -131,8 +147,9 @@ def inzetbaarheid_probleem(huisdier: Huisdier) -> str | None:
     if huisdier.geblesseerd_tot is not None and huisdier.geblesseerd_tot > _nu():
         resterend = (huisdier.geblesseerd_tot - _nu()).total_seconds() / 3600
         return f"**{huisdier.naam}** is geblesseerd na een gevecht en kan nog niet ingezet worden (nog {resterend:.1f} uur)."
-    if huisdier.energie < ENERGIE_MINIMUM:
-        return f"**{huisdier.naam}** heeft te weinig energie om ingezet te worden (onder {ENERGIE_MINIMUM})."
+    minimum = energie_minimum()
+    if huisdier.energie < minimum:
+        return f"**{huisdier.naam}** heeft te weinig energie om ingezet te worden (onder {minimum})."
     if huisdier.honger <= 0:
         return f"**{huisdier.naam}** heeft honger en kan niet ingezet worden. Verzorg de pet eerst met `/verzorg`."
     return None

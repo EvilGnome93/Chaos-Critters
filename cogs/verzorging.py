@@ -11,18 +11,18 @@ from cogs.werk import WERK_CYCLI, _format_duur, _neem_uit_inventaris, _nu, _voeg
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
 from utils.elementen import emoji as element_emoji, soort_element_emojis
-from utils.leveling import MAX_LEVEL, xp_voor_volgend_level
+from utils.leveling import max_level, xp_voor_volgend_level
 from utils.stats import (
     HONGER_HERSTEL_WAARDEN as _HONGER_HERSTEL,
-    SLAAP_COOLDOWN_UUR,
-    SLAAP_HONGER_KOST,
     VOLLEDIG_HERSTEL_ITEMS as _VOLLEDIG_HERSTEL,
+    slaap_cooldown_uur,
+    slaap_honger_kost,
     sync_stats_met_voerbak,
 )
 
 
 def _level_status(pet: Huisdier) -> str:
-    if pet.level >= MAX_LEVEL:
+    if pet.level >= max_level():
         return f"Level {pet.level} (max)"
     return f"Level {pet.level} (XP: {pet.xp}/{xp_voor_volgend_level(pet.level)})"
 
@@ -498,7 +498,7 @@ class VerzorgingCog(commands.Cog):
 
             if huisdier.laatste_slaap_op is not None:
                 verstreken = _nu() - huisdier.laatste_slaap_op
-                resterend = timedelta(hours=SLAAP_COOLDOWN_UUR) - verstreken
+                resterend = timedelta(hours=slaap_cooldown_uur()) - verstreken
                 if resterend > timedelta(0):
                     await session.commit()
                     await interaction.response.send_message(
@@ -517,7 +517,7 @@ class VerzorgingCog(commands.Cog):
                 return
 
             huisdier.energie = 100
-            huisdier.honger = max(0, huisdier.honger - SLAAP_HONGER_KOST)
+            huisdier.honger = max(0, huisdier.honger - slaap_honger_kost())
             huisdier.laatste_slaap_op = _nu()
             await session.commit()
 

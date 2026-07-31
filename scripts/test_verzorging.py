@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from cogs.verzorging import _toepassen_voeding
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
-from utils.stats import HONGER_VERVAL_MINUTEN, _nu, inzetbaarheid_probleem, sync_stats
+from utils.stats import honger_verval_minuten, _nu, inzetbaarheid_probleem, sync_stats
 
 TEST_SPELER_ID = 999999999999999998
 
@@ -43,7 +43,7 @@ async def main() -> None:
             honger=100,
             energie=50,
             status=PetStatus.rust,
-            laatste_verzorging_op=_nu() - timedelta(minutes=HONGER_VERVAL_MINUTEN * 3),
+            laatste_verzorging_op=_nu() - timedelta(minutes=honger_verval_minuten() * 3),
         )
         session.add(huisdier)
         await session.commit()

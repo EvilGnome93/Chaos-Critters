@@ -20,30 +20,66 @@ from datetime import datetime, timedelta, timezone
 
 import config
 from db.models import Huisdier, Tier
+from utils import balans
 
-_DEV_VERSNELLING = 120  # zelfde compressie-factor als werk/stats/slaap
-
+# TACTIEK_VARIANTIE blijft hier nog hardcoded (fase 2, blok 5 in
+# docs/dev-status.md: gestructureerde data verdient een eigen tabel, geen
+# losse Instelling-sleutels per tactiek).
 TACTIEK_VARIANTIE = {
     "aggressief": (-0.25, 0.35),
     "gebalanceerd": (-0.15, 0.15),
     "voorzichtig": (-0.10, 0.10),
 }
 
-MAX_INTERNE_RONDES = 5
-SCHADE_FRACTIE = 0.35  # aandeel van de macht-dezer-ronde dat als schade wordt toegebracht
+# 2026-07-30, admin panel fase 2, blok 2: losse balansconstanten verhuisd
+# naar de Instelling-tabel (utils/balans.py) — was hardcoded module-
+# constanten, nu functies die de actuele waarde uit de cache lezen. De
+# default in elke get_*-aanroep is de oude hardcoded waarde.
 
-ELO_K = 32
-CURRENCY_BASIS_WINST = 20
-CURRENCY_BONUS_PER_100_MMR = 2
-XP_WINST = 30
-XP_VERLIES = 10
-ENERGIE_KOST_MIN = 10
-ENERGIE_KOST_MAX = 20
 
-_RANKED_RESET_UUR_ECHT = 24
-RANKED_RESET_UUR = (
-    _RANKED_RESET_UUR_ECHT / _DEV_VERSNELLING if config.ENVIRONMENT == "dev" else _RANKED_RESET_UUR_ECHT
-)
+def _max_interne_rondes() -> int:
+    return balans.get_int("max_interne_rondes", 5)
+
+
+def _schade_fractie() -> float:
+    return balans.get_float("schade_fractie", 0.35)
+
+
+def _elo_k() -> int:
+    return balans.get_int("elo_k", 32)
+
+
+def _currency_basis_winst() -> int:
+    return balans.get_int("currency_basis_winst", 20)
+
+
+def _currency_bonus_per_100_mmr() -> int:
+    return balans.get_int("currency_bonus_per_100_mmr", 2)
+
+
+def xp_winst() -> int:
+    return balans.get_int("xp_winst", 30)
+
+
+def xp_verlies() -> int:
+    return balans.get_int("xp_verlies", 10)
+
+
+def energie_kost_min() -> int:
+    return balans.get_int("energie_kost_min", 10)
+
+
+def energie_kost_max() -> int:
+    return balans.get_int("energie_kost_max", 20)
+
+
+def ranked_reset_uur() -> float:
+    """Was een module-constante afgeleid op import-tijd — moest een functie
+    worden, anders bevriest de waarde vóór de eerste balans.laad()-aanroep
+    (zie de valkuil hierover in docs/dev-status.md)."""
+    echt = balans.get_float("ranked_reset_uur_echt", 24)
+    versnelling = balans.get_float("dev_versnelling", 120)
+    return echt / versnelling if config.ENVIRONMENT == "dev" else echt
 
 
 def _nu() -> datetime:
@@ -65,7 +101,7 @@ def macht_met_tactiek(basis_macht: float, tactiek: str) -> float:
 
 
 def bereken_schade(macht: float) -> int:
-    return max(1, round(macht * SCHADE_FRACTIE))
+    return max(1, round(macht * _schade_fractie()))
 
 
 def synthetische_tegenstander_macht(eigen_pet_macht: float, mmr: int) -> float:
@@ -86,11 +122,11 @@ def synthetische_tegenstander_macht(eigen_pet_macht: float, mmr: int) -> float:
 def elo_delta(mmr_eigen: int, mmr_tegenstander: int, gewonnen: bool) -> int:
     verwacht = 1 / (1 + 10 ** ((mmr_tegenstander - mmr_eigen) / 400))
     score = 1.0 if gewonnen else 0.0
-    return round(ELO_K * (score - verwacht))
+    return round(_elo_k() * (score - verwacht))
 
 
 def currency_beloning(tegenstander_mmr: int) -> int:
-    return CURRENCY_BASIS_WINST + round(tegenstander_mmr / 100) * CURRENCY_BONUS_PER_100_MMR
+    return _currency_basis_winst() + round(tegenstander_mmr / 100) * _currency_bonus_per_100_mmr()
 
 
 @dataclass
@@ -125,7 +161,7 @@ def speel_matchup(
     tegenstander_hp = pet_hp(tegenstander_macht_basis)
     log: list[str] = []
 
-    for ronde in range(1, MAX_INTERNE_RONDES + 1):
+    for ronde in range(1, _max_interne_rondes() + 1):
         eigen_macht = macht_met_tactiek(eigen_macht_basis, tactiek)
         tegenstander_macht = macht_met_tactiek(tegenstander_macht_basis, tegenstander_tactiek)
 
