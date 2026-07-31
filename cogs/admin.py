@@ -30,7 +30,6 @@ class AdminCog(commands.Cog):
             app_commands.Choice(name="Werk (shifts starten/opbrengst)", value="werk"),
             app_commands.Choice(name="Gevecht (team/vecht-gerelateerd)", value="gevecht"),
             app_commands.Choice(name="Trade (ruilvoorstellen)", value="trade"),
-            app_commands.Choice(name="Changelog-admin ('Voor admins & moderators'-gedeelte)", value="changelog-admin"),
         ]
     )
     @app_commands.check(is_admin)

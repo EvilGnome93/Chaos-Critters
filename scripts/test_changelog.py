@@ -31,8 +31,7 @@ from cogs.changelog import (
     split_changelog_content,
 )
 from db.engine import async_session
-from db.models import Instelling, LogChannel
-from utils.discord_log import set_log_channel
+from db.models import Instelling
 
 GUILD_ID = 1
 REVIEW_KANAAL_ID = 900001
@@ -68,9 +67,6 @@ def fake_admin_interaction(client: MagicMock) -> MagicMock:
 
 async def _opruimen() -> None:
     async with async_session() as session:
-        await session.execute(
-            LogChannel.__table__.delete().where(LogChannel.guild_id == GUILD_ID, LogChannel.categorie == "changelog-admin")
-        )
         instelling = await session.get(Instelling, "changelog_rol_id")
         if instelling is not None:
             instelling.waarde = ""
@@ -194,15 +190,16 @@ async def test_goedkeuren_met_admin_gedeelte_en_rol() -> None:
     aankondiging_kanaal = fake_channel(AANKONDIGING_KANAAL_ID)
     admin_kanaal = fake_channel(ADMIN_KANAAL_ID)
     client = fake_client({AANKONDIGING_KANAAL_ID: aankondiging_kanaal, ADMIN_KANAAL_ID: admin_kanaal})
-    origineel = changelog_mod.CHANGELOG_AANKONDIGING_KANAAL_ID
+    origineel_aankondiging = changelog_mod.CHANGELOG_AANKONDIGING_KANAAL_ID
+    origineel_admin = changelog_mod.CHANGELOG_ADMIN_KANAAL_ID
     changelog_mod.CHANGELOG_AANKONDIGING_KANAAL_ID = AANKONDIGING_KANAAL_ID
+    changelog_mod.CHANGELOG_ADMIN_KANAAL_ID = ADMIN_KANAAL_ID
 
     async with async_session() as session:
         instelling = await session.get(Instelling, "changelog_rol_id")
         assert instelling is not None, "changelog_rol_id moet geseed zijn (scripts/seed.py)"
         instelling.waarde = "555555"
         await session.commit()
-    await set_log_channel(GUILD_ID, "changelog-admin", ADMIN_KANAAL_ID)
 
     try:
         view = ChangelogReviewView(tag_rol=True)
@@ -226,7 +223,8 @@ async def test_goedkeuren_met_admin_gedeelte_en_rol() -> None:
         assert "Geheime admin-info" in admin_kwargs["embed"].description
         print("Rol getagd, publiek deel zonder admin-info, admin-deel apart gepost.")
     finally:
-        changelog_mod.CHANGELOG_AANKONDIGING_KANAAL_ID = origineel
+        changelog_mod.CHANGELOG_AANKONDIGING_KANAAL_ID = origineel_aankondiging
+        changelog_mod.CHANGELOG_ADMIN_KANAAL_ID = origineel_admin
         await _opruimen()
 
 

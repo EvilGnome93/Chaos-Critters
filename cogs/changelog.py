@@ -14,8 +14,8 @@ Flow:
    (zelfde conventie als Botv3): alles ervoor gaat naar het publieke
    aankondigingskanaal (`CHANGELOG_AANKONDIGING_KANAAL_ID`, ook hardcoded;
    optionele rol-tag uit de `changelog_rol_id`-instelling), alles erna
-   (inclusief die kop) gaat naar het aparte "changelog-admin"-kanaal (wél
-   via `/setlog` instelbaar, want daar was geen vaste ID voor). Geen kop
+   (inclusief die kop) gaat naar `CHANGELOG_ADMIN_KANAAL_ID` (ook hardcoded —
+   op verzoek van de gebruiker dezelfde ID als het reviewkanaal). Geen kop
    gevonden? Dan is alles publiek.
 4. **Afwijzen** markeert het voorstel als afgewezen, geen berichten de deur
    uit.
@@ -40,7 +40,6 @@ from sqlalchemy import select
 from db.engine import async_session
 from db.models import Instelling
 from utils.checks import is_admin
-from utils.discord_log import get_log_channel
 
 # Hardcoded, zelfde patroon als Botv3 (2026-07-30, verzoek van de gebruiker:
 # "niet met een command, programeer deze vast"). Werkt net als bij Botv3
@@ -49,6 +48,7 @@ from utils.discord_log import get_log_channel
 # commando aangeroepen wordt.
 CHANGELOG_REVIEW_KANAAL_ID = 1532720331750641684
 CHANGELOG_AANKONDIGING_KANAAL_ID = 1529099160526131215
+CHANGELOG_ADMIN_KANAAL_ID = 1532720331750641684
 
 CHANGELOG_PAD = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
 MAX_LENGTE = 4000  # Discord's modal-TextInput-limiet
@@ -188,15 +188,11 @@ class ChangelogReviewView(discord.ui.View):
         notitie += "." if (self.tag_rol and rol_id) or not self.tag_rol else " (rol niet getagd, geen changelog_rol_id ingesteld)."
 
         if admin_tekst:
-            admin_kanaal_id = await get_log_channel(interaction.guild_id, "changelog-admin")
-            if admin_kanaal_id is not None:
-                admin_kanaal = interaction.client.get_channel(admin_kanaal_id) or await interaction.client.fetch_channel(
-                    admin_kanaal_id
-                )
-                await admin_kanaal.send(embed=_status_embed(admin_tekst))
-                notitie += f" Admin-gedeelte gepost in {admin_kanaal.mention}."
-            else:
-                notitie += " Admin-gedeelte NIET gepost (geen changelog-admin-kanaal ingesteld)."
+            admin_kanaal = interaction.client.get_channel(
+                CHANGELOG_ADMIN_KANAAL_ID
+            ) or await interaction.client.fetch_channel(CHANGELOG_ADMIN_KANAAL_ID)
+            await admin_kanaal.send(embed=_status_embed(admin_tekst))
+            notitie += f" Admin-gedeelte gepost in {admin_kanaal.mention}."
 
         for item in self.children:
             item.disabled = True

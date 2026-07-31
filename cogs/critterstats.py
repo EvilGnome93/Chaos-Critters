@@ -92,7 +92,7 @@ class CritterStatsCog(commands.Cog):
             value=f"**{speler_obj.currency}**",
             inline=True,
         )
-        embed.set_footer(text="PvP/PvE-stats en shifts tellen sinds 2026-07-30, geen terugwerkende kracht.")
+        embed.set_footer(text="Meer info op: critters.casualchaos.nl")
 
         await interaction.response.send_message(embed=embed)
 
