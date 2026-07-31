@@ -96,7 +96,7 @@ SOORT_SLUGS = {
     "Lama": "lama",
     "Kwartel": "kwartel",
     "Parkiet": "parkiet",
-    "Faisant": "faisant",
+    "Fazant": "fazant",
     "Stokstaartje": "stokstaartje",
     "Chaos Kangoeroe": "chaos_kangoeroe",
     "Chaos Toekan": "chaos_toekan",
