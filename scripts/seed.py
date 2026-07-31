@@ -428,6 +428,11 @@ INSTELLINGEN = [
     # hardcoded ID, want die verschilt per server (Botv3 hardcodet 'm wel,
     # maar die bot draait maar op één server).
     ("changelog_rol_id", "", "Rol-ID die getagd wordt bij een goedgekeurde changelog-aankondiging (leeg = geen tag)"),
+    # 2026-07-30, admin panel fase 2, bewijs-blok voor utils/balans.py:
+    # eerste twee losse balansconstanten verhuisd van hardcoded Python
+    # (utils/elementen.py) naar hier, zodat de portal ze kan aanpassen.
+    ("elementen_bonus", "1.15", "Machtsvermenigvuldiger bij een gunstig element in een gevecht-matchup"),
+    ("elementen_malus", "0.90", "Machtsvermenigvuldiger bij een ongunstig element in een gevecht-matchup"),
 ]
 
 

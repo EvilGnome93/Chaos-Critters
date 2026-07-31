@@ -8,6 +8,7 @@ import random
 from sqlalchemy import select
 
 from db.models import Element, PetSoort
+from utils import balans
 
 EMOJI = {
     Element.grond: "⛰️",
@@ -25,8 +26,17 @@ STERKER_TEGEN = {
     Element.water: Element.vuur,
 }
 
-BONUS = 1.15
-MALUS = 0.90
+# 2026-07-30, admin panel fase 2: bewijs-blok voor de balans-cache
+# (utils/balans.py) — was hardcoded BONUS/MALUS, nu instelbaar via de
+# portal. Elke matchup leest de actuele waarde i.p.v. een module-constante
+# op import-tijd, dus een portal-wijziging werkt meteen op het volgende
+# gevecht.
+def _bonus() -> float:
+    return balans.get_float("elementen_bonus", 1.15)
+
+
+def _malus() -> float:
+    return balans.get_float("elementen_malus", 0.90)
 
 
 def emoji(element: Element | None) -> str:
@@ -40,11 +50,11 @@ def elementen_modifier(eigen: Element | None, tegenstander: Element | None) -> f
     if eigen is None or tegenstander is None:
         return 1.0
     if eigen == Element.chaos or tegenstander == Element.chaos:
-        return random.choice([BONUS, MALUS, 1.0])
+        return random.choice([_bonus(), _malus(), 1.0])
     if STERKER_TEGEN.get(eigen) == tegenstander:
-        return BONUS
+        return _bonus()
     if STERKER_TEGEN.get(tegenstander) == eigen:
-        return MALUS
+        return _malus()
     return 1.0
 
 

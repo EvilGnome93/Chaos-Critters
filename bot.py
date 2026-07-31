@@ -10,6 +10,7 @@ from discord.ext import commands
 
 import config
 from portal.server import PortalServer
+from utils import balans
 from utils.afbeeldingen import sluit_http_sessie
 from utils.discord_log import fmt_log, send_log
 
@@ -75,6 +76,10 @@ class GameNameBot(commands.Bot):
         self.portal = PortalServer(self)
 
     async def setup_hook(self) -> None:
+        # Vóór de cogs: sommige cogs lezen balanswaarden al bij het afhandelen
+        # van hun eerste interactie, dus de cache moet dan al gevuld zijn.
+        await balans.laad()
+
         for cog in COGS:
             await self.load_extension(cog)
             log.info("Cog geladen: %s", cog)

@@ -286,6 +286,14 @@ Getest via nieuw `scripts/test_changelog.py`: `_laatste_changelog_entry()`-parsi
 
 **`/todo` volledig verwijderd** (samen met `TODO_ITEMS` uit `cogs/algemeen.py`) — "wat is er nieuw"-communicatie loopt voortaan via `/changelog`. **`/craft-lijst` is niet langer tijdelijk**: blijft permanent staan (verzoek van de gebruiker), en is toegevoegd aan `/commands`. `/critter-stats` en `/changelog` zijn ook toegevoegd aan `/commands`.
 
+## Admin panel fase 2, blok 1: balans-cache gebouwd en bewezen (2026-07-30)
+
+Eerste stap van het fase 2-plan hierboven: nieuwe `utils/balans.py` met een in-memory cache van de `Instelling`-tabel. `laad()` vult de cache (aangeroepen bij bot-opstart in `bot.py:setup_hook`, vóór de cogs geladen worden), en `get_float(sleutel, default)`/`get_int(sleutel, default)` zijn synchrone getters die op de default terugvallen als de sleutel nog niet bestaat — dus een deploy vóórdat de seed opnieuw gedraaid is, verandert niets aan het gedrag. De portal roept `balans.laad()` opnieuw aan na elke `/api/instellingen`-wijziging (`portal/api_content.py:instellingen_opslaan`), rechtstreeks als functieaanroep omdat de portal in hetzelfde proces draait — geen polling nodig.
+
+**Bewijs-blok**: `utils/elementen.py`'s `BONUS`/`MALUS` (was hardcoded 1.15/0.90) zijn nu `elementen_bonus`/`elementen_malus` in de `Instelling`-tabel, gelezen via `_bonus()`/`_malus()`-helperfuncties i.p.v. module-constanten. Handmatig geverifieerd dat de hele keten werkt: default vóór `laad()` → juiste waarde ná `laad()` → een directe databasewijziging heeft geen effect tot `balans.laad()` opnieuw draait → wél effect erna. Dit patroon (nieuwe `Instelling`-rij in `scripts/seed.py` + module-level constante vervangen door een functie die `balans.get_*` aanroept) is nu het sjabloon voor de resterende ~25 losse getallen uit de inventaris hierboven.
+
+Volledige testsuite (16 scripts) draait groen, inclusief `test_elementen.py` (gedraaid zonder enige aanpassing nodig — bevestigt dat het gedrag exact hetzelfde bleef) en `test_portal.py` (de `/api/instellingen`-route inclusief de nieuwe herlaad-aanroep).
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

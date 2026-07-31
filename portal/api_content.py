@@ -37,6 +37,7 @@ from db.models import (
     Werkplek,
 )
 from portal import auth
+from utils import balans
 
 log = logging.getLogger("chaos_critters")
 
@@ -105,6 +106,11 @@ async def instellingen_opslaan(request: web.Request) -> web.Response:
             instelling.waarde = nieuw
             bijgewerkt.append(sleutel)
         await session.commit()
+
+    # Balans-cache herladen (2026-07-30, fase 2): portal draait in hetzelfde
+    # proces als de bot, dus dit is een directe functieaanroep, geen polling.
+    # Zonder dit zou een wijziging pas na een herstart effect hebben.
+    await balans.laad()
 
     log.info("Portal: instellingen bijgewerkt: %s", ", ".join(bijgewerkt))
     return web.json_response({"ok": True, "bijgewerkt": bijgewerkt})
