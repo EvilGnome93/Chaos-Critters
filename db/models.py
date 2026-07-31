@@ -254,6 +254,36 @@ class Instelling(Base):
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
+class WerkCyclus(Base):
+    """De shift-varianten van /werk (2026-07-30, admin panel fase 2 blok 3).
+
+    Bewust een eigen tabel i.p.v. losse `Instelling`-sleutels: dit is
+    gestructureerde data (4 waarden per cyclus), dus `werk_cyclus_korte_
+    energie_kost`-achtige platte sleutels zouden onhandelbaar worden en de
+    portal kan hier een fatsoenlijke rij-editor voor geven.
+
+    `sleutel` is wat er in `Huisdier.werk_cyclus` opgeslagen wordt, dus die
+    is niet aanpasbaar via de portal: hernoemen zou lopende shifts van
+    spelers onvindbaar maken. Toevoegen/verwijderen kan om dezelfde reden
+    niet (en omdat `/werk`'s keuzelijst een vaste `app_commands.Choice`-set
+    is, net als bij werkplekken).
+
+    `duur_uren` is altijd de **echte** duur; de dev-versnelling (1 minuut
+    per shift) wordt pas toegepast in `utils/balans.py:werk_cycli()`, zodat
+    de opbrengstberekening altijd met de echte waarde rekent.
+    """
+
+    __tablename__ = "werk_cycli"
+
+    sleutel: Mapped[str] = mapped_column(String(16), primary_key=True)
+    label: Mapped[str] = mapped_column(String(32))
+    duur_uren: Mapped[float] = mapped_column(Numeric(6, 2))
+    energie_kost: Mapped[int]
+    output_multiplier: Mapped[float] = mapped_column(Numeric(4, 2))
+    # Puur voor een stabiele weergavevolgorde in de portal (kort -> lang).
+    volgorde: Mapped[int] = mapped_column(default=0)
+
+
 class LogChannel(Base):
     """Koppelt per server en categorie een Discord-kanaal waar logberichten
     naartoe gestuurd worden. Categorieën zijn vrije tekst (bijv. 'main',

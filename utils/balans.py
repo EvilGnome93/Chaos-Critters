@@ -18,25 +18,91 @@ seed opnieuw gedraaid is), verandert er dus niets aan het gedrag.
 """
 
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy import select
 
+import config
 from db.engine import async_session
-from db.models import Instelling
+from db.models import Instelling, WerkCyclus
 
 log = logging.getLogger("chaos_critters")
 
 _cache: dict[str, str] = {}
+_werk_cycli_cache: list[WerkCyclus] = []
+
+
+@dataclass(frozen=True)
+class Cyclus:
+    """Eén shift-variant van /werk, opgebouwd uit een `WerkCyclus`-rij.
+
+    Stond tot 2026-07-30 in cogs/werk.py, maar is hierheen verhuisd omdat
+    werk_cycli() 'm moet kunnen opbouwen: andersom zou een circulaire
+    import ontstaan (cogs/werk.py importeert al utils.balans)."""
+
+    label: str
+    duur_uren: float  # werkelijke wachttijd (kort in dev, om te testen)
+    reward_duur_uren: float  # altijd de echte waarde, voor de opbrengst-berekening
+    energie_kost: int
+    output_multiplier: float
+
+
+# In dev duurt elke shift 1 testminuut i.p.v. uren, maar de opbrengst blijft
+# hetzelfde alsof de volledige (echte) cyclus is verstreken.
+_TEST_DUUR_UREN = 1 / 60
+
+# Fallback als de werk_cycli-tabel (nog) leeg is, bijv. bij een deploy vóór
+# de migratie. Exact de waarden die tot 2026-07-30 hardcoded in cogs/werk.py
+# stonden, dus het gedrag verandert dan niet.
+#   (sleutel, label, duur_uren, energie_kost, output_multiplier)
+_STANDAARD_CYCLI = [
+    ("korte", "Korte shift", 2.0, 20, 2.0),
+    ("lange", "Lange shift", 6.0, 50, 2.3),
+    ("overnacht", "Overnacht", 10.0, 70, 2.6),
+]
 
 
 async def laad() -> None:
-    """(Her)laadt alle Instelling-rijen in het geheugen. Aangeroepen bij het
+    """(Her)laadt alle balansdata in het geheugen. Aangeroepen bij het
     opstarten van de bot, en door de portal na elke wijziging."""
-    global _cache
+    global _cache, _werk_cycli_cache
     async with async_session() as session:
         rijen = (await session.execute(select(Instelling))).scalars().all()
+        cycli = (
+            await session.execute(select(WerkCyclus).order_by(WerkCyclus.volgorde))
+        ).scalars().all()
+        session.expunge_all()
     _cache = {rij.sleutel: rij.waarde for rij in rijen}
-    log.info("Balans-cache geladen: %d waarden", len(_cache))
+    _werk_cycli_cache = list(cycli)
+    log.info("Balans-cache geladen: %d waarden, %d werk-cycli", len(_cache), len(_werk_cycli_cache))
+
+
+def _bouw_cyclus(label: str, echte_duur: float, energie_kost: int, output_multiplier: float) -> Cyclus:
+    return Cyclus(
+        label=label,
+        duur_uren=_TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else echte_duur,
+        reward_duur_uren=echte_duur,
+        energie_kost=energie_kost,
+        output_multiplier=output_multiplier,
+    )
+
+
+def werk_cycli() -> dict[str, Cyclus]:
+    """sleutel -> Cyclus, opgebouwd uit de cache. Was tot 2026-07-30 een
+    module-constante `WERK_CYCLI` in cogs/werk.py die op import-tijd werd
+    opgebouwd; als functie leest elke aanroep de actuele waarden, dus een
+    portal-wijziging werkt meteen op de volgende shift."""
+    if not _werk_cycli_cache:
+        return {
+            sleutel: _bouw_cyclus(label, duur, energie, multiplier)
+            for sleutel, label, duur, energie, multiplier in _STANDAARD_CYCLI
+        }
+    return {
+        rij.sleutel: _bouw_cyclus(
+            rij.label, float(rij.duur_uren), rij.energie_kost, float(rij.output_multiplier)
+        )
+        for rij in _werk_cycli_cache
+    }
 
 
 def get_float(sleutel: str, default: float) -> float:

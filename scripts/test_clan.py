@@ -126,7 +126,7 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
     # Speler 0 (clan A) zet Nachtwacht (capaciteit 2) vol binnen clan A, met 2 eigen pets.
     interactie0 = fake_interaction(SPELERS[0])
     await werk_cog.werk.callback(
-        werk_cog, interactie0, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+        werk_cog, interactie0, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
     )
     bericht0 = interactie0.response.send_message.call_args[0][0]
     print(f"Speler 0, pet 1 (clan A): {bericht0}")
@@ -134,7 +134,7 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
 
     interactie0b = fake_interaction(SPELERS[0])
     await werk_cog.werk.callback(
-        werk_cog, interactie0b, pet_id=2, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+        werk_cog, interactie0b, pet_id=2, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
     )
     bericht0b = interactie0b.response.send_message.call_args[0][0]
     print(f"Speler 0, pet 2 (clan A, vult de pool tot 2/2): {bericht0b}")
@@ -143,7 +143,7 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
     # Speler 1 zit ook in clan A -> zelfde pool, moet geweigerd worden.
     interactie1 = fake_interaction(SPELERS[1])
     await werk_cog.werk.callback(
-        werk_cog, interactie1, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+        werk_cog, interactie1, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
     )
     bericht1 = interactie1.response.send_message.call_args[0][0]
     print(f"Speler 1 (zelfde clan A): {bericht1}")
@@ -152,7 +152,7 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
     # Speler 2 zit in clan B -> eigen pool, moet gewoon lukken.
     interactie2 = fake_interaction(SPELERS[2])
     await werk_cog.werk.callback(
-        werk_cog, interactie2, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+        werk_cog, interactie2, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
     )
     bericht2 = interactie2.response.send_message.call_args[0][0]
     print(f"Speler 2 (andere clan B): {bericht2}")
@@ -172,7 +172,7 @@ async def test_gedeelde_capaciteit_per_clan() -> None:
 
     interactie3 = fake_interaction(SPELERS[3])
     await werk_cog.werk.callback(
-        werk_cog, interactie3, pet_id=1, werkplek=fake_choice("Werkbank"), cyclus=fake_choice("korte")
+        werk_cog, interactie3, pet_id=1, werkplek=fake_choice("Werkbank"), cyclus="korte"
     )
     bericht3 = interactie3.response.send_message.call_args[0][0]
     print(f"Speler 3 (clanloos, vooraf {bezet_vooraf}/{werkbank.capaciteit} bezet in die pool): {bericht3}")

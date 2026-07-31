@@ -256,6 +256,7 @@
       <div class="nav-section-label">Balans &amp; content</div>
       <button class="nav-item" data-tab="items">Items &amp; prijzen</button>
       <button class="nav-item" data-tab="werkplekken">Werkplekken</button>
+      <button class="nav-item" data-tab="werk-cycli">Werk-shifts</button>
       <button class="nav-item" data-tab="tiers">Tiers</button>
       <button class="nav-item" data-tab="soorten">Pet-soorten</button>
       <button class="nav-item" data-tab="clans">Clans</button>
@@ -324,6 +325,22 @@
         samen één pool).
       </div>
       <div id="werkplekken-editor"></div>
+    </div>
+
+    <!-- WERK-SHIFTS -->
+    <div class="card" data-tab-panel="werk-cycli">
+      <div class="card-head">Werk-shifts</div>
+      <p class="card-intro">
+        De shift-varianten die spelers kiezen bij <code>/werk</code>. De opbrengst (grondstoffen, Chaos
+        Coins en XP) schaalt met <strong>duur × multiplier</strong>, dus dat getal bepaalt hoe lonend een
+        shift is. Energie wordt volledig bij de start afgetrokken.
+      </p>
+      <div class="notice">
+        <strong>De sleutel is niet aanpasbaar</strong> en shifts kunnen niet toegevoegd of verwijderd
+        worden: de sleutel staat opgeslagen bij lopende shifts van spelers, dus hernoemen of verwijderen
+        zou die shifts onvindbaar maken.
+      </div>
+      <div id="werk-cycli-editor"></div>
     </div>
 
     <!-- TIERS -->
@@ -528,12 +545,13 @@
   }
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
+  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'werk-cycli', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
   const LADERS = {
     overzicht: laadStatistieken,
     instellingen: laadInstellingen,
     items: laadItems,
     werkplekken: laadWerkplekken,
+    'werk-cycli': laadWerkCycli,
     tiers: laadTiers,
     soorten: laadSoorten,
     spelers: laadSpelers,
@@ -718,6 +736,64 @@
     };
     metKnop(btn, () => api(`/api/werkplekken/${id}`, { method: 'POST', body: JSON.stringify(body) }),
       blok.querySelector('.mini-status'));
+  }
+
+  // ── Werk-shifts ──────────────────────────────────────────────────────────
+  async function laadWerkCycli() {
+    try {
+      const cycli = await api('/api/werk-cycli');
+      document.getElementById('werk-cycli-editor').innerHTML = cycli.map(c => `
+        <div class="rule-block" data-sleutel="${esc(c.sleutel)}">
+          <div class="rule-block-head">
+            <span>${esc(c.label)}</span>
+            <span class="badge grijs">${c.effectieve_uren} effectieve uren</span>
+          </div>
+          <div class="rule-row">
+            <div class="field">
+              <label>Label (wat spelers zien bij /werk)</label>
+              <input type="text" maxlength="32" data-veld="label" value="${esc(c.label)}" />
+            </div>
+            <div class="field">
+              <label>Sleutel (niet aanpasbaar)</label>
+              <input type="text" value="${esc(c.sleutel)}" disabled />
+            </div>
+          </div>
+          <div class="rule-row-3">
+            <div class="field">
+              <label>Duur in uren</label>
+              <input type="number" step="0.5" min="0.01" data-veld="duur_uren" value="${c.duur_uren}" />
+              <div class="field-hint">in dev altijd 1 minuut, ongeacht deze waarde</div>
+            </div>
+            <div class="field">
+              <label>Energiekosten</label>
+              <input type="number" min="0" max="100" data-veld="energie_kost" value="${c.energie_kost}" />
+              <div class="field-hint">meteen afgetrokken bij de start</div>
+            </div>
+            <div class="field">
+              <label>Output-multiplier</label>
+              <input type="number" step="0.1" min="0.1" data-veld="output_multiplier" value="${c.output_multiplier}" />
+              <div class="field-hint">duur × dit = effectieve uren</div>
+            </div>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="slaWerkCyclusOp(this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function slaWerkCyclusOp(btn) {
+    const blok = btn.closest('.rule-block');
+    // Sleutel uit het data-attribuut i.p.v. in de onclick geïnterpoleerd:
+    // zie de esc()-waarschuwing bovenaan over JS-in-attributen.
+    const sleutel = blok.dataset.sleutel;
+    metKnop(btn, async () => {
+      await api(`/api/werk-cycli/${encodeURIComponent(sleutel)}`, {
+        method: 'POST', body: JSON.stringify(velden(blok)),
+      });
+      await laadWerkCycli();
+    }, blok.querySelector('.mini-status'));
   }
 
   // ── Tiers ────────────────────────────────────────────────────────────────

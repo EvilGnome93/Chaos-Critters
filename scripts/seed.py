@@ -17,7 +17,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from db.engine import async_session
-from db.models import Element, Instelling, Item, ItemType, PetSoort, Tier, Werkplek
+from db.models import Element, Instelling, Item, ItemType, PetSoort, Tier, Werkplek, WerkCyclus
 
 # Kwalitatieve schaal -> placeholder-getal, later bij te stellen via admin panel.
 ZEER_LAAG, LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 10, 20, 40, 60, 80, 95
@@ -131,6 +131,20 @@ WERKPLEKKEN = [
         "output_per_uur": 6.5,
         "capaciteit": 2,
     },
+]
+
+# De shift-varianten van /werk (2026-07-30, admin panel fase 2 blok 3: waren
+# hardcoded in cogs/werk.py). `duur_uren` is altijd de ECHTE duur; de
+# dev-versnelling wordt pas toegepast in utils/balans.py:werk_cycli().
+# Ook al ingevoegd door migratie b16522d16fa3 (de bot draait wel migraties
+# maar niet de seed bij opstart) — hier voor een verse database.
+WERK_CYCLI_RIJEN = [
+    {"sleutel": "korte", "label": "Korte shift", "duur_uren": 2, "energie_kost": 20,
+     "output_multiplier": 2.0, "volgorde": 1},
+    {"sleutel": "lange", "label": "Lange shift", "duur_uren": 6, "energie_kost": 50,
+     "output_multiplier": 2.3, "volgorde": 2},
+    {"sleutel": "overnacht", "label": "Overnacht", "duur_uren": 10, "energie_kost": 70,
+     "output_multiplier": 2.6, "volgorde": 3},
 ]
 
 # (naam, tier_id, gevecht_basis, werk_basis, werkplek_type of None, beschrijving)
@@ -495,6 +509,9 @@ async def seed() -> None:
 
         await session.execute(
             insert(Werkplek).on_conflict_do_nothing(index_elements=["type"]), WERKPLEKKEN
+        )
+        await session.execute(
+            insert(WerkCyclus).on_conflict_do_nothing(index_elements=["sleutel"]), WERK_CYCLI_RIJEN
         )
         await session.flush()
 

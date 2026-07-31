@@ -195,6 +195,63 @@ async def test_validatie(client, auth) -> None:
     print("Geldige werkplek-update werkt (waarden ongewijzigd teruggezet).")
 
 
+async def test_werk_cycli(client, auth) -> None:
+    """2026-07-30, fase 2 blok 3: de shift-varianten staan nu in een eigen
+    tabel i.p.v. hardcoded in cogs/werk.py, en zijn via de portal aanpasbaar."""
+    print("\n-- Werk-cycli: lezen, valideren, opslaan + cache-invalidatie --")
+    from utils import balans
+
+    resp = await client.get("/api/werk-cycli", headers=auth)
+    assert resp.status == 200, await resp.text()
+    cycli = await resp.json()
+    sleutels = [c["sleutel"] for c in cycli]
+    print(f"Cycli gevonden: {sleutels}")
+    assert set(sleutels) == {"korte", "lange", "overnacht"}
+
+    korte = next(c for c in cycli if c["sleutel"] == "korte")
+    origineel = {
+        "label": korte["label"],
+        "duur_uren": korte["duur_uren"],
+        "energie_kost": korte["energie_kost"],
+        "output_multiplier": korte["output_multiplier"],
+    }
+    # effectieve_uren is afgeleid (duur x multiplier), handig in het panel.
+    assert korte["effectieve_uren"] == round(korte["duur_uren"] * korte["output_multiplier"], 2)
+
+    onzin = [
+        ({**origineel, "duur_uren": 0}, "duur 0"),
+        ({**origineel, "duur_uren": 500}, "duur 500 uur"),
+        ({**origineel, "energie_kost": 500}, "energie 500"),
+        ({**origineel, "output_multiplier": 0}, "multiplier 0"),
+        ({**origineel, "label": ""}, "leeg label"),
+    ]
+    for body, beschrijving in onzin:
+        resp = await client.post("/api/werk-cycli/korte", headers=auth, json=body)
+        assert resp.status == 400, f"{beschrijving} werd geaccepteerd ({resp.status})!"
+        print(f"  geweigerd ({beschrijving}): {(await resp.json())['error']}")
+
+    resp = await client.post("/api/werk-cycli/bestaat-niet", headers=auth, json=origineel)
+    assert resp.status == 400
+    print(f"Onbekende sleutel geweigerd: {(await resp.json())['error']}")
+
+    # Echte wijziging: moet meteen in balans.werk_cycli() zichtbaar zijn,
+    # want de endpoint roept balans.laad() aan (zelfde proces als de bot).
+    await balans.laad()
+    voor = balans.werk_cycli()["korte"]
+    resp = await client.post(
+        "/api/werk-cycli/korte", headers=auth, json={**origineel, "energie_kost": 42}
+    )
+    assert resp.status == 200, await resp.text()
+    na = balans.werk_cycli()["korte"]
+    print(f"energie_kost: {voor.energie_kost} -> {na.energie_kost} (zonder herstart)")
+    assert na.energie_kost == 42, "cache is niet geïnvalideerd na het opslaan"
+
+    resp = await client.post("/api/werk-cycli/korte", headers=auth, json=origineel)
+    assert resp.status == 200
+    assert balans.werk_cycli()["korte"].energie_kost == origineel["energie_kost"]
+    print("Teruggezet naar de oorspronkelijke waarden.")
+
+
 async def test_soorten_crud(client, auth) -> None:
     print("\n-- Pet-soorten: toevoegen, bewerken, verwijderen --")
     resp = await client.get("/api/soorten", headers=auth)
@@ -432,8 +489,8 @@ async def test_alleen_lezen_toegang(client, auth, auth_lid) -> None:
     print("verify() geeft het juiste is_admin-onderscheid terug.")
 
     open_voor_iedereen = (
-        "/api/instellingen", "/api/items", "/api/werkplekken", "/api/tiers", "/api/soorten",
-        "/api/clans", "/api/statistieken",
+        "/api/instellingen", "/api/items", "/api/werkplekken", "/api/werk-cycli", "/api/tiers",
+        "/api/soorten", "/api/clans", "/api/statistieken",
     )
     for pad in open_voor_iedereen:
         resp = await client.get(pad, headers=auth_lid)
@@ -456,6 +513,7 @@ async def test_alleen_lezen_toegang(client, auth, auth_lid) -> None:
         ("post", "/api/instellingen", {"ranked_gratis_per_dag": afwijkende_waarde}),
         ("post", f"/api/items/{item_id}", {"prijs": 1, "beschrijving": "x"}),
         ("post", "/api/soorten", {"naam": "should-not-exist"}),
+        ("post", "/api/werk-cycli/korte", {"label": "X", "duur_uren": 1, "energie_kost": 1, "output_multiplier": 1}),
         ("delete", f"/api/soorten/{item_id}", None),
         ("delete", f"/api/clans/{item_id}", None),
     ]
@@ -491,6 +549,7 @@ async def main() -> None:
         await _maak_sessie(TOKEN_LID, is_admin=False)
         await test_verify_en_instellingen(client, auth)
         await test_validatie(client, auth)
+        await test_werk_cycli(client, auth)
         await test_soorten_crud(client, auth)
         await test_spelerbeheer(client, auth)
         await test_kanalen(client, auth, bot)

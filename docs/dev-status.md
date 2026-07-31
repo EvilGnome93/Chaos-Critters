@@ -314,6 +314,24 @@ Vervolg op blok 1 (de balans-cache + het elementen-bewijs). Alle ~25 resterende 
 
 **Nog open van de fase 2-inventaris**: blok 3 (`WERK_CYCLI`, eigen tabel), blok 4 (`RECEPT_KOSTEN`, eigen tabel met FK's), blok 5 (`TACTIEK_VARIANTIE` + voer-effecten). Zie het aanpak-advies verderop in dit document voor de bekende valkuilen daarbij.
 
+## Admin panel fase 2, blok 3: WERK_CYCLI naar een eigen tabel (2026-07-30)
+
+Het lastigste geval uit het fase 2-plan, precies om de voorspelde redenen. `WERK_CYCLI` was een dict van `frozen=True` dataclasses die op **import-tijd** werd opgebouwd, met de dev-versnelling er al in verwerkt, en werd vanuit meerdere modules geïmporteerd.
+
+**Nieuwe `werk_cycli`-tabel** (migratie `b16522d16fa3`) met per rij `sleutel`, `label`, `duur_uren`, `energie_kost`, `output_multiplier`, `volgorde`. Bewust een eigen tabel i.p.v. platte `Instelling`-sleutels: dit is gestructureerde data (4 waarden per cyclus), en zo kan de portal er een rij-editor voor geven. De migratie **voegt de 3 bestaande cycli meteen in** met exact de oude waarden — de bot draait bij opstart wel migraties maar niet de seed, dus anders zou de tabel op productie leeg blijven.
+
+**`Cyclus` verhuisd van `cogs/werk.py` naar `utils/balans.py`**: `werk_cycli()` moet 'm kunnen opbouwen, en andersom zou een circulaire import ontstaan (`cogs/werk.py` importeert al `utils.balans`). `balans.laad()` cachet nu zowel de `Instelling`-rijen als de `WerkCyclus`-rijen. `duur_uren` in de database is altijd de **echte** duur; de dev-versnelling (1 minuut per shift) wordt pas in `werk_cycli()` toegepast, zodat `reward_duur_uren` — en dus de opbrengstberekening — altijd met de echte waarde rekent. Bij een lege tabel valt `werk_cycli()` terug op `_STANDAARD_CYCLI` met exact de oude hardcoded waarden.
+
+**`/werk`'s cyclus-parameter is van `app_commands.Choice` naar autocomplete gegaan.** De oude keuzelijst had de duur hardcoded in de labels ("Korte shift (2 uur)"), en `Choice`-namen worden op command-sync-tijd vastgelegd — die zouden dus stilletjes verouderen zodra iemand de duur via de portal bijstelt. De autocomplete leest elke keer de actuele waarden en toont nu ook de energiekosten. Gevolg: `cyclus` is een gewone `str` geworden, dus er is **server-side validatie** bijgekomen (autocomplete dwingt geen geldige waarde af — een speler kan vrije tekst versturen zonder een suggestie te kiezen). `werkplek` blijft wél een `Choice`-lijst: daar is alleen de naam relevant en die is niet aanpasbaar.
+
+**Defensief bij een onbekende cyclus**: `balans.werk_cycli()[...]` is op de drie plekken die een opgeslagen `Huisdier.werk_cyclus` opzoeken vervangen door `.get()` met een nette afhandeling. Dat kan alleen als een cyclus handmatig uit de database verdwijnt (de portal kan niet toevoegen/verwijderen), maar in `_stuur_klaar_notificaties` zou een `KeyError` de achtergrondtaak permanent stilleggen voor álle spelers — dat risico is het niet waard.
+
+**Portal**: nieuwe tab "Werk-shifts" met `GET /api/werk-cycli` (leesbaar voor elk ingelogd lid) en `POST /api/werk-cycli/{sleutel}` (admin-only). De sleutel is read-only in het paneel, met een uitleg waarom. Het paneel toont per shift ook de afgeleide **effectieve uren** (duur × multiplier), want dat getal bepaalt rechtstreeks de opbrengst.
+
+**Getest** via een nieuwe `test_werk_cycli()` in `scripts/test_portal.py`: lezen, validatie (duur 0/500u, energie 500, multiplier 0, leeg label, onbekende sleutel), en een echte wijziging waarbij geverifieerd wordt dat `balans.werk_cycli()` **meteen** de nieuwe waarde teruggeeft zonder herstart. De rechten-check-test dekt de nieuwe endpoints ook (lezen mag een lid, schrijven geeft 403). `scripts/test_clan.py` en `scripts/test_werk.py` zijn aangepast omdat `cyclus` geen `Choice` meer is. Volledige suite (16 scripts) groen.
+
+**Nog open van fase 2**: blok 4 (`RECEPT_KOSTEN`, eigen tabel met FK's naar items) en blok 5 (`TACTIEK_VARIANTIE` + de voer-effecten).
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

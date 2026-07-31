@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import random
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import discord
@@ -32,48 +31,16 @@ def _bonus_grondstof_aantal() -> int:
 NOTIFICATIE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120
 
 
-@dataclass(frozen=True)
-class Cyclus:
-    label: str
-    duur_uren: float  # werkelijke wachttijd (kort in dev, om te testen)
-    reward_duur_uren: float  # altijd de echte brief-waarde, voor de opbrengst-berekening
-    energie_kost: int
-    output_multiplier: float
-
-
-# In dev duurt elke shift 1 testminuut i.p.v. uren, maar de opbrengst blijft
-# hetzelfde alsof de volledige (echte) cyclus is verstreken.
-_ECHTE_DUUR_UREN = {"korte": 2, "lange": 6, "overnacht": 10}
-_TEST_DUUR_UREN = 1 / 60
-
-WERK_CYCLI = {
-    # Output-multipliers gelijkgetrokken (2026-07-28, Balans-audit, verzoek
-    # van de gebruiker): overnacht was met 4.5x tegenover korte's 1.0x veruit
-    # het efficiëntst per uur, waardoor korte/lange shifts weinig zin hadden.
-    # Nieuwe verhouding 2.0/2.3/2.6 behoudt een lichte voorkeur voor langere
-    # shifts (minder inlogmomenten nodig) zonder de kloof zo groot te maken.
-    "korte": Cyclus(
-        "Korte shift",
-        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["korte"],
-        _ECHTE_DUUR_UREN["korte"],
-        20,
-        2.0,
-    ),
-    "lange": Cyclus(
-        "Lange shift",
-        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["lange"],
-        _ECHTE_DUUR_UREN["lange"],
-        50,
-        2.3,
-    ),
-    "overnacht": Cyclus(
-        "Overnacht",
-        _TEST_DUUR_UREN if config.ENVIRONMENT == "dev" else _ECHTE_DUUR_UREN["overnacht"],
-        _ECHTE_DUUR_UREN["overnacht"],
-        70,
-        2.6,
-    ),
-}
+# De cycli zelf staan sinds 2026-07-30 in de database (admin panel fase 2,
+# blok 3): zie utils/balans.py:werk_cycli() en de WerkCyclus-tabel. Was een
+# module-constante WERK_CYCLI die op import-tijd werd opgebouwd; als functie
+# leest elke aanroep de actuele waarden uit de balans-cache.
+#
+# Historie van de output-multipliers (2026-07-28, Balans-audit, verzoek van
+# de gebruiker): overnacht was met 4.5x tegenover korte's 1.0x veruit het
+# efficiëntst per uur, waardoor korte/lange shifts weinig zin hadden. De
+# huidige verhouding 2.0/2.3/2.6 behoudt een lichte voorkeur voor langere
+# shifts (minder inlogmomenten nodig) zonder de kloof zo groot te maken.
 
 
 def _format_duur(uren: float) -> str:
@@ -148,6 +115,26 @@ async def _aantal_werkend_op_werkplek(session, werkplek_id: int, clan_id: int | 
     )
 
 
+async def _cyclus_autocomplete(
+    interaction: discord.Interaction, huidig: str
+) -> list[app_commands.Choice[str]]:
+    """Autocomplete i.p.v. een vaste `app_commands.Choice`-lijst (2026-07-30,
+    fase 2 blok 3): de duur/energie-kost staan nu in de database en zijn via
+    de portal aanpasbaar, terwijl Choice-namen op command-sync-tijd worden
+    vastgelegd. Een hardcoded "Korte shift (2 uur)" zou dus stilletjes
+    verouderen zodra iemand de duur bijstelt; deze lijst leest elke keer de
+    actuele waarden. Werkplek blijft wél een Choice-lijst: daar is alleen de
+    naam relevant, en die is niet aanpasbaar."""
+    huidig = huidig.lower()
+    opties = []
+    for sleutel, cyclus in balans.werk_cycli().items():
+        if huidig and huidig not in sleutel.lower() and huidig not in cyclus.label.lower():
+            continue
+        label = f"{cyclus.label} ({_format_duur(cyclus.duur_uren)}, -{cyclus.energie_kost} energie)"
+        opties.append(app_commands.Choice(name=label[:100], value=sleutel))
+    return opties[:25]
+
+
 class WerkCog(commands.Cog):
     """De passieve werk-laag op werkplekken. Zie projectbrief sectie 4 en 6.
 
@@ -187,8 +174,18 @@ class WerkCog(commands.Cog):
                 )
             ).scalars().all()
 
+            cycli = balans.werk_cycli()
             for huisdier in kandidaten:
-                cyclus_info = WERK_CYCLI[huisdier.werk_cyclus]
+                # .get() i.p.v. [] : dit is een achtergrondtaak, dus een
+                # KeyError op een onbekende cyclus (handmatig uit de DB
+                # verwijderd) zou de loop permanent stilleggen voor iedereen.
+                cyclus_info = cycli.get(huisdier.werk_cyclus)
+                if cyclus_info is None:
+                    log.warning(
+                        "Pet %s heeft onbekende werk_cyclus '%s', notificatie overgeslagen",
+                        huisdier.id, huisdier.werk_cyclus,
+                    )
+                    continue
                 if _nu() - huisdier.werk_gestart_op < timedelta(hours=cyclus_info.duur_uren):
                     continue
 
@@ -227,18 +224,14 @@ class WerkCog(commands.Cog):
             app_commands.Choice(name="Nachtwacht", value="Nachtwacht"),
             app_commands.Choice(name="Mijnschacht", value="Mijnschacht"),
         ],
-        cyclus=[
-            app_commands.Choice(name="Korte shift (2 uur)", value="korte"),
-            app_commands.Choice(name="Lange shift (6 uur)", value="lange"),
-            app_commands.Choice(name="Overnacht (10 uur)", value="overnacht"),
-        ],
     )
+    @app_commands.autocomplete(cyclus=_cyclus_autocomplete)
     async def werk(
         self,
         interaction: discord.Interaction,
         pet_id: int,
         werkplek: app_commands.Choice[str] | None = None,
-        cyclus: app_commands.Choice[str] | None = None,
+        cyclus: str | None = None,
     ) -> None:
         async with async_session() as session:
             huisdier = await session.scalar(
@@ -271,6 +264,17 @@ class WerkCog(commands.Cog):
                 )
                 return
 
+            # `cyclus` komt uit autocomplete i.p.v. een vaste Choice-lijst, dus
+            # Discord dwingt hier geen geldige waarde af: een speler kan vrije
+            # tekst intypen en versturen zonder een suggestie te kiezen.
+            beschikbare_cycli = balans.werk_cycli()
+            if cyclus not in beschikbare_cycli:
+                keuzes = ", ".join(f"`{s}`" for s in beschikbare_cycli)
+                await interaction.response.send_message(
+                    f"Onbekende cyclus `{cyclus}`. Kies er een uit de lijst: {keuzes}.", ephemeral=True
+                )
+                return
+
             probleem = inzetbaarheid_probleem(huisdier)
             if probleem is not None:
                 await interaction.response.send_message(probleem, ephemeral=True)
@@ -287,7 +291,7 @@ class WerkCog(commands.Cog):
                 return
 
             werkplek_obj = await session.scalar(select(Werkplek).where(Werkplek.type == werkplek.value))
-            cyclus_info = WERK_CYCLI[cyclus.value]
+            cyclus_info = beschikbare_cycli[cyclus]
 
             speler = await session.get(Speler, interaction.user.id)
             clan_id = speler.clan_id if speler else None
@@ -303,7 +307,7 @@ class WerkCog(commands.Cog):
 
             huisdier.status = PetStatus.werkplek
             huisdier.werkplek_type_id = werkplek_obj.id
-            huisdier.werk_cyclus = cyclus.value
+            huisdier.werk_cyclus = cyclus
             huisdier.werk_gestart_op = _nu()
             huisdier.werk_notificatie_verstuurd = False
             huisdier.werk_kanaal_id = interaction.channel_id
@@ -328,7 +332,17 @@ class WerkCog(commands.Cog):
             )
 
     async def _verwerk_lopende_shift(self, session, interaction: discord.Interaction, huisdier: Huisdier) -> None:
-        cyclus_info = WERK_CYCLI[huisdier.werk_cyclus]
+        cyclus_info = balans.werk_cycli().get(huisdier.werk_cyclus)
+        if cyclus_info is None:
+            # Kan alleen als een cyclus handmatig uit de database verdween
+            # terwijl er nog een shift op liep. Nette melding i.p.v. een
+            # KeyError, en de pet blijft gewoon aan het werk staan.
+            await interaction.response.send_message(
+                f"De shift-soort van **{huisdier.naam}** (`{huisdier.werk_cyclus}`) bestaat niet meer. "
+                "Meld dit even bij een admin.",
+                ephemeral=True,
+            )
+            return
         verstreken = _nu() - huisdier.werk_gestart_op
         resterend = timedelta(hours=cyclus_info.duur_uren) - verstreken
 

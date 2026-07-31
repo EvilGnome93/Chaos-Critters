@@ -7,9 +7,10 @@ from discord.ext import commands
 from sqlalchemy import select
 
 from cogs.vangen import TIER_EMOJI, TIER_KLEUREN
-from cogs.werk import WERK_CYCLI, _format_duur, _neem_uit_inventaris, _nu, _voeg_toe_aan_inventaris
+from cogs.werk import _format_duur, _neem_uit_inventaris, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
+from utils import balans
 from utils.elementen import emoji as element_emoji, soort_element_emojis
 from utils.leveling import max_level, xp_voor_volgend_level
 from utils.stats import (
@@ -217,7 +218,12 @@ async def _haal_pets_op(session, speler_id: int) -> list[Huisdier]:
 
 
 def _werk_status(pet: Huisdier) -> str:
-    cyclus_info = WERK_CYCLI[pet.werk_cyclus]
+    cyclus_info = balans.werk_cycli().get(pet.werk_cyclus)
+    if cyclus_info is None:
+        # Zie cogs/werk.py:_verwerk_lopende_shift — kan alleen bij een
+        # handmatig uit de database verwijderde cyclus, maar /lijst mag
+        # daar niet op crashen.
+        return "👷 Aan het werk (onbekende shift-soort)"
     resterend = timedelta(hours=cyclus_info.duur_uren) - (_nu() - pet.werk_gestart_op)
     if resterend <= timedelta(0):
         return "👷 Klaar! Gebruik `/werk` om op te halen"

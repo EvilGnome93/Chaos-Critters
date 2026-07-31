@@ -72,7 +72,7 @@ async def test_gedeelde_capaciteit() -> None:
 
         interactie_1 = fake_interaction(CAPACITEIT_SPELERS[0])
         await cog.werk.callback(
-            cog, interactie_1, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+            cog, interactie_1, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
         )
         interactie_1.response.send_message.assert_awaited()
         bericht_1 = interactie_1.response.send_message.call_args[0][0]
@@ -81,7 +81,7 @@ async def test_gedeelde_capaciteit() -> None:
 
         interactie_2 = fake_interaction(CAPACITEIT_SPELERS[1])
         await cog.werk.callback(
-            cog, interactie_2, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+            cog, interactie_2, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
         )
         bericht_2 = interactie_2.response.send_message.call_args[0][0]
         print(f"Speler 2 (moet nog lukken, capaciteit 2): {bericht_2}")
@@ -89,7 +89,7 @@ async def test_gedeelde_capaciteit() -> None:
 
         interactie_3 = fake_interaction(CAPACITEIT_SPELERS[2])
         await cog.werk.callback(
-            cog, interactie_3, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus=fake_choice("korte")
+            cog, interactie_3, pet_id=1, werkplek=fake_choice("Nachtwacht"), cyclus="korte"
         )
         bericht_3 = interactie_3.response.send_message.call_args[0][0]
         print(f"Speler 3 (moet geweigerd worden): {bericht_3}")
@@ -119,7 +119,7 @@ async def test_mijnschacht_en_bonus_grondstof() -> None:
 
         interactie = fake_interaction(speler_id)
         await cog.werk.callback(
-            cog, interactie, pet_id=1, werkplek=fake_choice("Mijnschacht"), cyclus=fake_choice("korte")
+            cog, interactie, pet_id=1, werkplek=fake_choice("Mijnschacht"), cyclus="korte"
         )
         bericht = interactie.response.send_message.call_args[0][0]
         print(f"Shift gestart: {bericht}")
@@ -157,7 +157,7 @@ async def test_mijnschacht_en_bonus_grondstof() -> None:
 
         interactie_start2 = fake_interaction(speler_id)
         await cog.werk.callback(
-            cog, interactie_start2, pet_id=1, werkplek=fake_choice("Mijnschacht"), cyclus=fake_choice("korte")
+            cog, interactie_start2, pet_id=1, werkplek=fake_choice("Mijnschacht"), cyclus="korte"
         )
         async with async_session() as session:
             pet = await session.get(Huisdier, pet_id)

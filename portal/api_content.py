@@ -34,6 +34,7 @@ from db.models import (
     PetSoort,
     SpawnKanaal,
     Tier,
+    WerkCyclus,
     Werkplek,
 )
 from portal import auth
@@ -155,6 +156,59 @@ async def item_opslaan(request: web.Request) -> web.Response:
         naam = item.naam
 
     log.info("Portal: item '%s' bijgewerkt (prijs %s)", naam, prijs)
+    return web.json_response({"ok": True})
+
+
+# ── Werk-cycli (shift-varianten) ────────────────────────────────────────────
+
+async def werk_cycli_ophalen(request: web.Request) -> web.Response:
+    async with async_session() as session:
+        rijen = (
+            await session.execute(select(WerkCyclus).order_by(WerkCyclus.volgorde))
+        ).scalars().all()
+    return web.json_response(
+        [
+            {
+                "sleutel": c.sleutel,
+                "label": c.label,
+                "duur_uren": float(c.duur_uren),
+                "energie_kost": c.energie_kost,
+                "output_multiplier": float(c.output_multiplier),
+                # Handig referentiegetal in het panel: hoe lang levert deze
+                # shift "effectief" op (duur x multiplier), wat rechtstreeks
+                # de grondstof- en XP-opbrengst bepaalt.
+                "effectieve_uren": round(float(c.duur_uren) * float(c.output_multiplier), 2),
+            }
+            for c in rijen
+        ]
+    )
+
+
+async def werk_cyclus_opslaan(request: web.Request) -> web.Response:
+    """POST /api/werk-cycli/{sleutel} — label/duur/energie/multiplier.
+
+    `sleutel` zelf is niet aanpasbaar: die staat in `Huisdier.werk_cyclus`
+    van lopende shifts, dus hernoemen zou die shifts onvindbaar maken.
+    Toevoegen/verwijderen kan om dezelfde reden niet."""
+    sleutel = request.match_info["sleutel"]
+    data = await request.json()
+    label = _tekst(data, "label", max_lengte=32)
+    duur = _getal(data, "duur_uren", minimum=0.01, maximum=168)  # max 1 week
+    energie = _getal(data, "energie_kost", minimum=0, maximum=100, heel=True)
+    multiplier = _getal(data, "output_multiplier", minimum=0.1, maximum=100)
+
+    async with async_session() as session:
+        cyclus = await session.get(WerkCyclus, sleutel)
+        if cyclus is None:
+            raise ValidatieFout("werk-cyclus bestaat niet")
+        cyclus.label = label
+        cyclus.duur_uren = duur
+        cyclus.energie_kost = energie
+        cyclus.output_multiplier = multiplier
+        await session.commit()
+
+    await balans.laad()
+    log.info("Portal: werk-cyclus '%s' bijgewerkt (duur %s, energie %s)", sleutel, duur, energie)
     return web.json_response({"ok": True})
 
 
@@ -545,6 +599,9 @@ def routes_toevoegen(app: web.Application) -> None:
 
     app.router.add_get("/api/items", items_ophalen)
     app.router.add_post("/api/items/{id}", auth.vereist_admin(item_opslaan))
+
+    app.router.add_get("/api/werk-cycli", werk_cycli_ophalen)
+    app.router.add_post("/api/werk-cycli/{sleutel}", auth.vereist_admin(werk_cyclus_opslaan))
 
     app.router.add_get("/api/werkplekken", werkplekken_ophalen)
     app.router.add_post("/api/werkplekken/{id}", auth.vereist_admin(werkplek_opslaan))
