@@ -342,6 +342,7 @@ class WerkCog(commands.Cog):
 
         speler = await session.get(Speler, interaction.user.id)
         speler.currency += currency_aantal
+        speler.shiften_voltooid += 1
         if speler.clan_id is not None:
             clan = await session.get(Clan, speler.clan_id)
             clan.totale_werk_opbrengst += currency_aantal

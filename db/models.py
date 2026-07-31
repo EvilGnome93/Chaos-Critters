@@ -126,6 +126,19 @@ class Speler(Base):
     clan_id: Mapped[int | None] = mapped_column(ForeignKey("clans.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+    # Lifetime-tellers voor /mystats (2026-07-30, verzoek van de gebruiker).
+    # Bestonden nog nergens, dus starten voor iedereen op 0 vanaf nu (geen
+    # historie, expliciet akkoord van de gebruiker) — geen terugwerkende
+    # kracht voor shifts/gevechten van vóór deze toevoeging. Alleen ranked
+    # PvP en normale PvE tellen mee, geen vriendschappelijke gevechten
+    # (cogs/gevechten.py:_verwerk_einde, achter dezelfde `not is_friendly`
+    # die ook MMR/beloning/XP afschermt).
+    shiften_voltooid: Mapped[int] = mapped_column(default=0)
+    pvp_gewonnen: Mapped[int] = mapped_column(default=0)
+    pvp_verloren: Mapped[int] = mapped_column(default=0)
+    pve_gewonnen: Mapped[int] = mapped_column(default=0)
+    pve_verloren: Mapped[int] = mapped_column(default=0)
+
     huisdieren: Mapped[list["Huisdier"]] = relationship(back_populates="eigenaar")
     inventaris: Mapped[list["InventarisItem"]] = relationship(back_populates="speler")
     clan: Mapped["Clan | None"] = relationship(back_populates="leden", foreign_keys=[clan_id])

@@ -263,6 +263,16 @@ Drie kleine correcties op `cogs/wiki.py`:
 - **"werk_genen" hernoemd naar "werk-motivatie"** in speler-facing tekst (2x in "Vangen & Tiers", 1x in "Leveling") — de interne kolomnaam hoort niet in tekst die spelers lezen.
 - **Alle em-dashes (—) verwijderd** uit de wiki-tekst (was 48x), vervangen door komma's, dubbele punten of haakjes al naar gelang de zin. Ook de command-lijst-separator ging van " — " naar ": ". Getest dat alle 9 onderwerpen nog binnen Discord's embed-limieten passen (grootste: 1320/4096 tekens voor "Werken & grondstoffen" na de toevoeging).
 
+## Nieuw commando `/critter-stats` (2026-07-30, verzoek van de gebruiker, naar Botv3's `/mystats`)
+
+Persoonlijk statistieken-overzicht, optioneel voor een ander lid (`speler`-parameter, zelfde patroon als Botv3). Toont: huidige pets + totaal ooit ontvangen (vangst + ruil, uit `Speler.volgend_pet_nummer`), Critterdex-percentage (unieke gevangen soorten / totaal soorten), aantal voltooide werk-shifts, PvP-winst/verlies + MMR, PvE-winst/verlies, en Chaos Coins.
+
+**Twee nieuwe lifetime-tellers op `Speler`** (migratie `447da3feed31`), die nog nergens bestonden: `shiften_voltooid` (opgehoogd in `cogs/werk.py:_verwerk_lopende_shift` bij elke opgehaalde opbrengst) en `pvp_gewonnen`/`pvp_verloren`/`pve_gewonnen`/`pve_verloren` (opgehoogd in `cogs/gevechten.py:_verwerk_einde`, binnen hetzelfde `not is_friendly`-blok dat ook MMR/beloning/XP afschermt, dus vriendschappelijke gevechten tellen bewust niet mee — afgestemd met de gebruiker). **Beginnen voor iedereen op 0** vanaf deze toevoeging, geen terugwerkende kracht (expliciet akkoord van de gebruiker) — in tegenstelling tot pets/Critterdex-percentage, die wél met terugwerkende kracht correct zijn omdat ze uit al bestaande data worden afgeleid.
+
+Genoemd naar "critter-stats" i.p.v. "mystats" op verzoek van de gebruiker, om verwarring met Botv3's eigen `/mystats` in dezelfde server te voorkomen.
+
+Getest via nieuw `scripts/test_critterstats.py`: nette melding voor een speler die nog nooit gespeeld heeft, alle velden tonen de juiste cijfers (inclusief het Critterdex-percentage met dubbel-geteld-dezelfde-soort-toch-1x), de `speler`-parameter toont andermans stats, en een bot als doelwit wordt geweigerd. Volledige suite (15 scripts) draait groen.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

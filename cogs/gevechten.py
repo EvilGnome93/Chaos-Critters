@@ -791,10 +791,28 @@ class VechtView(discord.ui.View):
                     for nieuw_level in voeg_xp_toe(pet_db, XP_WINST if gewonnen else XP_VERLIES):
                         nieuwe_levels_eigen.append((pet_db.naam, nieuw_level))
 
+                # Lifetime-tellers voor /mystats (2026-07-30): PvE als er geen
+                # echte tegenstander is, anders PvP. Alleen hier omdat dit
+                # hele blok al achter `not self.is_friendly` zit.
+                if self.tegenstander_id is None:
+                    if gewonnen:
+                        speler.pve_gewonnen += 1
+                    else:
+                        speler.pve_verloren += 1
+                else:
+                    if gewonnen:
+                        speler.pvp_gewonnen += 1
+                    else:
+                        speler.pvp_verloren += 1
+
                 if self.tegenstander_id is not None:
                     tegen_speler = await session.get(Speler, self.tegenstander_id)
                     tegen_delta = elo_delta(self.tegenstander_mmr, self.eigen_mmr, not gewonnen)
                     tegen_speler.mmr = max(0, tegen_speler.mmr + tegen_delta)
+                    if gewonnen:
+                        tegen_speler.pvp_verloren += 1
+                    else:
+                        tegen_speler.pvp_gewonnen += 1
                     for pet in self.tegenstander_team:
                         pet_db = await session.get(Huisdier, pet.id)
                         voeg_xp_toe(pet_db, XP_VERLIES if gewonnen else XP_WINST)
