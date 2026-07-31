@@ -423,6 +423,11 @@ INSTELLINGEN = [
     # 1 speler kon zo in z'n eentje een hele gedeelde werkplek volledig
     # bezet houden. Op 2 kan dat nergens meer volledig.
     ("max_werkende_pets_per_speler", "2", "Max aantal pets dat een speler tegelijk aan het werk kan hebben"),
+    # 2026-07-30, /changelog: rol die getagd wordt bij een goedgekeurde
+    # changelog-aankondiging (leeg = geen tag). Losse instelling i.p.v.
+    # hardcoded ID, want die verschilt per server (Botv3 hardcodet 'm wel,
+    # maar die bot draait maar op één server).
+    ("changelog_rol_id", "", "Rol-ID die getagd wordt bij een goedgekeurde changelog-aankondiging (leeg = geen tag)"),
 ]
 
 

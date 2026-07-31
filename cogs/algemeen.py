@@ -2,14 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Wat er nog op de planning staat, in tester-vriendelijke taal. Handmatig
-# bijgehouden naast docs/dev-status.md ("Nog niet gebouwd"), dus bijwerken
-# als daar iets bijkomt/wegvalt/klaar is.
-TODO_ITEMS = [
-    ("🛠️ Admin panel, deel 2", "Het web-paneel staat er (items, prijzen, werkplekken, tiers, pet-soorten, spelers, clans en kanalen zijn al instelbaar). Nog te doen: de balanswaarden die nu nog vast in de code staan — XP-tempo, de werk-shifts, honger/energie-verval, de gevecht-economie en de crafting-recepten — ook aanpasbaar maken."),
-    ("🐣 Fokken (lange termijn)", "Nieuwe pets kweken van je bestaande pets. Pas echt interessant vanaf 250 pet-soorten, dus staat achteraan."),
-]
-
 # Speler-gerichte commando's, met een korte uitleg per commando. Handmatig
 # bijgehouden (geen introspectie op de command tree), dus bijwerken als er
 # een nieuw commando bijkomt. Gegroepeerd per categorie i.p.v. één platte
@@ -22,6 +14,7 @@ TEST_COMMANDOS_PER_CATEGORIE = [
         ("/lijst", "Bekijk al je pets: level+XP, werkstatus en honger/energie. Sorteerbaar via de knoppen."),
         ("/critterdex", "Bekijk alle pet-soorten (gepagineerd), filterbaar op tier en element, met per soort of en hoe vaak je 'm al gevangen hebt."),
         ("/info soort", "Bekijk gevecht/werk-stats (als Laag/Gemiddeld/Hoog/...), tier, element, werkplek-voorkeur en je eigen vangst-aantal van één specifieke pet-soort."),
+        ("/critter-stats [speler]", "Bekijk je eigen (of iemand anders z'n) statistieken: pets gevangen, Critterdex-voortgang, shifts voltooid, PvP/PvE-winst en -verlies, en Chaos Coins."),
     ]),
     ("👷 Werken & verzorgen", [
         ("/werk pet_id werkplek cyclus", "Zet een pet aan het werk voor grondstoffen + Chaos Coins + XP. `/werk pet_id` zonder extra opties haalt de opbrengst op zodra de shift klaar is (met eventuele level-up)."),
@@ -29,6 +22,7 @@ TEST_COMMANDOS_PER_CATEGORIE = [
         ("/slaap pet_id", "Laat een pet direct volledig uitrusten (energie naar 100), kost honger, max 1x per dag per pet."),
         ("/shop [item] [aantal]", "Bekijk de shop, of koop voeding/boosts/extra's met je Chaos Coins."),
         ("/craft [item] [aantal]", "Bekijk of maak een item met een grondstof-recept (bijv. Slimme voerbak) — toont alle kosten (coins + grondstoffen) vooraf, met een Bevestigen-knop."),
+        ("/craft-lijst", "Snel overzicht van alle craftbare items en hun kosten, zonder de rest van /craft."),
         ("/items", "Bekijk je inventaris: alles wat je hebt gekocht of via werken hebt verdiend."),
         ("/uitrusten pet_id item [afkoppelen]", "Rust een pet uit met een voerbak of Zelfreinigend systeem uit je inventaris, of koppel 'm weer af (komt terug in je inventaris)."),
     ]),
@@ -48,12 +42,12 @@ TEST_COMMANDOS_PER_CATEGORIE = [
     ]),
     ("ℹ️ Overig", [
         ("/wiki", "Blader door uitleg van hoe de spelmechanieken werken (vangen, elementen, verzorgen, werken, vechten, ranked, PvP, traden, clans, leveling), gegroepeerd per onderwerp."),
-        ("/todo", "Bekijk wat er nog gepland staat voor Chaos Critters."),
     ]),
     ("🔧 Admin", [
         ("/spawn [tier] [naam]", "Forceer direct een spawn in dit kanaal, handig om niet op een natuurlijke spawn te hoeven wachten."),
         ("/give speler item [aantal]", "Geef jezelf of iemand anders een item, handig om spullen te testen zonder eerst Chaos Coins te verdienen."),
         ("/herstel [speler] [pet_id] [scope]", "Herstel honger + energie naar 100: 1 pet, een heel team, of alle pets — handig om niet steeds te hoeven wachten tijdens het testen."),
+        ("/changelog [tag-rol]", "Stel een changelog-aankondiging samen voor review; na goedkeuring wordt 'm gepost in het aankondigingskanaal."),
     ]),
 ]
 
@@ -69,20 +63,6 @@ class AlgemeenCog(commands.Cog):
         await interaction.response.send_message(
             f"Pong! Latency: {round(self.bot.latency * 1000)}ms", ephemeral=False
         )
-
-    @app_commands.command(name="todo", description="Bekijk wat er nog gepland staat voor Chaos Critters")
-    async def todo(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(
-            title="🗺️ Chaos Critters — wat komt er nog aan?",
-            description=(
-                "Dit staat (ruwweg in deze volgorde) nog op de planning. "
-                "(Nieuwe pet-soorten komen er trouwens doorlopend bij, dat stopt nooit echt.)"
-            ),
-            color=discord.Color.blurple(),
-        )
-        for titel, uitleg in TODO_ITEMS:
-            embed.add_field(name=titel, value=uitleg, inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=False)
 
     @app_commands.command(name="commands", description="Bekijk het volledige commando-overzicht")
     async def commands_overzicht(self, interaction: discord.Interaction) -> None:

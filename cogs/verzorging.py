@@ -716,7 +716,7 @@ class VerzorgingCog(commands.Cog):
 
     @app_commands.command(
         name="craft-lijst",
-        description="(tijdelijk) Snel overzicht van alle craftbare items, zonder de rest van /craft",
+        description="Snel overzicht van alle craftbare items, zonder de rest van /craft",
     )
     async def craft_lijst(self, interaction: discord.Interaction) -> None:
         async with async_session() as session:

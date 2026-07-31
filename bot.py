@@ -28,6 +28,7 @@ COGS = (
     "cogs.clan",
     "cogs.critterdex",
     "cogs.critterstats",
+    "cogs.changelog",
     "cogs.wiki",
     "cogs.fokken",
     "cogs.admin",
