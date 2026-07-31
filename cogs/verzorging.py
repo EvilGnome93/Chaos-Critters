@@ -54,38 +54,27 @@ _MYSTERIE_VOEDSEL = "Mysterie voedselzak"
 
 VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
 
-# Extra grondstof-kosten bovenop de Chaos Coins-prijs, voor items die dat
-# volgens hun shop-omschrijving vereisen (2026-07-27, Item-overhaul deel 1,
-# verzoek van de gebruiker). Geeft elke grondstof een concreet doel, zonder
-# een volledig crafting-systeem te bouwen.
+# De grondstof-kosten per item staan sinds 2026-07-30 in de database (admin
+# panel fase 2 blok 4): zie de `recepten`-tabel en utils/balans.py:recepten().
+# Waren hardcoded als RECEPT_KOSTEN-dict hier.
 #
-# Herzien tijdens de Balans-audit (2026-07-28, verzoek van de gebruiker: "niet
-# snel aan de OP-items komen"). Elk recept vereist nu minstens 2 verschillende
-# grondstoffen uit 2 verschillende werkplekken. Hoofdgrondstoffen (gegarandeerd
-# per shift: Groente/Algen/Schroot/Takken/Maanschijnkristal/Erts) zijn de
-# belangrijkste knop en dus fors hoger dan vóór de audit; bonus-grondstoffen
-# (Water/Sterrenstof/Fruit/Bladeren/Spijker/Edelsteen — 25%-kans per shift)
-# blijven bewust klein, want die zijn door hun zeldzaamheid al traag genoeg.
-# De 2 duurste "OP"-items (Slimme voerbak, Zelfreinigend systeem) hebben de
-# zwaarste combinatie: allebei nu ook Schroot nodig, naast hun eigen unieke
-# ingrediënt.
-RECEPT_KOSTEN: dict[str, list[tuple[str, int]]] = {
-    "Graanvrije premium voeding": [("Groente", 12), ("Water", 1)],
-    "Vers vlees/vis": [("Algen", 15), ("Takken", 8)],
-    "Mysterie voedselzak": [("Fruit", 1), ("Bladeren", 1)],
-    "Naamkaartje": [("Takken", 15), ("Spijker", 1)],
-    "Focus drankje": [("Bladeren", 2), ("Edelsteen", 1)],
-    "Werk-elixer": [("Erts", 12), ("Spijker", 2)],
-    "Extra match token": [("Maanschijnkristal", 30), ("Edelsteen", 2)],
-    "Simpele voerbak": [("Water", 2), ("Fruit", 2)],
-    "Slimme voerbak": [("Schroot", 40), ("Erts", 20)],
-    "Zelfreinigend systeem": [("Sterrenstof", 3), ("Schroot", 20)],
-}
+# Achtergrond (2026-07-27, Item-overhaul deel 1): extra grondstof-kosten
+# bovenop de Chaos Coins-prijs geven elke grondstof een concreet doel, zonder
+# een volledig crafting-systeem te bouwen. Herzien tijdens de Balans-audit
+# (2026-07-28, verzoek van de gebruiker: "niet snel aan de OP-items komen"):
+# elk recept vereist nu minstens 2 verschillende grondstoffen uit 2
+# verschillende werkplekken. Hoofdgrondstoffen (gegarandeerd per shift:
+# Groente/Algen/Schroot/Takken/Maanschijnkristal/Erts) zijn de belangrijkste
+# knop en dus fors hoger; bonus-grondstoffen (Water/Sterrenstof/Fruit/
+# Bladeren/Spijker/Edelsteen, 25%-kans per shift) blijven bewust klein, want
+# die zijn door hun zeldzaamheid al traag genoeg.
+
 
 async def _koop_item(session, speler_id: int, item_obj: Item, aantal: int) -> tuple[bool, str]:
-    """Voert een aankoop uit (Chaos Coins + eventuele recept-grondstoffen uit
-    RECEPT_KOSTEN). Geeft (gelukt, bericht) terug; bij gelukt=False is niets
-    afgeboekt. Gedeeld tussen /shop en /craft zodat ze niet uit de pas lopen."""
+    """Voert een aankoop uit (Chaos Coins + eventuele recept-grondstoffen,
+    zie utils/balans.py:recepten()). Geeft (gelukt, bericht) terug; bij
+    gelukt=False is niets afgeboekt. Gedeeld tussen /shop en /craft zodat ze
+    niet uit de pas lopen."""
     speler = await session.get(Speler, speler_id)
     if speler is None:
         speler = Speler(discord_id=speler_id, currency=0)
@@ -98,7 +87,7 @@ async def _koop_item(session, speler_id: int, item_obj: Item, aantal: int) -> tu
             f"je hebt {speler.currency}."
         )
 
-    recept = RECEPT_KOSTEN.get(item_obj.naam, [])
+    recept = balans.recepten().get(item_obj.naam, [])
     grondstof_items: dict[str, Item] = {}
     for grondstof_naam, hoeveelheid in recept:
         benodigd = hoeveelheid * aantal
@@ -698,12 +687,14 @@ class VerzorgingCog(commands.Cog):
     ) -> list[app_commands.Choice[str]]:
         huidig = huidig.lower()
         return [
-            app_commands.Choice(name=naam, value=naam) for naam in RECEPT_KOSTEN if huidig in naam.lower()
+            app_commands.Choice(name=naam, value=naam)
+            for naam in balans.recepten()
+            if huidig in naam.lower()
         ][:25]
 
     async def _craft_overzicht_embed(self, session) -> discord.Embed:
         items_obj = (
-            await session.execute(select(Item).where(Item.naam.in_(RECEPT_KOSTEN.keys())))
+            await session.execute(select(Item).where(Item.naam.in_(balans.recepten().keys())))
         ).scalars().all()
         per_naam = {i.naam: i for i in items_obj}
 
@@ -713,7 +704,7 @@ class VerzorgingCog(commands.Cog):
             "kosten in detail + een bevestigingsstap.",
             color=discord.Color.orange(),
         )
-        for naam, recept in RECEPT_KOSTEN.items():
+        for naam, recept in balans.recepten().items():
             recept_tekst = ", ".join(f"{hoeveelheid}x {grondstof}" for grondstof, hoeveelheid in recept)
             embed.add_field(
                 name=naam, value=f"{per_naam[naam].prijs} Chaos Coins + {recept_tekst}", inline=False
@@ -751,7 +742,8 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message("`aantal` moet minstens 1 zijn.", ephemeral=True)
                 return
 
-            if item not in RECEPT_KOSTEN:
+            alle_recepten = balans.recepten()
+            if item not in alle_recepten:
                 await interaction.response.send_message(
                     f"**{item}** heeft geen grondstof-recept — koop 'm gewoon via `/shop`.", ephemeral=True
                 )
@@ -764,7 +756,7 @@ class VerzorgingCog(commands.Cog):
 
             regels = []
             alles_voldoende = saldo >= kosten
-            for grondstof_naam, hoeveelheid in RECEPT_KOSTEN[item]:
+            for grondstof_naam, hoeveelheid in alle_recepten[item]:
                 benodigd = hoeveelheid * aantal
                 grondstof_item = await session.scalar(select(Item).where(Item.naam == grondstof_naam))
                 inv = await session.scalar(

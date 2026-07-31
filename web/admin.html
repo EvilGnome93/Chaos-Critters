@@ -257,6 +257,7 @@
       <button class="nav-item" data-tab="items">Items &amp; prijzen</button>
       <button class="nav-item" data-tab="werkplekken">Werkplekken</button>
       <button class="nav-item" data-tab="werk-cycli">Werk-shifts</button>
+      <button class="nav-item" data-tab="recepten">Recepten</button>
       <button class="nav-item" data-tab="tiers">Tiers</button>
       <button class="nav-item" data-tab="soorten">Pet-soorten</button>
       <button class="nav-item" data-tab="clans">Clans</button>
@@ -341,6 +342,18 @@
         zou die shifts onvindbaar maken.
       </div>
       <div id="werk-cycli-editor"></div>
+    </div>
+
+    <!-- RECEPTEN -->
+    <div class="card" data-tab-panel="recepten">
+      <div class="card-head">Recepten</div>
+      <p class="card-intro">
+        Grondstofkosten bovenop de Chaos Coins-prijs, voor items die je via <code>/craft</code> maakt.
+        Een item zonder ingrediënten kost alleen coins. Hoofdgrondstoffen (Groente, Algen, Schroot,
+        Takken, Maanschijnkristal, Erts) komen gegarandeerd uit elke shift; de rest is een bonus met
+        ~25% kans, dus die zijn een stuk schaarser.
+      </p>
+      <div id="recepten-editor"></div>
     </div>
 
     <!-- TIERS -->
@@ -545,13 +558,14 @@
   }
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'werk-cycli', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
+  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'werk-cycli', 'recepten', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
   const LADERS = {
     overzicht: laadStatistieken,
     instellingen: laadInstellingen,
     items: laadItems,
     werkplekken: laadWerkplekken,
     'werk-cycli': laadWerkCycli,
+    recepten: laadRecepten,
     tiers: laadTiers,
     soorten: laadSoorten,
     spelers: laadSpelers,
@@ -793,6 +807,78 @@
         method: 'POST', body: JSON.stringify(velden(blok)),
       });
       await laadWerkCycli();
+    }, blok.querySelector('.mini-status'));
+  }
+
+  // ── Recepten ─────────────────────────────────────────────────────────────
+  let receptData = { recepten: [], grondstoffen: [], koopbare_items: [] };
+
+  function grondstofOpties(geselecteerd) {
+    return receptData.grondstoffen.map(g =>
+      `<option value="${g.id}" ${g.id === geselecteerd ? 'selected' : ''}>${esc(g.naam)}</option>`
+    ).join('');
+  }
+
+  function ingredientRij(ing) {
+    return `
+      <div class="rule-row ingredient-rij" style="align-items:flex-end;">
+        <div class="field">
+          <label>Grondstof</label>
+          <select data-ing="grondstof_id">${grondstofOpties(ing?.grondstof_id)}</select>
+        </div>
+        <div class="field">
+          <label>Aantal per stuk</label>
+          <input type="number" min="1" max="10000" data-ing="aantal" value="${ing?.aantal ?? 1}" />
+        </div>
+        <button class="btn btn-danger" onclick="this.closest('.ingredient-rij').remove()">Verwijderen</button>
+      </div>`;
+  }
+
+  async function laadRecepten() {
+    try {
+      receptData = await api('/api/recepten');
+      // Items zonder recept ook tonen, zodat je er een kunt aanmaken zonder
+      // eerst ergens anders iets te moeten doen.
+      const metRecept = new Map(receptData.recepten.map(r => [r.item_id, r]));
+      const alles = receptData.koopbare_items.map(i =>
+        metRecept.get(i.id) ?? { item_id: i.id, naam: i.naam, ingredienten: [] }
+      );
+
+      document.getElementById('recepten-editor').innerHTML = alles.map(r => `
+        <div class="rule-block" data-item-id="${r.item_id}">
+          <div class="rule-block-head">
+            <span>${esc(r.naam)}</span>
+            <span class="badge ${r.ingredienten.length ? '' : 'grijs'}">
+              ${r.ingredienten.length ? `${r.ingredienten.length} ingrediënt(en)` : 'geen recept'}
+            </span>
+          </div>
+          <div class="ingredienten">${r.ingredienten.map(ingredientRij).join('')}</div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="voegIngredientToe(this)">+ Ingrediënt</button>
+            <button class="btn btn-add" onclick="slaReceptOp(this)">Opslaan</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function voegIngredientToe(btn) {
+    btn.closest('.rule-block').querySelector('.ingredienten')
+      .insertAdjacentHTML('beforeend', ingredientRij(null));
+  }
+
+  function slaReceptOp(btn) {
+    const blok = btn.closest('.rule-block');
+    const itemId = blok.dataset.itemId;
+    const ingredienten = [...blok.querySelectorAll('.ingredient-rij')].map(rij => ({
+      grondstof_id: rij.querySelector('[data-ing="grondstof_id"]').value,
+      aantal: rij.querySelector('[data-ing="aantal"]').value,
+    }));
+    metKnop(btn, async () => {
+      await api(`/api/recepten/${itemId}`, {
+        method: 'POST', body: JSON.stringify({ ingredienten }),
+      });
+      await laadRecepten();
     }, blok.querySelector('.mini-status'));
   }
 

@@ -254,6 +254,34 @@ class Instelling(Base):
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
+class Recept(Base):
+    """Grondstofkosten van craftbare shop-items (2026-07-30, admin panel
+    fase 2 blok 4). Eén rij per ingrediënt, dus een item met 2 ingrediënten
+    heeft 2 rijen.
+
+    Bewust echte FK's naar `items` i.p.v. de itemnamen als string (zoals de
+    oude `RECEPT_KOSTEN`-dict in cogs/verzorging.py): dit ís een relatie
+    tussen items, de database bewaakt nu dat beide kanten bestaan, en de
+    portal kan er dropdowns voor tonen in plaats van vrije tekstvelden waar
+    je een naam in kunt typen die nergens op slaat.
+    """
+
+    __tablename__ = "recepten"
+    __table_args__ = (
+        UniqueConstraint("item_id", "grondstof_id", name="uq_recepten_item_grondstof"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Het item dat je maakt (moet een koopbaar shop-item zijn).
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    # De grondstof die het kost, en hoeveel per stuk.
+    grondstof_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="RESTRICT"))
+    aantal: Mapped[int]
+
+    item: Mapped["Item"] = relationship(foreign_keys=[item_id])
+    grondstof: Mapped["Item"] = relationship(foreign_keys=[grondstof_id])
+
+
 class WerkCyclus(Base):
     """De shift-varianten van /werk (2026-07-30, admin panel fase 2 blok 3).
 

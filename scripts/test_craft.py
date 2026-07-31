@@ -16,9 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from cogs.verzorging import RECEPT_KOSTEN, VerzorgingCog
+from cogs.verzorging import VerzorgingCog
 from db.engine import async_session
 from db.models import InventarisItem, Item, Speler
+from utils import balans
 
 SPELER = 999999999999999971
 
@@ -49,8 +50,8 @@ async def test_craft_overzicht() -> None:
     await cog.craft.callback(cog, interactie)
     embed = interactie.response.send_message.call_args.kwargs["embed"]
     veldnamen = {f.name for f in embed.fields}
-    print(f"Aantal recept-items in overzicht: {len(veldnamen)} (verwacht {len(RECEPT_KOSTEN)})")
-    assert veldnamen == set(RECEPT_KOSTEN.keys())
+    print(f"Aantal recept-items in overzicht: {len(veldnamen)} (verwacht {len(balans.recepten())})")
+    assert veldnamen == set(balans.recepten().keys())
     print("Overzicht toont alle recept-items.")
 
 
@@ -61,7 +62,7 @@ async def test_craft_lijst() -> None:
     await cog.craft_lijst.callback(cog, interactie)
     embed = interactie.response.send_message.call_args.kwargs["embed"]
     veldnamen = {f.name for f in embed.fields}
-    assert veldnamen == set(RECEPT_KOSTEN.keys())
+    assert veldnamen == set(balans.recepten().keys())
     print("/craft-lijst toont hetzelfde overzicht.")
 
 
@@ -155,6 +156,10 @@ async def test_shop_regressie() -> None:
 
 
 async def main() -> None:
+    # De recepten staan sinds fase 2 blok 4 in de database en worden via
+    # de balans-cache gelezen; zonder laad() is die leeg (bewust geen
+    # hardcoded fallback). De bot doet dit in bot.py:setup_hook.
+    await balans.laad()
     await test_craft_overzicht()
     await test_craft_lijst()
     await test_craft_onbekend_item()

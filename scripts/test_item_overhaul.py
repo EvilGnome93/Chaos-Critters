@@ -26,6 +26,7 @@ from sqlalchemy import select
 from cogs.verzorging import VerzorgingCog
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
+from utils import balans
 from utils.stats import energie_herstel_minuten, honger_verval_minuten, sync_stats, sync_stats_met_voerbak
 
 SPELER = 999999999999999941
@@ -357,6 +358,12 @@ async def test_shop_en_uitrusten() -> None:
 
 
 async def main() -> None:
+    # test_shop_en_uitrusten koopt items met een grondstof-recept; die
+    # recepten staan sinds fase 2 blok 4 in de database en worden via de
+    # balans-cache gelezen. Zonder laad() is die leeg (bewust geen hardcoded
+    # fallback) en zou de Schroot-eis stilletjes verdwijnen. De bot doet dit
+    # in bot.py:setup_hook.
+    await balans.laad()
     test_sync_stats_passief_effect()
     await test_voerbak_verbruikt_echt_voer()
     await test_shop_en_uitrusten()

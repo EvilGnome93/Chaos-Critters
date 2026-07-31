@@ -252,6 +252,73 @@ async def test_werk_cycli(client, auth) -> None:
     print("Teruggezet naar de oorspronkelijke waarden.")
 
 
+async def test_recepten(client, auth) -> None:
+    """2026-07-30, fase 2 blok 4: de grondstofkosten staan nu in een eigen
+    tabel met FK's naar items i.p.v. de hardcoded RECEPT_KOSTEN-dict."""
+    print("\n-- Recepten: lezen, valideren, opslaan + cache-invalidatie --")
+    from utils import balans
+
+    resp = await client.get("/api/recepten", headers=auth)
+    assert resp.status == 200, await resp.text()
+    data = await resp.json()
+    print(f"{len(data['recepten'])} items met recept, {len(data['grondstoffen'])} mogelijke grondstoffen")
+    assert data["recepten"], "verwacht minstens één recept"
+    assert data["grondstoffen"] and data["koopbare_items"]
+
+    token = next(r for r in data["recepten"] if r["naam"] == "Extra match token")
+    origineel = [
+        {"grondstof_id": i["grondstof_id"], "aantal": i["aantal"]} for i in token["ingredienten"]
+    ]
+    item_id = token["item_id"]
+    grondstof_id = origineel[0]["grondstof_id"]
+    print(f"Extra match token heeft {len(origineel)} ingrediënten")
+
+    onzin = [
+        ({"ingredienten": [{"grondstof_id": grondstof_id, "aantal": 0}]}, "aantal 0"),
+        ({"ingredienten": [{"grondstof_id": 999999, "aantal": 1}]}, "onbekende grondstof"),
+        ({"ingredienten": [{"grondstof_id": item_id, "aantal": 1}]}, "item als eigen ingrediënt"),
+        (
+            {"ingredienten": [
+                {"grondstof_id": grondstof_id, "aantal": 1},
+                {"grondstof_id": grondstof_id, "aantal": 2},
+            ]},
+            "dezelfde grondstof twee keer",
+        ),
+        ({"ingredienten": "geen lijst"}, "ingredienten is geen lijst"),
+    ]
+    for body, beschrijving in onzin:
+        resp = await client.post(f"/api/recepten/{item_id}", headers=auth, json=body)
+        assert resp.status == 400, f"{beschrijving} werd geaccepteerd ({resp.status})!"
+        print(f"  geweigerd ({beschrijving}): {(await resp.json())['error']}")
+
+    # Echte wijziging: recept vervangen door 1 ingrediënt, en controleren dat
+    # balans.recepten() dat meteen ziet (endpoint roept balans.laad() aan).
+    await balans.laad()
+    resp = await client.post(
+        f"/api/recepten/{item_id}",
+        headers=auth,
+        json={"ingredienten": [{"grondstof_id": grondstof_id, "aantal": 7}]},
+    )
+    assert resp.status == 200, await resp.text()
+    na = balans.recepten()["Extra match token"]
+    print(f"Recept na wijziging: {na}")
+    assert len(na) == 1 and na[0][1] == 7, "cache is niet geïnvalideerd na het opslaan"
+
+    # Leeg recept mag: "dit item kost geen grondstoffen meer".
+    resp = await client.post(f"/api/recepten/{item_id}", headers=auth, json={"ingredienten": []})
+    assert resp.status == 200
+    assert "Extra match token" not in balans.recepten()
+    print("Leeg recept opslaan werkt (item kost dan alleen Chaos Coins).")
+
+    resp = await client.post(
+        f"/api/recepten/{item_id}", headers=auth, json={"ingredienten": origineel}
+    )
+    assert resp.status == 200
+    hersteld = balans.recepten()["Extra match token"]
+    assert sorted(hersteld) == sorted([("Maanschijnkristal", 30), ("Edelsteen", 2)]), hersteld
+    print("Teruggezet naar het oorspronkelijke recept.")
+
+
 async def test_soorten_crud(client, auth) -> None:
     print("\n-- Pet-soorten: toevoegen, bewerken, verwijderen --")
     resp = await client.get("/api/soorten", headers=auth)
@@ -489,8 +556,8 @@ async def test_alleen_lezen_toegang(client, auth, auth_lid) -> None:
     print("verify() geeft het juiste is_admin-onderscheid terug.")
 
     open_voor_iedereen = (
-        "/api/instellingen", "/api/items", "/api/werkplekken", "/api/werk-cycli", "/api/tiers",
-        "/api/soorten", "/api/clans", "/api/statistieken",
+        "/api/instellingen", "/api/items", "/api/werkplekken", "/api/werk-cycli", "/api/recepten",
+        "/api/tiers", "/api/soorten", "/api/clans", "/api/statistieken",
     )
     for pad in open_voor_iedereen:
         resp = await client.get(pad, headers=auth_lid)
@@ -514,6 +581,7 @@ async def test_alleen_lezen_toegang(client, auth, auth_lid) -> None:
         ("post", f"/api/items/{item_id}", {"prijs": 1, "beschrijving": "x"}),
         ("post", "/api/soorten", {"naam": "should-not-exist"}),
         ("post", "/api/werk-cycli/korte", {"label": "X", "duur_uren": 1, "energie_kost": 1, "output_multiplier": 1}),
+        ("post", f"/api/recepten/{item_id}", {"ingredienten": []}),
         ("delete", f"/api/soorten/{item_id}", None),
         ("delete", f"/api/clans/{item_id}", None),
     ]
@@ -550,6 +618,7 @@ async def main() -> None:
         await test_verify_en_instellingen(client, auth)
         await test_validatie(client, auth)
         await test_werk_cycli(client, auth)
+        await test_recepten(client, auth)
         await test_soorten_crud(client, auth)
         await test_spelerbeheer(client, auth)
         await test_kanalen(client, auth, bot)

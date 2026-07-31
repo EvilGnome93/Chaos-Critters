@@ -17,7 +17,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from db.engine import async_session
-from db.models import Element, Instelling, Item, ItemType, PetSoort, Tier, Werkplek, WerkCyclus
+from db.models import Element, Instelling, Item, ItemType, PetSoort, Recept, Tier, Werkplek, WerkCyclus
 
 # Kwalitatieve schaal -> placeholder-getal, later bij te stellen via admin panel.
 ZEER_LAAG, LAAG, GEMIDDELD, HOOG, ZEER_HOOG, HOOGSTE = 10, 20, 40, 60, 80, 95
@@ -425,6 +425,29 @@ WERKPLEK_BONUS_OPBRENGSTEN = {
     "Mijnschacht": "Edelsteen",
 }
 
+# Grondstofkosten bovenop de Chaos Coins-prijs, per craftbaar item
+# (2026-07-30, admin panel fase 2 blok 4: waren de hardcoded RECEPT_KOSTEN-
+# dict in cogs/verzorging.py, staan nu in de `recepten`-tabel met FK's).
+# Ook al ingevoegd door migratie 584df3c7d2a4 — hier voor een verse database.
+#
+# Balans-achtergrond (2026-07-28, audit): elk recept vereist minstens 2
+# verschillende grondstoffen uit 2 verschillende werkplekken.
+# Hoofdgrondstoffen (gegarandeerd per shift) zijn de belangrijkste knop en
+# dus fors hoger; bonus-grondstoffen (25%-kans per shift) blijven bewust
+# klein, want die zijn door hun zeldzaamheid al traag genoeg.
+RECEPTEN = {
+    "Graanvrije premium voeding": [("Groente", 12), ("Water", 1)],
+    "Vers vlees/vis": [("Algen", 15), ("Takken", 8)],
+    "Mysterie voedselzak": [("Fruit", 1), ("Bladeren", 1)],
+    "Naamkaartje": [("Takken", 15), ("Spijker", 1)],
+    "Focus drankje": [("Bladeren", 2), ("Edelsteen", 1)],
+    "Werk-elixer": [("Erts", 12), ("Spijker", 2)],
+    "Extra match token": [("Maanschijnkristal", 30), ("Edelsteen", 2)],
+    "Simpele voerbak": [("Water", 2), ("Fruit", 2)],
+    "Slimme voerbak": [("Schroot", 40), ("Erts", 20)],
+    "Zelfreinigend systeem": [("Sterrenstof", 3), ("Schroot", 20)],
+}
+
 INSTELLINGEN = [
     # LET OP: nog niet geïmplementeerd — cogs/vangen.py leest deze waarde
     # nergens, dus er is op dit moment geen vang-cooldown. De brief (sectie 1)
@@ -567,6 +590,26 @@ async def seed() -> None:
                 update(Werkplek)
                 .where(Werkplek.type == werkplek_naam)
                 .values(opbrengst_item_2_id=item_ids[item_naam])
+            )
+
+        # Recepten (2026-07-30, admin panel fase 2 blok 4: waren de hardcoded
+        # RECEPT_KOSTEN-dict in cogs/verzorging.py). ON CONFLICT DO NOTHING op
+        # (item, grondstof), dus een via de portal aangepast aantal blijft bij
+        # een herrun staan — net als bij de andere seed-data.
+        recept_rows = [
+            {
+                "item_id": item_ids[item_naam],
+                "grondstof_id": item_ids[grondstof_naam],
+                "aantal": aantal,
+            }
+            for item_naam, ingredienten in RECEPTEN.items()
+            for grondstof_naam, aantal in ingredienten
+            if item_naam in item_ids and grondstof_naam in item_ids
+        ]
+        if recept_rows:
+            await session.execute(
+                insert(Recept).on_conflict_do_nothing(index_elements=["item_id", "grondstof_id"]),
+                recept_rows,
             )
 
         instelling_rows = [

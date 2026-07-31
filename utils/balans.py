@@ -24,12 +24,13 @@ from sqlalchemy import select
 
 import config
 from db.engine import async_session
-from db.models import Instelling, WerkCyclus
+from db.models import Instelling, Item, Recept, WerkCyclus
 
 log = logging.getLogger("chaos_critters")
 
 _cache: dict[str, str] = {}
 _werk_cycli_cache: list[WerkCyclus] = []
+_recepten_cache: dict[str, list[tuple[str, int]]] = {}
 
 
 @dataclass(frozen=True)
@@ -65,16 +66,51 @@ _STANDAARD_CYCLI = [
 async def laad() -> None:
     """(Her)laadt alle balansdata in het geheugen. Aangeroepen bij het
     opstarten van de bot, en door de portal na elke wijziging."""
-    global _cache, _werk_cycli_cache
+    global _cache, _werk_cycli_cache, _recepten_cache
     async with async_session() as session:
         rijen = (await session.execute(select(Instelling))).scalars().all()
         cycli = (
             await session.execute(select(WerkCyclus).order_by(WerkCyclus.volgorde))
         ).scalars().all()
+        # Recepten meteen platslaan naar itemnaam -> [(grondstofnaam, aantal)],
+        # zodat aanroepers geen extra queries of joins nodig hebben (de
+        # aanroepende code werkt van oudsher met namen, niet met item-ID's).
+        item_naam = Item.__table__.alias("item_naam")
+        grondstof_naam = Item.__table__.alias("grondstof_naam")
+        recept_rijen = (
+            await session.execute(
+                select(item_naam.c.naam, grondstof_naam.c.naam, Recept.aantal)
+                .join(item_naam, Recept.item_id == item_naam.c.id)
+                .join(grondstof_naam, Recept.grondstof_id == grondstof_naam.c.id)
+                .order_by(item_naam.c.naam, Recept.id)
+            )
+        ).all()
         session.expunge_all()
+
     _cache = {rij.sleutel: rij.waarde for rij in rijen}
     _werk_cycli_cache = list(cycli)
-    log.info("Balans-cache geladen: %d waarden, %d werk-cycli", len(_cache), len(_werk_cycli_cache))
+
+    recepten: dict[str, list[tuple[str, int]]] = {}
+    for item, grondstof, aantal in recept_rijen:
+        recepten.setdefault(item, []).append((grondstof, aantal))
+    _recepten_cache = recepten
+
+    log.info(
+        "Balans-cache geladen: %d waarden, %d werk-cycli, %d recepten",
+        len(_cache), len(_werk_cycli_cache), len(_recepten_cache),
+    )
+
+
+def recepten() -> dict[str, list[tuple[str, int]]]:
+    """itemnaam -> [(grondstofnaam, aantal per stuk)]. Was tot 2026-07-30 de
+    hardcoded `RECEPT_KOSTEN`-dict in cogs/verzorging.py.
+
+    Geen fallback naar hardcoded waarden zoals bij de werk-cycli: een lege
+    recepten-tabel betekent hier "geen enkel item kost grondstoffen", wat
+    zichtbaar is (items worden gratis buiten hun Chaos Coins-prijs) en
+    herstelbaar via de portal. Stilletjes terugvallen op oude waarden zou
+    juist verwarrend zijn als iemand bewust een recept weghaalt."""
+    return _recepten_cache
 
 
 def _bouw_cyclus(label: str, echte_duur: float, energie_kost: int, output_multiplier: float) -> Cyclus:

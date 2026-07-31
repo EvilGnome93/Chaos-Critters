@@ -17,9 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import select
 
-from cogs.verzorging import RECEPT_KOSTEN, VerzorgingCog
+from cogs.verzorging import VerzorgingCog
 from db.engine import async_session
 from db.models import InventarisItem, Item, ItemType, Speler
+from utils import balans
 
 SPELER = 999999999999999951
 
@@ -33,7 +34,7 @@ def fake_interaction(user_id: int) -> MagicMock:
 
 def test_alle_grondstoffen_hebben_een_recept() -> None:
     print("-- Alle 12 grondstof/materiaal-items hebben nu minstens 1 recept --")
-    gebruikte_grondstoffen = {naam for recept in RECEPT_KOSTEN.values() for naam, _ in recept}
+    gebruikte_grondstoffen = {naam for recept in balans.recepten().values() for naam, _ in recept}
     verwacht = {
         "Groente", "Algen", "Schroot", "Takken", "Maanschijnkristal", "Erts",
         "Fruit", "Water", "Spijker", "Bladeren", "Sterrenstof", "Edelsteen",
@@ -105,11 +106,17 @@ async def test_extra_match_token_prijs_en_recept() -> None:
         print(f"Huidige prijs: {token.prijs} (verwacht 150)")
         assert token.prijs == 150
         assert token.type == ItemType.boost
-    assert RECEPT_KOSTEN["Extra match token"] == [("Maanschijnkristal", 30), ("Edelsteen", 2)]
+    assert sorted(balans.recepten()["Extra match token"]) == sorted(
+        [("Maanschijnkristal", 30), ("Edelsteen", 2)]
+    )
     print("Prijs en recept kloppen.")
 
 
 async def main() -> None:
+    # De recepten staan sinds fase 2 blok 4 in de database en worden via de
+    # balans-cache gelezen; zonder laad() is die leeg (bewust geen hardcoded
+    # fallback). De bot doet dit in bot.py:setup_hook.
+    await balans.laad()
     test_alle_grondstoffen_hebben_een_recept()
     await test_multi_ingredient_recept()
     await test_extra_match_token_prijs_en_recept()

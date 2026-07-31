@@ -332,6 +332,26 @@ Het lastigste geval uit het fase 2-plan, precies om de voorspelde redenen. `WERK
 
 **Nog open van fase 2**: blok 4 (`RECEPT_KOSTEN`, eigen tabel met FK's naar items) en blok 5 (`TACTIEK_VARIANTIE` + de voer-effecten).
 
+## Pet-soort Faisant hernoemd naar Fazant (2026-07-30, verzoek van de gebruiker)
+
+Spelfout. Gedaan als **migratie** (`387e1c3602fe`) i.p.v. handmatig in de database zoals bij eerdere hernoemingen (Lemuur → Maki), zodat het ook vanzelf op productie landt bij de eerstvolgende deploy — de bot draait bij opstart wel migraties maar niet `scripts/seed.py`.
+
+Moest een `UPDATE` zijn en geen "verwijderen + opnieuw seeden": `seed.py` gebruikt `INSERT ... ON CONFLICT DO NOTHING` op `naam`, dus alleen de seed bijwerken zou de oude rij laten staan én een tweede rij "Fazant" toevoegen. De afbeelding is meegehernoemd (`docs/assets/faisant.png` → `fazant.png`) en de migratie werkt `afbeelding_url` mee bij. Bewust in die volgorde gecommit: het plaatje stond op GitHub vóórdat de nieuwe URL ergens gekoppeld werd, want Discord's media-proxy cachet ook mislukte fetches per exacte URL. Beide branches (`dev` en `main`) geverifieerd met een HTTP-check: nieuwe URL 200, oude 404. Nul gevangen exemplaren op het moment van hernoemen.
+
+## Admin panel fase 2, blok 4: RECEPT_KOSTEN naar een eigen tabel (2026-07-30)
+
+Nieuwe `recepten`-tabel (migratie `584df3c7d2a4`): één rij per ingrediënt, met **echte FK's** naar `items` voor zowel het te maken item als de grondstof (`ondelete=CASCADE` resp. `RESTRICT`), plus een unieke constraint op (item, grondstof). Dat was het advies uit het fase 2-plan en het is hier duidelijk beter dan platte sleutels: dit ís een relatie tussen items, de database bewaakt nu dat beide kanten bestaan, en de portal kan dropdowns tonen in plaats van vrije tekstvelden waar je een naam in kunt typen die nergens op slaat. De migratie zet de 10 bestaande recepten (20 ingrediënt-rijen) meteen over door op naam op te zoeken; ontbrekende namen worden overgeslagen i.p.v. de migratie te laten crashen (een ontbrekend recept is herstelbaar via de portal, een gecrashte migratie betekent dat de bot niet opstart).
+
+`balans.laad()` cachet de recepten platgeslagen als `itemnaam -> [(grondstofnaam, aantal)]`, precies de vorm die de oude `RECEPT_KOSTEN`-dict had — zo hoefden de call-sites in `cogs/verzorging.py` alleen van `RECEPT_KOSTEN` naar `balans.recepten()` te veranderen, zonder verdere herschrijving.
+
+**Bewust géén hardcoded fallback** (anders dan bij de werk-cycli): een lege recepten-tabel betekent hier "geen enkel item kost grondstoffen", wat zichtbaar is en herstelbaar via de portal. Stilletjes terugvallen op oude waarden zou juist verwarrend zijn als iemand bewust een recept weghaalt. **Gevolg voor de tests**: vier testscripts moesten expliciet `balans.laad()` gaan aanroepen. `test_item_overhaul.py` viel hier ook echt over — die controleert dat een Slimme voerbak Schroot vereist, en zonder geladen cache verdween die eis stilletjes. Precies de faalmodus die deze keuze zichtbaar maakt.
+
+**Portal**: nieuwe tab "Recepten" met `GET /api/recepten` (leesbaar voor elk ingelogd lid) en `POST /api/recepten/{item_id}` (admin-only). De POST vervangt het volledige recept in één keer (delete + insert) i.p.v. per ingrediënt te patchen — een recept is een geheel, en zo zijn er geen losse toevoeg-/verwijder-endpoints nodig. Ook items zónder recept worden getoond, zodat je er een kunt aanmaken. Validatie weigert: aantal buiten 1..10.000, onbekende grondstof, een item dat zichzelf als ingrediënt heeft, en dezelfde grondstof twee keer in één recept.
+
+Getest via een nieuwe `test_recepten()` in `scripts/test_portal.py`: lezen, alle vijf validatiegevallen, een echte wijziging met verificatie dat `balans.recepten()` die meteen ziet, en een leeg recept opslaan (item kost dan alleen Chaos Coins). Volledige suite (16 scripts) groen.
+
+**Nog open van fase 2**: alleen blok 5 (`TACTIEK_VARIANTIE` + de voer-effecten `HONGER_HERSTEL_WAARDEN`/`VOLLEDIG_HERSTEL_ITEMS`/`VOERBAK_ITEMS_PER_NIVEAU`).
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

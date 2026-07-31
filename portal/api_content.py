@@ -4,11 +4,13 @@ tiers, pet-soorten en kanalen.
 Wat wél en niet aanpasbaar is, is een bewuste keuze (2026-07-29). Een aantal
 namen staat hardcoded in de botcode en zou bij hernoemen stille bugs geven:
 
-- **Item-namen**: alle 16 komen als string terug in `RECEPT_KOSTEN`
-  (cogs/verzorging.py), `HONGER_HERSTEL_WAARDEN`/`VOERBAK_ITEMS_PER_NIVEAU`
-  (utils/stats.py), `VOERBAK_NIVEAUS`, en de Extra match token-lookup in
-  cogs/gevechten.py. Daarom zijn naam en type read-only en kan je geen items
-  toevoegen/verwijderen — alleen prijs en beschrijving.
+- **Item-namen**: komen als string terug in `HONGER_HERSTEL_WAARDEN`/
+  `VOERBAK_ITEMS_PER_NIVEAU` (utils/stats.py), `VOERBAK_NIVEAUS`
+  (cogs/verzorging.py) en de Extra match token-lookup in cogs/gevechten.py.
+  Daarom zijn naam en type read-only en kan je geen items toevoegen/
+  verwijderen — alleen prijs en beschrijving. (De recept-kosten hingen hier
+  ook aan, maar die gebruiken sinds 2026-07-30 echte FK's; zie de
+  `recepten`-tabel en de endpoints hieronder.)
 - **Werkplek-type**: de `/werk`-keuzelijst is een hardcoded
   `app_commands.Choice`-lijst, dus een nieuwe of hernoemde werkplek zou
   onbereikbaar zijn. Type read-only, geen toevoegen/verwijderen.
@@ -32,6 +34,7 @@ from db.models import (
     ItemType,
     LogChannel,
     PetSoort,
+    Recept,
     SpawnKanaal,
     Tier,
     WerkCyclus,
@@ -156,6 +159,100 @@ async def item_opslaan(request: web.Request) -> web.Response:
         naam = item.naam
 
     log.info("Portal: item '%s' bijgewerkt (prijs %s)", naam, prijs)
+    return web.json_response({"ok": True})
+
+
+# ── Recepten (grondstofkosten per craftbaar item) ───────────────────────────
+
+async def recepten_ophalen(request: web.Request) -> web.Response:
+    async with async_session() as session:
+        item_naam = Item.__table__.alias("item_naam")
+        grondstof_naam = Item.__table__.alias("grondstof_naam")
+        rijen = (
+            await session.execute(
+                select(
+                    Recept.id, Recept.item_id, item_naam.c.naam,
+                    Recept.grondstof_id, grondstof_naam.c.naam, Recept.aantal,
+                )
+                .join(item_naam, Recept.item_id == item_naam.c.id)
+                .join(grondstof_naam, Recept.grondstof_id == grondstof_naam.c.id)
+                .order_by(item_naam.c.naam, Recept.id)
+            )
+        ).all()
+
+        # Alles wat als ingrediënt kan dienen (voor de dropdowns), en alle
+        # koopbare items (om een recept aan te hangen).
+        grondstoffen = (
+            await session.execute(
+                select(Item)
+                .where(Item.type.in_([ItemType.grondstof, ItemType.materiaal]))
+                .order_by(Item.naam)
+            )
+        ).scalars().all()
+        koopbaar = (
+            await session.execute(select(Item).where(Item.prijs > 0).order_by(Item.naam))
+        ).scalars().all()
+
+    per_item: dict[int, dict] = {}
+    for recept_id, item_id, item_nm, grondstof_id, grondstof_nm, aantal in rijen:
+        blok = per_item.setdefault(item_id, {"item_id": item_id, "naam": item_nm, "ingredienten": []})
+        blok["ingredienten"].append(
+            {"id": recept_id, "grondstof_id": grondstof_id, "naam": grondstof_nm, "aantal": aantal}
+        )
+
+    return web.json_response(
+        {
+            "recepten": list(per_item.values()),
+            "grondstoffen": [{"id": i.id, "naam": i.naam} for i in grondstoffen],
+            "koopbare_items": [{"id": i.id, "naam": i.naam} for i in koopbaar],
+        }
+    )
+
+
+async def recept_opslaan(request: web.Request) -> web.Response:
+    """POST /api/recepten/{item_id} — body: {"ingredienten": [{grondstof_id, aantal}, ...]}.
+
+    Vervangt het volledige recept van dit item in één keer (delete + insert)
+    i.p.v. per ingrediënt te patchen: een recept is een geheel, en zo kan de
+    portal gewoon de hele rij-set posten zonder losse toevoeg-/verwijder-
+    endpoints. Een lege lijst betekent "dit item kost geen grondstoffen meer"."""
+    item_id = int(request.match_info["item_id"])
+    data = await request.json()
+    ruwe_ingredienten = data.get("ingredienten")
+    if not isinstance(ruwe_ingredienten, list):
+        raise ValidatieFout("'ingredienten' moet een lijst zijn")
+
+    async with async_session() as session:
+        item = await session.get(Item, item_id)
+        if item is None:
+            raise ValidatieFout("item bestaat niet")
+
+        gezien: set[int] = set()
+        nieuw: list[Recept] = []
+        for index, ruw in enumerate(ruwe_ingredienten):
+            if not isinstance(ruw, dict):
+                raise ValidatieFout(f"ingrediënt {index + 1} is geen object")
+            grondstof_id = int(ruw.get("grondstof_id") or 0)
+            aantal = _getal(ruw, "aantal", minimum=1, maximum=10_000, heel=True)
+
+            grondstof = await session.get(Item, grondstof_id)
+            if grondstof is None:
+                raise ValidatieFout(f"grondstof {grondstof_id} bestaat niet")
+            if grondstof_id == item_id:
+                raise ValidatieFout(f"**{item.naam}** kan zichzelf niet als ingrediënt hebben")
+            if grondstof_id in gezien:
+                raise ValidatieFout(f"**{grondstof.naam}** staat er twee keer in; tel ze samen op")
+            gezien.add(grondstof_id)
+            nieuw.append(Recept(item_id=item_id, grondstof_id=grondstof_id, aantal=aantal))
+
+        await session.execute(delete(Recept).where(Recept.item_id == item_id))
+        for rij in nieuw:
+            session.add(rij)
+        await session.commit()
+        item_naam = item.naam
+
+    await balans.laad()
+    log.info("Portal: recept voor '%s' bijgewerkt (%d ingrediënten)", item_naam, len(nieuw))
     return web.json_response({"ok": True})
 
 
@@ -599,6 +696,9 @@ def routes_toevoegen(app: web.Application) -> None:
 
     app.router.add_get("/api/items", items_ophalen)
     app.router.add_post("/api/items/{id}", auth.vereist_admin(item_opslaan))
+
+    app.router.add_get("/api/recepten", recepten_ophalen)
+    app.router.add_post("/api/recepten/{item_id}", auth.vereist_admin(recept_opslaan))
 
     app.router.add_get("/api/werk-cycli", werk_cycli_ophalen)
     app.router.add_post("/api/werk-cycli/{sleutel}", auth.vereist_admin(werk_cyclus_opslaan))
