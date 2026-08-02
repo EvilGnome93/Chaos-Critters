@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 import config
 from db.engine import async_session
-from db.models import Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
+from db.models import ActieveSpawn, Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log
 
@@ -67,6 +67,17 @@ def _met_variantie(basis: float) -> float:
 def _primaire_naam(naam: str) -> str:
     """'Hond (Zwerfhond)' -> 'Hond'; namen zonder haakjes blijven ongewijzigd."""
     return naam.split(" (")[0]
+
+
+def _spawn_embed(soort: PetSoort, tier: Tier) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"🐾 Een wilde {soort.naam} verschijnt!",
+        description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
+        color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
+    )
+    embed.set_footer(text=f"Tier: {tier.naam} - critters.casualchaos.nl")
+    embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
+    return embed
 
 
 def _matcht(naam: str, soort: PetSoort) -> bool:
@@ -135,7 +146,47 @@ async def _voeg_spawn_kanaal_toe(guild_id: int, channel_id: int) -> None:
 async def _verwijder_spawn_kanaal(channel_id: int) -> None:
     async with async_session() as session:
         await session.execute(delete(SpawnKanaal).where(SpawnKanaal.channel_id == channel_id))
+        # Een niet meer bestaand spawn-kanaal hoort ook geen actieve spawn
+        # meer te hebben; anders blijft die rij eeuwig staan.
+        await session.execute(delete(ActieveSpawn).where(ActieveSpawn.channel_id == channel_id))
         await session.commit()
+
+
+# ── Actieve spawn bewaren (2026-07-30, verzoek van de gebruiker) ────────────
+# De actieve spawn per kanaal stond alleen in het geheugen, dus een redeploy
+# maakte elke lopende spawn onvangbaar: de embed bleef staan maar /vang zei
+# "geen spawn actief". Nu spiegelt de database de in-memory dict, zodat een
+# herstart 'm gewoon weer oppakt.
+
+
+async def _bewaar_actieve_spawn(channel_id: int, guild_id: int, soort_id: int, message_id: int) -> None:
+    async with async_session() as session:
+        stmt = insert(ActieveSpawn).values(
+            channel_id=channel_id, guild_id=guild_id, soort_id=soort_id, message_id=message_id
+        )
+        # Eén actieve spawn per kanaal: een nieuwe vervangt de oude.
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["channel_id"],
+            set_={"soort_id": soort_id, "message_id": message_id, "guild_id": guild_id},
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def _wis_actieve_spawn(channel_id: int) -> None:
+    async with async_session() as session:
+        await session.execute(delete(ActieveSpawn).where(ActieveSpawn.channel_id == channel_id))
+        await session.commit()
+
+
+async def _laad_actieve_spawns() -> dict[int, tuple[PetSoort, int]]:
+    """channel_id -> (soort, message_id), voor het herstellen na een herstart."""
+    async with async_session() as session:
+        rijen = (
+            await session.execute(select(ActieveSpawn, PetSoort).join(PetSoort, ActieveSpawn.soort_id == PetSoort.id))
+        ).all()
+        session.expunge_all()
+    return {spawn.channel_id: (soort, spawn.message_id) for spawn, soort in rijen}
 
 
 class VangenCog(commands.Cog):
@@ -148,7 +199,10 @@ class VangenCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.actieve_spawns: dict[int, tuple[PetSoort, discord.Message]] = {}
+        # channel_id -> (soort, message_id). Bewust het message-ID i.p.v. een
+        # discord.Message: na een herstart hebben we alleen het ID uit de
+        # database, en om de embed bij te werken is een PartialMessage genoeg.
+        self.actieve_spawns: dict[int, tuple[PetSoort, int]] = {}
         self.berichten_tellers: dict[int, int] = {}
         self.drempels: dict[int, int] = {}
         self.spawn_kanaal_ids: set[int] = set()
@@ -159,6 +213,12 @@ class VangenCog(commands.Cog):
         for channel_id in await _laad_spawn_kanaal_ids():
             self.spawn_kanaal_ids.add(channel_id)
             self._start_tijd_trigger(channel_id)
+
+        # Spawns van vóór de herstart weer oppakken, zodat een redeploy geen
+        # onvangbare pet achterlaat (2026-07-30, verzoek van de gebruiker).
+        self.actieve_spawns = await _laad_actieve_spawns()
+        if self.actieve_spawns:
+            log.info("%d actieve spawn(s) hersteld na herstart", len(self.actieve_spawns))
 
     async def cog_unload(self) -> None:
         for taak in self.tijd_taken.values():
@@ -209,38 +269,64 @@ class VangenCog(commands.Cog):
         async with self._lock_voor(channel.id):
             vorige = self.actieve_spawns.get(channel.id)
             if vorige is not None:
-                oude_soort, oud_bericht = vorige
-                await self._markeer_verlopen(oud_bericht, oude_soort)
+                oude_soort, oud_message_id = vorige
+                await self._markeer_verlopen(channel.id, oud_message_id, oude_soort)
 
-            embed = discord.Embed(
-                title=f"🐾 Een wilde {soort.naam} verschijnt!",
-                description=f"Typ `/vang {_primaire_naam(soort.naam)}` om 'm te vangen.",
-                color=TIER_KLEUREN.get(tier.id, discord.Color.default().value),
-            )
-            embed.set_footer(text=f"Tier: {tier.naam} - critters.casualchaos.nl")
-            embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
+            embed = _spawn_embed(soort, tier)
             bericht = await channel.send(embed=embed)
-            self.actieve_spawns[channel.id] = (soort, bericht)
+            self.actieve_spawns[channel.id] = (soort, bericht.id)
+            guild_id = getattr(getattr(channel, "guild", None), "id", 0)
+            await _bewaar_actieve_spawn(channel.id, guild_id, soort.id, bericht.id)
 
-    async def _markeer_verlopen(self, bericht: discord.Message, soort: PetSoort) -> None:
-        embed = bericht.embeds[0] if bericht.embeds else discord.Embed(title=soort.naam)
-        embed.title = f"💨 {soort.naam} is ontsnapt!"
-        embed.description = "Niemand ving deze op tijd, er is een nieuwe spawn verschenen."
+    def _partial_bericht(self, channel_id: int, message_id: int) -> discord.PartialMessage | None:
+        """Genoeg om een bestaand spawn-bericht bij te werken, zonder het
+        eerst op te halen. Na een herstart hebben we alleen het ID, dus dit
+        is ook het enige wat dan werkt."""
+        kanaal = self.bot.get_channel(channel_id)
+        if kanaal is None or not hasattr(kanaal, "get_partial_message"):
+            return None
+        return kanaal.get_partial_message(message_id)
+
+    async def _werk_spawn_embed_bij(
+        self, channel_id: int, message_id: int, soort: PetSoort, titel: str, beschrijving: str, wat: str
+    ) -> None:
+        """Bouwt de embed opnieuw op i.p.v. de bestaande aan te passen: na een
+        herstart hebben we geen `discord.Message` meer met `.embeds`, alleen
+        een ID. Alles wat we nodig hebben (naam, tier-kleur, afbeelding) staat
+        toch al op de soort."""
+        bericht = self._partial_bericht(channel_id, message_id)
+        if bericht is None:
+            log.warning("Kon kanaal %s niet vinden om spawn-bericht bij te werken (%s)", channel_id, wat)
+            return
+
+        embed = discord.Embed(
+            title=titel,
+            description=beschrijving,
+            color=TIER_KLEUREN.get(soort.tier_id, discord.Color.default().value),
+        )
+        embed.set_image(url=soort.afbeelding_url or PLACEHOLDER_AFBEELDING)
         try:
             await bericht.edit(embed=embed)
         except discord.HTTPException as e:
-            log.warning("Kon oud spawn-bericht niet als verlopen markeren: %s", e)
+            log.warning("Kon spawn-bericht niet bijwerken (%s): %s", wat, e)
+
+    async def _markeer_verlopen(self, channel_id: int, message_id: int, soort: PetSoort) -> None:
+        await self._werk_spawn_embed_bij(
+            channel_id, message_id, soort,
+            f"💨 {soort.naam} is ontsnapt!",
+            "Niemand ving deze op tijd, er is een nieuwe spawn verschenen.",
+            "verlopen",
+        )
 
     async def _markeer_gevangen(
-        self, bericht: discord.Message, soort: PetSoort, vanger: discord.abc.User, pet_id: int
+        self, channel_id: int, message_id: int, soort: PetSoort, vanger: discord.abc.User, pet_id: int
     ) -> None:
-        embed = bericht.embeds[0] if bericht.embeds else discord.Embed(title=soort.naam)
-        embed.title = f"✅ {soort.naam} gevangen!"
-        embed.description = f"Gevangen door {vanger.mention} (pet #{pet_id})"
-        try:
-            await bericht.edit(embed=embed)
-        except discord.HTTPException as e:
-            log.warning("Kon spawn-bericht niet bijwerken na vangst: %s", e)
+        await self._werk_spawn_embed_bij(
+            channel_id, message_id, soort,
+            f"✅ {soort.naam} gevangen!",
+            f"Gevangen door {vanger.mention} (pet #{pet_id})",
+            "gevangen",
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -269,7 +355,7 @@ class VangenCog(commands.Cog):
                 "Er is nu niets te vangen in dit kanaal.", ephemeral=True
             )
             return
-        soort, bericht = actief
+        soort, message_id = actief
 
         if not _matcht(naam, soort):
             self.actieve_spawns[interaction.channel_id] = actief
@@ -300,7 +386,10 @@ class VangenCog(commands.Cog):
             await session.commit()
             await session.refresh(huisdier)
 
-        await self._markeer_gevangen(bericht, soort, interaction.user, huisdier.volgnummer)
+        await _wis_actieve_spawn(interaction.channel_id)
+        await self._markeer_gevangen(
+            interaction.channel_id, message_id, soort, interaction.user, huisdier.volgnummer
+        )
         await interaction.response.defer(ephemeral=True)
         await interaction.delete_original_response()
         await send_log(

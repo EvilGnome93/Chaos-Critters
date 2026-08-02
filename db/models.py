@@ -327,6 +327,32 @@ class LogChannel(Base):
     channel_id: Mapped[int] = mapped_column(BigInteger)
 
 
+class ActieveSpawn(Base):
+    """De pet die op dit moment te vangen is in een kanaal (2026-07-30,
+    verzoek van de gebruiker).
+
+    Stond tot nu toe alleen in het geheugen (`VangenCog.actieve_spawns`),
+    waardoor een redeploy elke lopende spawn onvangbaar maakte: de embed
+    bleef in Discord staan, maar `/vang` antwoordde "geen spawn actief".
+
+    `channel_id` is de primary key: per kanaal is er hooguit één actieve
+    spawn tegelijk (een nieuwe spawn vervangt de oude). `message_id` is
+    genoeg om het bestaande bericht later bij te werken — via
+    `channel.get_partial_message()` hoeft het niet eerst opgehaald te
+    worden.
+    """
+
+    __tablename__ = "actieve_spawns"
+
+    channel_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    guild_id: Mapped[int] = mapped_column(BigInteger)
+    soort_id: Mapped[int] = mapped_column(ForeignKey("pet_soorten.id", ondelete="CASCADE"))
+    message_id: Mapped[int] = mapped_column(BigInteger)
+    aangemaakt_op: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    soort: Mapped["PetSoort"] = relationship()
+
+
 class SpawnKanaal(Base):
     """Kanalen waar pets automatisch kunnen spawnen. Meerdere kanalen per
     server zijn toegestaan. Zie projectbrief sectie 8."""
