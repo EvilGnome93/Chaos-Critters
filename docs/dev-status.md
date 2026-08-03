@@ -60,8 +60,8 @@ Het verzorgingssysteem, het level-up systeem, team & gevechten, trading, /releas
 
 **Doorlopend, geen afvinkbaar punt**: nieuwe pet-soorten blijven erbij komen naast het onderstaande werk — dat is nooit "klaar".
 
-1. **Admin panel fase 2: balansconstanten naar de database** (2026-07-29, bewust gefaseerd op keuze van de gebruiker). Fase 1 (alles wat al in de database stond) is af — zie "Wat werkt". Wat nog hardcoded is (~27 losse getallen + ~40 in gestructureerde vorm), waar het staat, het aanpak-advies en een volgorde-voorstel: zie **"Voorbereiding volgende sessie: Admin panel fase 2"** hieronder — daar staat de volledige, geverifieerde inventaris met bestand + regelnummer.
-3. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **lange termijn, verzet naar achteraan** (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150).
+1. ~~**Admin panel fase 2: balansconstanten naar de database**~~ **Afgerond op 2026-07-30** (blok 1 t/m 5, zie de blok-secties verderop). Alle balansconstanten uit de inventaris staan nu in de database en zijn via de portal aanpasbaar zonder deploy. De inventaris onder "Voorbereiding volgende sessie" blijft staan als historie/naslag, maar is geen openstaand werk meer.
+2. **Fokken/breeding** (`cogs/fokken.py` is placeholder) — **het enige nog openstaande punt.** Lange termijn, verzet naar achteraan (2026-07-26, verzoek van de gebruiker: pas echt interessant vanaf 250 pet-soorten; nu 150). Ontwerp staat in projectbrief sectie 10: zelfde soort = ~80% kans op die soort, verschillende soorten = 15-20% kans op een hybride, genen zijn het gemiddelde van de ouders plus variatie, kost currency/grondstoffen, cooldown per pet.
 
 ## Voorbereiding volgende sessie: Admin panel fase 2 (2026-07-29)
 
