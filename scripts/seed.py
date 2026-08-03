@@ -346,6 +346,18 @@ PET_SOORTEN = [
     ("Pijlgifkikker", 2, GEMIDDELD, LAAG, "Bos", "Piepklein maar levensgevaarlijk fel gekleurd"),
 ]
 
+# (itemnaam, honger_herstel, voerbak_vanaf) — welk item hoeveel honger
+# aanvult en vanaf welk voerbak-niveau een voerbak het automatisch mag
+# pakken ("simpel" = beide voerbakken, "slim" = alleen de Slimme). Items die
+# hier niet in staan zijn geen voer; de Mysterie voedselzak hoort daar
+# bewust bij, die simuleert bij gebruik een willekeurig ánder voedingsitem.
+# 100 = volledig herstel, want honger wordt op 100 geklemd.
+VOER_EFFECTEN = [
+    ("Basis brokjes", 15, "simpel"),
+    ("Graanvrije premium voeding", 40, "slim"),
+    ("Vers vlees/vis", 100, "slim"),
+]
+
 # (naam, type, prijs, beschrijving)
 ITEMS = [
     ("Basis brokjes", ItemType.voeding, 10, "Klein honger-herstel, goedkoop"),
@@ -507,6 +519,17 @@ INSTELLINGEN = [
     ("energie_kost_min", "10", "Minimale energiekosten per pet, per gevecht"),
     ("energie_kost_max", "20", "Maximale energiekosten per pet, per gevecht"),
     ("ranked_reset_uur_echt", "24", "Echte uren (buiten dev) tot de dagelijkse ranked-pogingen resetten"),
+    # Willekeurige machtsvariatie per tactiek, als fractie: -0.25 = tot 25%
+    # minder macht die ronde, 0.35 = tot 35% meer. Aggressief gokt hard,
+    # voorzichtig speelt op safe. De drie tactieken liggen vast in de
+    # keuzemenu's van /pvp en /pve, alleen deze zes getallen zijn zinvol
+    # aanpasbaar (daarom losse sleutels en geen eigen tabel).
+    ("tactiek_aggressief_variantie_min", "-0.25", "Aggressief: ondergrens van de machtsvariatie per ronde"),
+    ("tactiek_aggressief_variantie_max", "0.35", "Aggressief: bovengrens van de machtsvariatie per ronde"),
+    ("tactiek_gebalanceerd_variantie_min", "-0.15", "Gebalanceerd: ondergrens van de machtsvariatie per ronde"),
+    ("tactiek_gebalanceerd_variantie_max", "0.15", "Gebalanceerd: bovengrens van de machtsvariatie per ronde"),
+    ("tactiek_voorzichtig_variantie_min", "-0.10", "Voorzichtig: ondergrens van de machtsvariatie per ronde"),
+    ("tactiek_voorzichtig_variantie_max", "0.10", "Voorzichtig: bovengrens van de machtsvariatie per ronde"),
 
     # cogs/release.py
     ("release_basis_coins", "15", "Basis Chaos Coins bij /release, vóór de tier-/level-vermenigvuldiging"),
@@ -576,6 +599,18 @@ async def seed() -> None:
         for naam, _type_, prijs, beschrijving in ITEMS:
             await session.execute(
                 update(Item).where(Item.naam == naam).values(beschrijving=beschrijving, prijs=prijs)
+            )
+
+        # Voer-effecten (2026-07-30, admin panel fase 2 blok 5: waren de
+        # hardcoded HONGER_HERSTEL_WAARDEN / VOLLEDIG_HERSTEL_ITEMS /
+        # VOERBAK_ITEMS_PER_NIVEAU in utils/stats.py). Net als prijs en
+        # beschrijving hierboven expliciet bijgewerkt, want de items zelf
+        # bestaan al en worden door ON CONFLICT DO NOTHING niet geraakt.
+        for naam, honger_herstel, voerbak_vanaf in VOER_EFFECTEN:
+            await session.execute(
+                update(Item)
+                .where(Item.naam == naam)
+                .values(honger_herstel=honger_herstel, voerbak_vanaf=voerbak_vanaf)
             )
 
         item_ids = {naam: id_ for naam, id_ in (await session.execute(select(Item.naam, Item.id))).all()}

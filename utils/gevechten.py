@@ -22,14 +22,12 @@ import config
 from db.models import Huisdier, Tier
 from utils import balans
 
-# TACTIEK_VARIANTIE blijft hier nog hardcoded (fase 2, blok 5 in
-# docs/dev-status.md: gestructureerde data verdient een eigen tabel, geen
-# losse Instelling-sleutels per tactiek).
-TACTIEK_VARIANTIE = {
-    "aggressief": (-0.25, 0.35),
-    "gebalanceerd": (-0.15, 0.15),
-    "voorzichtig": (-0.10, 0.10),
-}
+# De tactiek-variantie staat sinds 2026-07-30 (fase 2, blok 5) in de
+# Instelling-tabel als tactiek_<naam>_variantie_min/_max; zie
+# balans.tactiek_variantie(). Uiteindelijk toch losse sleutels en geen eigen
+# tabel: het zijn drie vaste tactieken die in de keuzemenu's van /pvp en
+# /pve hardcoded staan, dus rijen toevoegen of weghalen zou niets doen.
+# Alleen de zes getallen zijn zinvol aanpasbaar.
 
 # 2026-07-30, admin panel fase 2, blok 2: losse balansconstanten verhuisd
 # naar de Instelling-tabel (utils/balans.py) — was hardcoded module-
@@ -96,7 +94,7 @@ def pet_hp(macht: float) -> int:
 
 
 def macht_met_tactiek(basis_macht: float, tactiek: str) -> float:
-    laag, hoog = TACTIEK_VARIANTIE[tactiek]
+    laag, hoog = balans.tactiek_variantie(tactiek)
     return basis_macht * (1 + random.uniform(laag, hoog))
 
 

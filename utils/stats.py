@@ -61,19 +61,17 @@ def energie_minimum() -> int:
 # versie gaf een abstracte honger-regen los van je inventaris; nu verbruikt
 # de voerbak echt voedingsitems (zie sync_stats_met_voerbak hieronder) —
 # goedkoopste eerst, en niks doen als er geen voer meer is (geen fallback-
-# regen). Dezelfde waarden als _HONGER_HERSTEL/_VOLLEDIG_HERSTEL in
-# cogs/verzorging.py — hier de bron van waarheid, daar hergebruikt, om
-# duplicatie te voorkomen (cogs/werk.py mag dit niet importeren uit
-# cogs/verzorging.py, dat zou een circulaire import geven).
-HONGER_HERSTEL_WAARDEN = {"Basis brokjes": 15, "Graanvrije premium voeding": 40}
-VOLLEDIG_HERSTEL_ITEMS = {"Vers vlees/vis"}
-# Simpele voerbak mag alleen het goedkoopste voer gebruiken; Slimme voerbak
-# mag alle "echte" voedingsitems gebruiken (niet de Mysterie voedselzak, die
-# blijft een bewuste, handmatige gok). Volgorde is goedkoopste eerst.
-VOERBAK_ITEMS_PER_NIVEAU = {
-    "simpel": ["Basis brokjes"],
-    "slim": ["Basis brokjes", "Graanvrije premium voeding", "Vers vlees/vis"],
-}
+# regen).
+#
+# Welk item hoeveel honger herstelt en welke voerbak het mag pakken, stond
+# hier tot 2026-07-30 als HONGER_HERSTEL_WAARDEN / VOLLEDIG_HERSTEL_ITEMS /
+# VOERBAK_ITEMS_PER_NIVEAU. Dat zijn nu de kolommen items.honger_herstel en
+# items.voerbak_vanaf (admin panel fase 2, blok 5): het waren drie dicts op
+# itemnaam, dus die data hoort gewoon bij het item. Zie
+# balans.voer_effecten() en balans.voerbak_voer(). Simpele voerbak mag
+# alleen het goedkoopste voer gebruiken, Slimme voerbak alle "echte"
+# voedingsitems (niet de Mysterie voedselzak, die blijft een bewuste,
+# handmatige gok).
 
 def slaap_cooldown_uur() -> float:
     """/slaap: instant volle energie, kost honger, max 1x per dag per pet."""
@@ -125,7 +123,8 @@ async def sync_stats_met_voerbak(session, huisdier: Huisdier, nu: datetime | Non
     if huisdier.voerbak_niveau is None:
         return
 
-    for item_naam in VOERBAK_ITEMS_PER_NIVEAU[huisdier.voerbak_niveau]:
+    herstel_per_item = balans.voer_effecten()
+    for item_naam in balans.voerbak_voer(huisdier.voerbak_niveau):
         if huisdier.honger >= 100:
             break
         item_obj = await session.scalar(select(Item).where(Item.naam == item_naam))
@@ -136,10 +135,7 @@ async def sync_stats_met_voerbak(session, huisdier: Huisdier, nu: datetime | Non
         )
         while inventaris_item and inventaris_item.aantal > 0 and huisdier.honger < 100:
             inventaris_item.aantal -= 1
-            if item_naam in VOLLEDIG_HERSTEL_ITEMS:
-                huisdier.honger = 100
-            else:
-                huisdier.honger = min(100, huisdier.honger + HONGER_HERSTEL_WAARDEN[item_naam])
+            huisdier.honger = min(100, huisdier.honger + herstel_per_item[item_naam])
 
 
 def inzetbaarheid_probleem(huisdier: Huisdier) -> str | None:

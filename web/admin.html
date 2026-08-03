@@ -674,6 +674,23 @@
             <label>Beschrijving (zichtbaar in /shop en /craft)</label>
             <textarea data-veld="beschrijving">${esc(i.beschrijving || '')}</textarea>
           </div>
+          ${i.type === 'voeding' ? `
+          <div class="rule-row">
+            <div class="field">
+              <label>Honger-herstel per stuk</label>
+              <input type="number" min="1" max="100" data-veld="honger_herstel" value="${i.honger_herstel ?? ''}" />
+              <div class="field-hint">Leeg = geen voer. 100 = altijd volledig vol.</div>
+            </div>
+            <div class="field">
+              <label>Automatisch gevoerd door voerbak</label>
+              <select data-veld="voerbak_vanaf">
+                <option value="" ${!i.voerbak_vanaf ? 'selected' : ''}>Nooit (alleen handmatig via /verzorg)</option>
+                <option value="simpel" ${i.voerbak_vanaf === 'simpel' ? 'selected' : ''}>Simpele en Slimme voerbak</option>
+                <option value="slim" ${i.voerbak_vanaf === 'slim' ? 'selected' : ''}>Alleen Slimme voerbak</option>
+              </select>
+              <div class="field-hint">Een voerbak eet het goedkoopste toegestane voer eerst.</div>
+            </div>
+          </div>` : ''}
           <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
             <button class="btn btn-add" onclick="slaItemOp(${i.id}, this)">Opslaan</button>
             <span class="mini-status"></span>

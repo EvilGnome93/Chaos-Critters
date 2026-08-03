@@ -228,6 +228,22 @@ class Item(Base):
     beschrijving: Mapped[str | None] = mapped_column(String(256), nullable=True)
     prijs: Mapped[int] = mapped_column(default=0)
 
+    # Voer-effecten (2026-07-30, admin panel fase 2 blok 5). Waren drie
+    # hardcoded dicts/sets in utils/stats.py (HONGER_HERSTEL_WAARDEN,
+    # VOLLEDIG_HERSTEL_ITEMS, VOERBAK_ITEMS_PER_NIVEAU), allemaal op
+    # itemnaam — dus horen ze eigenlijk gewoon bij het item zelf.
+    #
+    # honger_herstel: hoeveel honger dit item aanvult. NULL = geen
+    # voedingsitem. `VOLLEDIG_HERSTEL_ITEMS` is hierin opgegaan: 100 geeft
+    # exact hetzelfde resultaat, want honger wordt altijd op 100 geklemd.
+    honger_herstel: Mapped[int | None] = mapped_column(nullable=True)
+    # Vanaf welk voerbak-niveau dit item automatisch gebruikt mag worden.
+    # NULL = nooit automatisch (de Mysterie voedselzak blijft bewust een
+    # handmatige gok), "simpel" = door beide voerbakken, "slim" = alleen
+    # door de Slimme voerbak. Een voerbak eet goedkoopste eerst, dus de
+    # volgorde volgt uit `prijs` en hoeft niet apart vastgelegd te worden.
+    voerbak_vanaf: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
 
 class InventarisItem(Base):
     __tablename__ = "inventaris"

@@ -348,7 +348,7 @@ Nieuwe `recepten`-tabel (migratie `584df3c7d2a4`): één rij per ingrediënt, me
 
 Getest via een nieuwe `test_recepten()` in `scripts/test_portal.py`: lezen, alle vijf validatiegevallen, een echte wijziging met verificatie dat `balans.recepten()` die meteen ziet, en een leeg recept opslaan (item kost dan alleen Chaos Coins). Volledige suite (16 scripts) groen.
 
-**Nog open van fase 2**: alleen blok 5 (`TACTIEK_VARIANTIE` + de voer-effecten `HONGER_HERSTEL_WAARDEN`/`VOLLEDIG_HERSTEL_ITEMS`/`VOERBAK_ITEMS_PER_NIVEAU`).
+**Nog open van fase 2**: alleen blok 5 (`TACTIEK_VARIANTIE` + de voer-effecten `HONGER_HERSTEL_WAARDEN`/`VOLLEDIG_HERSTEL_ITEMS`/`VOERBAK_ITEMS_PER_NIVEAU`). **Afgerond op 2026-07-30, zie verderop.**
 
 ## Actieve spawns overleven een herstart (2026-07-30, verzoek van de gebruiker)
 
@@ -359,6 +359,27 @@ Nieuwe `actieve_spawns`-tabel (migratie `3a145a5dbc05`) met `channel_id` als pri
 **De interessantste wijziging zat in het bijwerken van de embed.** `actieve_spawns` bewaarde een `discord.Message`-object, maar na een herstart is er alleen nog een message-ID in de database. Daarom bewaart de dict nu `(soort, message_id)` en gebruiken `_markeer_gevangen`/`_markeer_verlopen` een **`PartialMessage`** (`channel.get_partial_message(id)`), die kan bewerken zonder het bericht eerst op te halen — geen extra API-calls bij het opstarten. Gevolg: die functies konden niet langer de bestaande embed aanpassen (een `PartialMessage` heeft geen `.embeds`), dus ze **bouwen de embed nu opnieuw op**. Dat kan probleemloos, want alles wat erin staat — naam, tier-kleur, afbeelding — hangt al aan de soort; `soort.tier_id` levert de kleur, dus daar is zelfs geen extra query voor nodig.
 
 Getest via nieuw `scripts/test_spawn_persistentie.py`, dat een herstart nabootst door een **tweede `VangenCog`-instantie** te maken en `cog_load()` te draaien (precies wat een deploy doet: nieuw proces, lege dicts, alleen de database blijft). Drie scenario's: de spawn is na de "herstart" nog steeds bekend; `/vang` werkt daarna en ruimt zowel de dict als de databaserij op (met verificatie dat de embed via het `PartialMessage`-pad is bijgewerkt); en een nieuwe spawn vervangt de oude netjes in één rij. Volledige suite (17 scripts) groen.
+
+## Admin panel fase 2, blok 5: voer-effecten en tactiek-variantie (2026-07-30) — fase 2 afgerond
+
+Het laatste blok, en meteen het blok waar de twee helften een tegengestelde keuze kregen.
+
+**Voer-effecten → kolommen op `items`** (migratie `8dd39652036a`). `HONGER_HERSTEL_WAARDEN`, `VOLLEDIG_HERSTEL_ITEMS` en `VOERBAK_ITEMS_PER_NIVEAU` (`utils/stats.py`) waren alle drie op *itemnaam* gesleuteld, dus die data hoorde gewoon bij het item zelf: `items.honger_herstel` en `items.voerbak_vanaf`. Twee dingen verdwijnen daarmee:
+
+- `VOLLEDIG_HERSTEL_ITEMS` gaat op in `honger_herstel = 100`. Honger wordt toch al op 100 geklemd, dus het resultaat is identiek — een aparte "volledig"-vlag was een tweede manier om hetzelfde te zeggen.
+- De **volgorde** waarin een voerbak voer opeet hoefde niet opgeslagen te worden: dat is "goedkoopste eerst", en de bestaande prijzen (10 / 35 / 60) reproduceren de oude hardcoded volgorde exact. `balans.voerbak_voer()` sorteert dus op `prijs`.
+
+`voerbak_vanaf` is `NULL` (nooit automatisch), `"simpel"` (beide voerbakken) of `"slim"` (alleen de Slimme). De Mysterie voedselzak blijft bewust buiten deze kolommen: die heeft geen eigen honger-effect maar simuleert bij gebruik een willekeurig ánder voedingsitem, en blijft daarmee een hardcoded speciaal geval in `cogs/verzorging.py`.
+
+**`TACTIEK_VARIANTIE` → zes losse `Instelling`-sleutels** (migratie `5f0c1b7a94e2`), en dus géén eigen tabel — anders dan het oorspronkelijke advies hierboven. Reden: de drie tactieken staan hardcoded in de keuzemenu's van `/pvp` en `/pve`, dus een rij toevoegen of weghalen zou niets doen. Alleen de zes getallen zijn zinvol aanpasbaar. `balans.tactiek_variantie(tactiek)` valt bij een onbekende tactiek terug op "gebalanceerd", net als voorheen.
+
+**Nog een `app_commands.Choice` die stale zou worden**: `/verzorg item` was een vaste Choice-lijst opgebouwd uit de oude dicts. Nu welke items voeding zijn uit de database komt, zou die lijst op command-sync-tijd bevriezen — hetzelfde probleem als bij `/werk cyclus` in blok 3, en met dezelfde oplossing: autocomplete (die toont er meteen `+15 honger` bij) plus server-side validatie, want autocomplete accepteert vrije tekst.
+
+**Validatie in de portal**: leeg `honger_herstel` betekent "dit item is geen voer", en dan wordt `voerbak_vanaf` óók leeggemaakt. Anders zou een voerbak een item pakken dat niets doet — of erger, een `KeyError` geven in `sync_stats_met_voerbak`. De items-tab toont de twee velden alleen bij items van het type voeding. `item_opslaan` roept nu ook `balans.laad()` aan; dat was niet nodig zolang alleen prijs en beschrijving aanpasbaar waren.
+
+Getest via nieuw `scripts/test_voer_en_tactiek.py` (waarden identiek aan vóór de verhuizing, een echte wijziging werkt door in voerbak én `/verzorg`, geen item met een voerbak-niveau maar zonder effect, en `macht_met_tactiek` blijft over 500 trekkingen binnen de ingestelde grenzen) plus een `test_voer_effecten()` in `scripts/test_portal.py`. Volledige suite (18 scripts) groen.
+
+**Fase 2 is hiermee afgerond**: alle balansconstanten uit de inventaris bovenaan dit document staan nu in de database en zijn via het portal aanpasbaar zonder deploy.
 
 ## Bekende balans-issues
 

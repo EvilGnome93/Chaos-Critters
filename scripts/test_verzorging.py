@@ -17,12 +17,16 @@ from sqlalchemy.dialects.postgresql import insert
 from cogs.verzorging import _toepassen_voeding
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, PetSoort, PetStatus, Speler
+from utils import balans
 from utils.stats import honger_verval_minuten, _nu, inzetbaarheid_probleem, sync_stats
 
 TEST_SPELER_ID = 999999999999999998
 
 
 async def main() -> None:
+    # Het honger-effect per item komt sinds 2026-07-30 uit de balans-cache
+    # (items.honger_herstel); zonder deze laad() is die leeg.
+    await balans.laad()
     async with async_session() as session:
         speler = await session.get(Speler, TEST_SPELER_ID)
         if speler is None:

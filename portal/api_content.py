@@ -4,13 +4,13 @@ tiers, pet-soorten en kanalen.
 Wat wél en niet aanpasbaar is, is een bewuste keuze (2026-07-29). Een aantal
 namen staat hardcoded in de botcode en zou bij hernoemen stille bugs geven:
 
-- **Item-namen**: komen als string terug in `HONGER_HERSTEL_WAARDEN`/
-  `VOERBAK_ITEMS_PER_NIVEAU` (utils/stats.py), `VOERBAK_NIVEAUS`
-  (cogs/verzorging.py) en de Extra match token-lookup in cogs/gevechten.py.
-  Daarom zijn naam en type read-only en kan je geen items toevoegen/
-  verwijderen — alleen prijs en beschrijving. (De recept-kosten hingen hier
-  ook aan, maar die gebruiken sinds 2026-07-30 echte FK's; zie de
-  `recepten`-tabel en de endpoints hieronder.)
+- **Item-namen**: komen als string terug in `VOERBAK_NIVEAUS` en de
+  Mysterie voedselzak (cogs/verzorging.py) en de Extra match token-lookup in
+  cogs/gevechten.py. Daarom zijn naam en type read-only en kan je geen items
+  toevoegen/verwijderen — wel prijs, beschrijving en de voer-effecten. (De
+  recept-kosten en de voer-effecten hingen ook aan itemnamen, maar die zitten
+  sinds 2026-07-30 in de database: echte FK's in de `recepten`-tabel, en de
+  kolommen honger_herstel/voerbak_vanaf op het item zelf.)
 - **Werkplek-type**: de `/werk`-keuzelijst is een hardcoded
   `app_commands.Choice`-lijst, dus een nieuwe of hernoemde werkplek zou
   onbereikbaar zijn. Type read-only, geen toevoegen/verwijderen.
@@ -136,6 +136,9 @@ async def items_ophalen(request: web.Request) -> web.Response:
                 # Grondstoffen/materialen hebben prijs 0 en zijn niet koopbaar;
                 # het panel toont dat als "niet in de shop".
                 "koopbaar": i.prijs > 0,
+                # Leeg = geen voer. Zie balans.voer_effecten()/voerbak_voer().
+                "honger_herstel": i.honger_herstel,
+                "voerbak_vanaf": i.voerbak_vanaf,
             }
             for i in rijen
         ]
@@ -143,11 +146,24 @@ async def items_ophalen(request: web.Request) -> web.Response:
 
 
 async def item_opslaan(request: web.Request) -> web.Response:
-    """POST /api/items/{id} — alleen prijs en beschrijving (zie module-docstring)."""
+    """POST /api/items/{id} — prijs, beschrijving en de voer-effecten (zie
+    module-docstring: naam en type blijven read-only)."""
     item_id = int(request.match_info["id"])
     data = await request.json()
     prijs = _getal(data, "prijs", minimum=0, maximum=1_000_000, heel=True)
     beschrijving = _tekst(data, "beschrijving", max_lengte=256, verplicht=False)
+
+    # Leeg honger_herstel = "dit item is geen voer"; dan hoort er ook geen
+    # voerbak-niveau bij, anders zou een voerbak een item pakken dat niets
+    # doet (of erger: een KeyError geven in sync_stats_met_voerbak).
+    ruw_herstel = data.get("honger_herstel")
+    if ruw_herstel in (None, ""):
+        honger_herstel, voerbak_vanaf = None, None
+    else:
+        honger_herstel = _getal(data, "honger_herstel", minimum=1, maximum=100, heel=True)
+        voerbak_vanaf = data.get("voerbak_vanaf") or None
+        if voerbak_vanaf not in (None, "simpel", "slim"):
+            raise ValidatieFout("'voerbak_vanaf' moet leeg, 'simpel' of 'slim' zijn")
 
     async with async_session() as session:
         item = await session.get(Item, item_id)
@@ -155,8 +171,14 @@ async def item_opslaan(request: web.Request) -> web.Response:
             raise ValidatieFout("item bestaat niet")
         item.prijs = prijs
         item.beschrijving = beschrijving
+        item.honger_herstel = honger_herstel
+        item.voerbak_vanaf = voerbak_vanaf
         await session.commit()
         naam = item.naam
+
+    # Nodig sinds blok 5: de voer-effecten van dit item zitten in de
+    # balans-cache (zie instellingen_opslaan voor de achtergrond).
+    await balans.laad()
 
     log.info("Portal: item '%s' bijgewerkt (prijs %s)", naam, prijs)
     return web.json_response({"ok": True})

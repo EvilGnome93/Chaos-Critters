@@ -319,6 +319,66 @@ async def test_recepten(client, auth) -> None:
     print("Teruggezet naar het oorspronkelijke recept.")
 
 
+async def test_voer_effecten(client, auth) -> None:
+    """2026-07-30, fase 2 blok 5: honger_herstel en voerbak_vanaf staan nu
+    als kolommen op het item i.p.v. in de hardcoded dicts in utils/stats.py."""
+    print("\n-- Voer-effecten: lezen, valideren, opslaan + cache-invalidatie --")
+    from utils import balans
+
+    resp = await client.get("/api/items", headers=auth)
+    assert resp.status == 200, await resp.text()
+    items = await resp.json()
+    brokjes = next(i for i in items if i["naam"] == "Basis brokjes")
+    print(f"Basis brokjes: herstel={brokjes['honger_herstel']}, voerbak_vanaf={brokjes['voerbak_vanaf']}")
+    # Geen harde check op 15/"simpel": dat is precies de waarde die via de
+    # portal afgestemd mag worden. Wel dat het item voer is en dat een
+    # voerbak 'm mag pakken. De exacte startwaarden bewaakt
+    # scripts/test_voer_en_tactiek.py.
+    assert brokjes["honger_herstel"] is not None and brokjes["voerbak_vanaf"] == "simpel"
+
+    origineel = {
+        "prijs": brokjes["prijs"],
+        "beschrijving": brokjes["beschrijving"],
+        "honger_herstel": brokjes["honger_herstel"],
+        "voerbak_vanaf": brokjes["voerbak_vanaf"],
+    }
+    onzin = [
+        ({**origineel, "honger_herstel": 0}, "herstel 0"),
+        ({**origineel, "honger_herstel": 500}, "herstel 500"),
+        ({**origineel, "voerbak_vanaf": "gouden"}, "onbekend voerbak-niveau"),
+    ]
+    for body, beschrijving in onzin:
+        resp = await client.post(f"/api/items/{brokjes['id']}", headers=auth, json=body)
+        assert resp.status == 400, f"{beschrijving} werd geaccepteerd ({resp.status})!"
+        print(f"  geweigerd ({beschrijving}): {(await resp.json())['error']}")
+
+    await balans.laad()
+    resp = await client.post(
+        f"/api/items/{brokjes['id']}", headers=auth, json={**origineel, "honger_herstel": 33}
+    )
+    assert resp.status == 200, await resp.text()
+    print(f"honger-herstel: 15 -> {balans.voer_effecten()['Basis brokjes']} (zonder herstart)")
+    assert balans.voer_effecten()["Basis brokjes"] == 33, "cache is niet geïnvalideerd na het opslaan"
+
+    # Leeg herstel = geen voer; dan hoort ook het voerbak-niveau te vervallen,
+    # anders zou een voerbak een item pakken dat niets doet.
+    resp = await client.post(
+        f"/api/items/{brokjes['id']}",
+        headers=auth,
+        json={**origineel, "honger_herstel": "", "voerbak_vanaf": "slim"},
+    )
+    assert resp.status == 200, await resp.text()
+    assert "Basis brokjes" not in balans.voer_effecten()
+    assert "Basis brokjes" not in balans.voerbak_voer("slim")
+    print("Leeg herstel: item is geen voer meer en verdwijnt uit beide voerbakken.")
+
+    resp = await client.post(f"/api/items/{brokjes['id']}", headers=auth, json=origineel)
+    assert resp.status == 200
+    assert balans.voer_effecten()["Basis brokjes"] == origineel["honger_herstel"]
+    assert "Basis brokjes" in balans.voerbak_voer("simpel")
+    print("Teruggezet naar de oorspronkelijke waarden.")
+
+
 async def test_soorten_crud(client, auth) -> None:
     print("\n-- Pet-soorten: toevoegen, bewerken, verwijderen --")
     resp = await client.get("/api/soorten", headers=auth)
@@ -619,6 +679,7 @@ async def main() -> None:
         await test_validatie(client, auth)
         await test_werk_cycli(client, auth)
         await test_recepten(client, auth)
+        await test_voer_effecten(client, auth)
         await test_soorten_crud(client, auth)
         await test_spelerbeheer(client, auth)
         await test_kanalen(client, auth, bot)

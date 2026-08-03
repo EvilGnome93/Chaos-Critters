@@ -31,6 +31,9 @@ log = logging.getLogger("chaos_critters")
 _cache: dict[str, str] = {}
 _werk_cycli_cache: list[WerkCyclus] = []
 _recepten_cache: dict[str, list[tuple[str, int]]] = {}
+# itemnaam -> (honger_herstel, voerbak_vanaf), gesorteerd op prijs (een
+# voerbak eet goedkoopste eerst).
+_voer_cache: dict[str, tuple[int, str | None]] = {}
 
 
 @dataclass(frozen=True)
@@ -66,7 +69,7 @@ _STANDAARD_CYCLI = [
 async def laad() -> None:
     """(Her)laadt alle balansdata in het geheugen. Aangeroepen bij het
     opstarten van de bot, en door de portal na elke wijziging."""
-    global _cache, _werk_cycli_cache, _recepten_cache
+    global _cache, _werk_cycli_cache, _recepten_cache, _voer_cache
     async with async_session() as session:
         rijen = (await session.execute(select(Instelling))).scalars().all()
         cycli = (
@@ -85,6 +88,15 @@ async def laad() -> None:
                 .order_by(item_naam.c.naam, Recept.id)
             )
         ).all()
+        # Voedingsitems op prijs: dat is precies de volgorde waarin een
+        # voerbak z'n voorraad opeet (goedkoopste eerst).
+        voer_rijen = (
+            await session.execute(
+                select(Item.naam, Item.honger_herstel, Item.voerbak_vanaf)
+                .where(Item.honger_herstel.is_not(None))
+                .order_by(Item.prijs)
+            )
+        ).all()
         session.expunge_all()
 
     _cache = {rij.sleutel: rij.waarde for rij in rijen}
@@ -95,9 +107,16 @@ async def laad() -> None:
         recepten.setdefault(item, []).append((grondstof, aantal))
     _recepten_cache = recepten
 
+    # Op prijs sorteren: een voerbak eet goedkoopste eerst, en dict-volgorde
+    # blijft in Python behouden — dus voerbak_voer() hoeft niet nog eens te
+    # sorteren.
+    _voer_cache = {
+        naam: (herstel, vanaf) for naam, herstel, vanaf in voer_rijen
+    }
+
     log.info(
-        "Balans-cache geladen: %d waarden, %d werk-cycli, %d recepten",
-        len(_cache), len(_werk_cycli_cache), len(_recepten_cache),
+        "Balans-cache geladen: %d waarden, %d werk-cycli, %d recepten, %d voedingsitems",
+        len(_cache), len(_werk_cycli_cache), len(_recepten_cache), len(_voer_cache),
     )
 
 
@@ -111,6 +130,53 @@ def recepten() -> dict[str, list[tuple[str, int]]]:
     herstelbaar via de portal. Stilletjes terugvallen op oude waarden zou
     juist verwarrend zijn als iemand bewust een recept weghaalt."""
     return _recepten_cache
+
+
+def voer_effecten() -> dict[str, int]:
+    """itemnaam -> honger dat het item herstelt, goedkoopste eerst. Was tot
+    2026-07-30 HONGER_HERSTEL_WAARDEN + VOLLEDIG_HERSTEL_ITEMS in
+    utils/stats.py; die tweede is opgegaan in de waarde 100, omdat honger
+    toch op 100 geklemd wordt en het resultaat dus identiek is.
+
+    Net als bij recepten() bewust geen fallback: een item zonder
+    honger_herstel is simpelweg geen voer, en dat is zichtbaar in /voer."""
+    return {naam: herstel for naam, (herstel, _) in _voer_cache.items()}
+
+
+def voerbak_voer(niveau: str) -> list[str]:
+    """Itemnamen die een voerbak van dit niveau automatisch mag gebruiken,
+    in de volgorde waarin ze opgegeten worden (goedkoopste eerst). Was tot
+    2026-07-30 VOERBAK_ITEMS_PER_NIVEAU in utils/stats.py.
+
+    "simpel" pakt alleen items met voerbak_vanaf == "simpel"; "slim" pakt
+    alles wat een voerbak überhaupt mag gebruiken."""
+    return [
+        naam
+        for naam, (_, vanaf) in _voer_cache.items()
+        if vanaf is not None and (niveau == "slim" or vanaf == niveau)
+    ]
+
+
+# Ondergrens/bovengrens van de willekeurige machtsvariatie per tactiek: een
+# aggressieve pet gokt harder (breder bereik), een voorzichtige speelt op
+# safe. Als een sleutel ontbreekt geldt de oude hardcoded waarde.
+_TACTIEK_DEFAULTS = {
+    "aggressief": (-0.25, 0.35),
+    "gebalanceerd": (-0.15, 0.15),
+    "voorzichtig": (-0.10, 0.10),
+}
+
+
+def tactiek_variantie(tactiek: str) -> tuple[float, float]:
+    """(min, max) machtsvariatie voor een tactiek. Onbekende tactieken
+    vallen terug op 'gebalanceerd', net als de oude dict-lookup deed."""
+    standaard_min, standaard_max = _TACTIEK_DEFAULTS.get(
+        tactiek, _TACTIEK_DEFAULTS["gebalanceerd"]
+    )
+    return (
+        get_float(f"tactiek_{tactiek}_variantie_min", standaard_min),
+        get_float(f"tactiek_{tactiek}_variantie_max", standaard_max),
+    )
 
 
 def _bouw_cyclus(label: str, echte_duur: float, energie_kost: int, output_multiplier: float) -> Cyclus:

@@ -14,8 +14,6 @@ from utils import balans
 from utils.elementen import emoji as element_emoji, soort_element_emojis
 from utils.leveling import max_level, xp_voor_volgend_level
 from utils.stats import (
-    HONGER_HERSTEL_WAARDEN as _HONGER_HERSTEL,
-    VOLLEDIG_HERSTEL_ITEMS as _VOLLEDIG_HERSTEL,
     slaap_cooldown_uur,
     slaap_honger_kost,
     sync_stats_met_voerbak,
@@ -47,12 +45,17 @@ ITEM_CATEGORIE_LABELS = {
 # komt voortaan alleen uit passief herstel in rust (utils/stats.py) of /slaap.
 # Overige "overig"-items (voerbakken, zelfreinigend systeem) zijn passieve
 # aankopen voor de shop-stap en horen hier nog niet bij.
-# _HONGER_HERSTEL/_VOLLEDIG_HERSTEL komen uit utils/stats.py (single source
-# of truth, want die worden sinds 2026-07-28 ook gebruikt door het
-# voerbak-auto-voer-effect in sync_stats_met_voerbak).
+# Welk item hoeveel honger herstelt komt sinds 2026-07-30 uit de database
+# (items.honger_herstel, admin panel fase 2 blok 5): balans.voer_effecten().
+# De Mysterie voedselzak staat daar bewust niet in — die heeft geen eigen
+# honger-effect maar simuleert een willekeurig ánder voedingsitem, en blijft
+# dus een hardcoded speciaal geval.
 _MYSTERIE_VOEDSEL = "Mysterie voedselzak"
 
-VOEDING_ITEMS = [*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL, _MYSTERIE_VOEDSEL]
+
+def voeding_items() -> list[str]:
+    """Alle namen die `/verzorg item` accepteert, mysteriezak achteraan."""
+    return [*balans.voer_effecten(), _MYSTERIE_VOEDSEL]
 
 # De grondstof-kosten per item staan sinds 2026-07-30 in de database (admin
 # panel fase 2 blok 4): zie de `recepten`-tabel en utils/balans.py:recepten().
@@ -147,16 +150,33 @@ def _uitrusting_tekst(huisdier: Huisdier) -> str:
     return ", ".join(delen) if delen else "geen"
 
 
+async def _voeding_autocomplete(
+    interaction: discord.Interaction, huidig: str
+) -> list[app_commands.Choice[str]]:
+    """Autocomplete i.p.v. een vaste `app_commands.Choice`-lijst (2026-07-30,
+    fase 2 blok 5): welke items voeding zijn staat nu in de database en is
+    via de portal aanpasbaar, terwijl een Choice-lijst op command-sync-tijd
+    wordt vastgelegd en dus stilletjes zou verouderen."""
+    huidig = huidig.lower()
+    herstel_per_item = balans.voer_effecten()
+    opties = []
+    for naam in voeding_items():
+        if huidig and huidig not in naam.lower():
+            continue
+        herstel = herstel_per_item.get(naam)
+        label = f"{naam} (+{herstel} honger)" if herstel else f"{naam} (willekeurig effect)"
+        opties.append(app_commands.Choice(name=label[:100], value=naam))
+    return opties[:25]
+
+
 def _toepassen_voeding(huisdier: Huisdier, item_naam: str) -> str:
     """Past het effect van een voedingsitem toe op de pet, geeft de gebruikte naam terug
     (relevant bij de Mysterie voedselzak, die een willekeurig item simuleert)."""
+    herstel_per_item = balans.voer_effecten()
     if item_naam == _MYSTERIE_VOEDSEL:
-        item_naam = random.choice([*_HONGER_HERSTEL.keys(), *_VOLLEDIG_HERSTEL])
+        item_naam = random.choice([*herstel_per_item])
 
-    if item_naam in _VOLLEDIG_HERSTEL:
-        huisdier.honger = 100
-    else:
-        huisdier.honger = min(100, huisdier.honger + _HONGER_HERSTEL[item_naam])
+    huisdier.honger = min(100, huisdier.honger + herstel_per_item[item_naam])
     return item_naam
 
 
@@ -402,14 +422,12 @@ class VerzorgingCog(commands.Cog):
         item="Voeding om te gebruiken (optioneel, laat leeg om alleen de stats te bekijken)",
         aantal="Hoeveel stuks in één keer geven (standaard 1)",
     )
-    @app_commands.choices(
-        item=[app_commands.Choice(name=naam, value=naam) for naam in VOEDING_ITEMS]
-    )
+    @app_commands.autocomplete(item=_voeding_autocomplete)
     async def verzorg(
         self,
         interaction: discord.Interaction,
         pet_id: int,
-        item: app_commands.Choice[str] | None = None,
+        item: str | None = None,
         aantal: int = 1,
     ) -> None:
         async with async_session() as session:
@@ -440,7 +458,17 @@ class VerzorgingCog(commands.Cog):
                 await interaction.response.send_message("`aantal` moet minstens 1 zijn.", ephemeral=True)
                 return
 
-            item_obj = await session.scalar(select(Item).where(Item.naam == item.value))
+            # `item` komt uit autocomplete i.p.v. een vaste Choice-lijst, dus
+            # Discord dwingt geen geldige waarde af: een speler kan vrije
+            # tekst versturen zonder een suggestie te kiezen.
+            if item not in voeding_items():
+                keuzes = ", ".join(f"**{naam}**" for naam in voeding_items())
+                await interaction.response.send_message(
+                    f"**{item}** is geen voeding. Kies er een uit de lijst: {keuzes}.", ephemeral=True
+                )
+                return
+
+            item_obj = await session.scalar(select(Item).where(Item.naam == item))
             inventaris_item = await session.scalar(
                 select(InventarisItem).where(
                     InventarisItem.speler_id == interaction.user.id,
@@ -450,7 +478,7 @@ class VerzorgingCog(commands.Cog):
             if inventaris_item is None or inventaris_item.aantal < aantal:
                 in_bezit = inventaris_item.aantal if inventaris_item else 0
                 await interaction.response.send_message(
-                    f"Je hebt maar {in_bezit}x **{item.value}** (van de {aantal} gevraagd). Koop meer via `/shop`.",
+                    f"Je hebt maar {in_bezit}x **{item}** (van de {aantal} gevraagd). Koop meer via `/shop`.",
                     ephemeral=True,
                 )
                 return
@@ -458,19 +486,19 @@ class VerzorgingCog(commands.Cog):
             if not await _neem_uit_inventaris(session, interaction.user.id, item_obj.id, aantal):
                 await session.rollback()
                 await interaction.response.send_message(
-                    f"Je hebt niet meer genoeg **{item.value}**.", ephemeral=True
+                    f"Je hebt niet meer genoeg **{item}**.", ephemeral=True
                 )
                 return
-            gebruikte_items = [_toepassen_voeding(huisdier, item.value) for _ in range(aantal)]
+            gebruikte_items = [_toepassen_voeding(huisdier, item) for _ in range(aantal)]
             await session.commit()
 
-            if item.value == _MYSTERIE_VOEDSEL:
+            if item == _MYSTERIE_VOEDSEL:
                 extra = f" (bleek: {', '.join(gebruikte_items)})"
             else:
                 extra = ""
             aantal_tekst = f"{aantal}x " if aantal > 1 else ""
             await interaction.response.send_message(
-                f"🍽️ **{huisdier.naam}** kreeg {aantal_tekst}**{item.value}**{extra}. Honger is nu {huisdier.honger}/100.",
+                f"🍽️ **{huisdier.naam}** kreeg {aantal_tekst}**{item}**{extra}. Honger is nu {huisdier.honger}/100.",
                 ephemeral=True,
             )
 
