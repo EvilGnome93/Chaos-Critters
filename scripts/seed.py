@@ -77,7 +77,6 @@ ELEMENT_MAP: dict[str, Element] = {
     # Negende lichting (2026-08-04)
     "Zwaluw": Element.lucht, "IJsvogel": Element.lucht, "Vuurvlieg": Element.lucht,
     "Grutto": Element.lucht, "Kwikstaart": Element.lucht, "Vleermuisvos": Element.lucht,
-    "Griffioen": Element.lucht,
     # Vuur (felle/agressieve dieren)
     "Vos": Element.vuur, "Wolf": Element.vuur, "Lynx": Element.vuur, "Das": Element.vuur,
     "Tijger": Element.vuur, "Panter": Element.vuur, "Neushoorn": Element.vuur, "Luipaard": Element.vuur,
@@ -85,9 +84,8 @@ ELEMENT_MAP: dict[str, Element] = {
     "Vuurvis": Element.vuur, "Mantisgarnaal": Element.vuur,
     # Negende lichting (2026-08-04): net als Vuurvis/Mantisgarnaal hierboven
     # zijn dit geen mammals maar wél "klein/aquatisch maar gevaarlijk"
-    # (Schorpioen, Buideldas) of "agressieve waterjager" (Orka, Feniks als
-    # vuurthema-uitzondering, geen mammal maar wel vuur qua flavor).
-    "Schorpioen": Element.vuur, "Buideldas": Element.vuur, "Orka": Element.vuur, "Feniks": Element.vuur,
+    # (Schorpioen, Buideldas) of "agressieve waterjager" (Orka).
+    "Schorpioen": Element.vuur, "Buideldas": Element.vuur, "Orka": Element.vuur,
     # Chaos (alle Chaos-soorten)
     "Chaos Kip": Element.chaos, "Chaos Eenhoorn": Element.chaos, "Chaos Rat": Element.chaos,
     "Chaos Bever": Element.chaos, "Chaos Zwijn": Element.chaos, "Chaos Mol": Element.chaos,
@@ -96,6 +94,12 @@ ELEMENT_MAP: dict[str, Element] = {
     "Chaos Toekan": Element.chaos, "Chaos Octopus": Element.chaos, "Chaos Stier": Element.chaos,
     "Chaos Sprinkhaan": Element.chaos, "Chaos Papegaai": Element.chaos, "Chaos Wasbeerhond": Element.chaos,
     "Blobvis": Element.chaos, "Pijlgifkikker": Element.chaos,
+    # Negende lichting (2026-08-04): Griffioen en Feniks (mythische wezens)
+    # zijn vervangen door deze twee echte dieren met een chaos-flavor, zelfde
+    # reden als eerder Griffioen/Chaos Basilisk (2026-07-24): mythische
+    # wezens passen niet tussen de verder allemaal echte dieren, ook niet als
+    # Chaos-variant. Zie feedback_pet_design_variety.
+    "Chaos Wandelende Tak": Element.chaos, "Chaos Casuaris": Element.chaos,
 }
 
 TIERS = [
@@ -388,11 +392,11 @@ PET_SOORTEN = [
     ("Walvishaai", 3, GEMIDDELD, HOOG, "Vijver", "Grootste vis ter wereld, een vreedzame reus die simpelweg water filtert voor voedsel"),
     ("Zeeslak", 3, ZEER_LAAG, GEMIDDELD, "Vijver", "Feloranje zeeslak zonder schelp, giftig voor wie het toch waagt te happen"),
     ("Orka", 4, ZEER_HOOG, LAAG, "Vijver", "Meedogenloze jager van de oceaan, jaagt slim en genadeloos in groepsverband"),
-    ("Feniks", 4, HOOG, GEMIDDELD, None, "Mythische vuurvogel die herrijst uit zijn eigen as, zelden gezien en nooit vergeten"),
+    ("Chaos Wandelende Tak", 4, GEMIDDELD, GEMIDDELD, "Bos", "Onvoorspelbare stats die dagelijks licht wisselen, vermomt zich zo goed dat niemand hem ooit ziet aankomen"),
     ("Reuzenschildpad", 4, GEMIDDELD, LAAG, None, "Kan honderden jaren oud worden, een ongelooflijk taaie verdediger ondanks het trage tempo"),
     ("Reuzenmiereneter", 4, HOOG, GEMIDDELD, "Bos", "Enorme klauwen en een kilometerslange tong, vernietigt mierenhopen moeiteloos"),
     ("Mammoet", 5, ZEER_HOOG, LAAG, None, "Uitgestorven reus uit een vergeten tijdperk, ongeëvenaarde kracht en een dikke vacht tegen de kou"),
-    ("Griffioen", 5, HOOG, GEMIDDELD, None, "Mythisch wezen, half adelaar half leeuw, heerst onbetwist over de luchten"),
+    ("Chaos Casuaris", 5, HOOGSTE, HOOGSTE, None, "Onvoorspelbare stats die dagelijks licht wisselen, berucht als een van de gevaarlijkste vogels ter wereld met een dodelijke trap-aanval"),
 ]
 
 # (itemnaam, honger_herstel, voerbak_vanaf) — welk item hoeveel honger

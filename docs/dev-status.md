@@ -389,15 +389,16 @@ Volledig zelf verzonnen (naam + stats + werkplek + beschrijving + element), met 
 
 - **Spinachtigen**: Wolfspin (Uncommon) naast de al bestaande Schorpioen (die er in dezelfde lichting bij kwam) — twee totaal verschillende jachtstijlen (web-loze actieve jager vs. gifangel), geen overlap met bestaande soorten.
 - **Cephalopoden**: Zeekat/inktvis (Uncommon) naast de bestaande Chaos Octopus — zeekat is qua uiterlijk (torpedo-lijf, kleurverandering) duidelijk een ander dier dan een octopus.
-- **Twee niet-Chaos mythische wezens**: Feniks (Epic) en Griffioen (Legendary) — bewust *niet* Chaos-geprefixt, als tegenhanger van de bestaande Chaos Eenhoorn (die wél mythisch is zonder Chaos-flavor). Blijft binnen de eerdere afspraak dat mythische wezens naast de vele echte dieren mogen bestaan zolang ze zeldzaam en herkenbaar zijn.
 - **Bewust beperkte overlap waar het toch gebeurde**: Orka (Epic, cetacea) is de derde walvisachtige naast Dolfijn/Walvis, maar orka's zijn zo herkenbaar anders (zwart/wit, apex-jager) dat het geen "stapeling" voelt. Reuzenmiereneter (Epic) en Mierenegel zijn allebei mierenetend als de bestaande Aardvarken, maar drie totaal verschillende dierfamilies (Vermilingua/Tachyglossidae/Tubulidentata) met een compleet ander uiterlijk.
+
+**Correctie, zelfde dag**: eerste versie bevatte Feniks (Epic) en Griffioen (Legendary), twee niet-Chaos mythische wezens. Gebruiker: "Griffioen gaat me echt te ver, eenhoorn is grappig want meme" — de bestaande Chaos Eenhoorn overleeft dus specifiek omdat hij een gevestigde grap/meme in de bot is, niet omdat mythische wezens in het algemeen zouden mogen. **Dit is exact dezelfde fout als op 2026-07-24** (toen ook al Griffioen + Chaos Basilisk afgekeurd om deze reden, zie [[feedback_pet_design_variety]] die dat al vastlegde) — het advies bestond dus al, maar is niet toegepast bij het opstellen van deze lichting. Memory-bestand aangescherpt naar een harde regel i.p.v. een afweging. Beide vervangen door echte dieren met een chaos-hoek: **Chaos Wandelende Tak** (Epic, stokinsect — camouflage past mooi bij het "wisselt dagelijks"-thema) en **Chaos Casuaris** (Legendary, cassowary — al buiten de bot bekend als "gevaarlijkste vogel ter wereld", geeft dezelfde wildcard-lol zonder fantasie-wezen te zijn). Tegelijk ook de vraag beantwoord "geen chaos pets?" — deze lichting had er anders nul gehad.
 
 **Volledige lijst per tier:**
 
 | Common (8) | Uncommon (5) | Rare (6) | Epic (4) | Legendary (2) |
 |---|---|---|---|---|
 | Zwaluw | Wolfspin | Komodovaraan | Orka | Mammoet |
-| IJsvogel | Zeekat | Vleermuisvos | Feniks | Griffioen |
+| IJsvogel | Zeekat | Vleermuisvos | Chaos Wandelende Tak | Chaos Casuaris |
 | Vuurvlieg | Tapir | Buideldas | Reuzenschildpad | |
 | Schorpioen | Zee-egel | Neushoornkever | Reuzenmiereneter | |
 | Watervlo | Muntjak | Walvishaai | | |
@@ -405,9 +406,9 @@ Volledig zelf verzonnen (naam + stats + werkplek + beschrijving + element), met 
 | Grutto | | | | |
 | Kwikstaart | | | | |
 
-Elementen volgens het bestaande patroon: vliegende dieren (Zwaluw, IJsvogel, Vuurvlieg, Grutto, Kwikstaart, Vleermuisvos, Griffioen) → lucht; waterdieren (Watervlo, Zeepaling, Zeekat, Zee-egel, Walvishaai, Zeeslak) → water; landdieren (Wolfspin, Tapir, Muntjak, Komodovaraan, Neushoornkever, Reuzenschildpad, Reuzenmiereneter, Mammoet) → grond; "klein/aquatisch maar gevaarlijk" of "agressieve jager" (Schorpioen, Buideldas, Orka, Feniks) → vuur, zelfde uitzonderingspatroon als de bestaande Vuurvis/Mantisgarnaal.
+Elementen volgens het bestaande patroon: vliegende dieren (Zwaluw, IJsvogel, Vuurvlieg, Grutto, Kwikstaart, Vleermuisvos) → lucht; waterdieren (Watervlo, Zeepaling, Zeekat, Zee-egel, Walvishaai, Zeeslak) → water; landdieren (Wolfspin, Tapir, Muntjak, Komodovaraan, Neushoornkever, Reuzenschildpad, Reuzenmiereneter, Mammoet) → grond; "klein/aquatisch maar gevaarlijk" of "agressieve jager" (Schorpioen, Buideldas, Orka) → vuur, zelfde uitzonderingspatroon als de bestaande Vuurvis/Mantisgarnaal; de twee Chaos-soorten → chaos.
 
-Toegevoegd aan `scripts/seed.py` (`PET_SOORTEN` + `ELEMENT_MAP`) en tegen de dev-database geseed. **Nog te doen, net als bij elke eerdere lichting**: afbeeldingen laten genereren, naar GitHub pushen (vóór het spawnen, vanwege Discord's media-proxy cache) en koppelen via `scripts/link_afbeeldingen.py` — tot dan gebruikt `/vang` de placeholder-afbeelding voor deze 25 soorten.
+Toegevoegd aan `scripts/seed.py` (`PET_SOORTEN` + `ELEMENT_MAP`) en tegen de dev-database geseed (Feniks/Griffioen waren nog door niemand gevangen, dus rechtstreeks verwijderd i.p.v. omgezet). **Nog te doen, net als bij elke eerdere lichting**: afbeeldingen laten genereren, naar GitHub pushen (vóór het spawnen, vanwege Discord's media-proxy cache) en koppelen via `scripts/link_afbeeldingen.py` — tot dan gebruikt `/vang` de placeholder-afbeelding voor deze 25 soorten.
 
 `scripts/test_critterdex.py` had de paginering-check hardcoded op "150 soorten" staan; dat brak meteen zichtbaar bij deze uitbreiding (precies het soort regressie die je wil zien falen). Gefixt door het aantal soorten in de test zelf op te vragen in plaats van hard te coderen — telt voortaan automatisch mee bij toekomstige lichtingen. Volledige suite gecheckt: alleen de twee al langer bekende, hier ongerelateerde issues (`test_vangen.py` kapot door een verwijderde functie, `test_pvp_namen.py`'s harmless "unclosed session"-warning na een geslaagde run) waren nog aanwezig.
 
