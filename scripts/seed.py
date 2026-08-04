@@ -50,6 +50,10 @@ ELEMENT_MAP: dict[str, Element] = {
     "Zebra": Element.grond, "Maki": Element.grond, "Kwokka": Element.grond, "Klipdas": Element.grond,
     "Neusaap": Element.grond, "Okapi": Element.grond, "Wombat": Element.grond, "Rendier": Element.grond,
     "Pissebed": Element.grond,
+    # Negende lichting (2026-08-04)
+    "Wolfspin": Element.grond, "Tapir": Element.grond, "Muntjak": Element.grond,
+    "Komodovaraan": Element.grond, "Neushoornkever": Element.grond,
+    "Reuzenschildpad": Element.grond, "Reuzenmiereneter": Element.grond, "Mammoet": Element.grond,
     # Water
     "Eend": Element.water, "Otter": Element.water, "Gans": Element.water, "Krab": Element.water,
     "Zeehond": Element.water, "Kikker": Element.water, "Goudvis": Element.water, "Pelikaan": Element.water,
@@ -60,6 +64,9 @@ ELEMENT_MAP: dict[str, Element] = {
     "Dolfijn": Element.water, "Zwaardvis": Element.water,
     "Steur": Element.water, "Koi-Karper": Element.water, "Walvis": Element.water, "Piranha": Element.water,
     "Zeester": Element.water, "Zeekomkommer": Element.water, "Zeeleeuw": Element.water, "Anemoon": Element.water,
+    # Negende lichting (2026-08-04)
+    "Watervlo": Element.water, "Zeepaling": Element.water, "Zeekat": Element.water,
+    "Zee-egel": Element.water, "Walvishaai": Element.water, "Zeeslak": Element.water,
     # Lucht
     "Uil": Element.lucht, "Steenarend": Element.lucht, "Valk": Element.lucht, "Duif": Element.lucht,
     "Specht": Element.lucht, "Havik": Element.lucht, "Vleermuis": Element.lucht, "Pauw": Element.lucht,
@@ -67,11 +74,20 @@ ELEMENT_MAP: dict[str, Element] = {
     "Gier": Element.lucht, "Vlinder": Element.lucht, "Kolibrie": Element.lucht, "Ekster": Element.lucht,
     "Libelle": Element.lucht, "Bij": Element.lucht, "Lieveheersbeestje": Element.lucht,
     "Mees": Element.lucht,
+    # Negende lichting (2026-08-04)
+    "Zwaluw": Element.lucht, "IJsvogel": Element.lucht, "Vuurvlieg": Element.lucht,
+    "Grutto": Element.lucht, "Kwikstaart": Element.lucht, "Vleermuisvos": Element.lucht,
+    "Griffioen": Element.lucht,
     # Vuur (felle/agressieve dieren)
     "Vos": Element.vuur, "Wolf": Element.vuur, "Lynx": Element.vuur, "Das": Element.vuur,
     "Tijger": Element.vuur, "Panter": Element.vuur, "Neushoorn": Element.vuur, "Luipaard": Element.vuur,
     "Poema": Element.vuur, "Hyena": Element.vuur, "Veelvraat": Element.vuur, "Nijlpaard": Element.vuur,
     "Vuurvis": Element.vuur, "Mantisgarnaal": Element.vuur,
+    # Negende lichting (2026-08-04): net als Vuurvis/Mantisgarnaal hierboven
+    # zijn dit geen mammals maar wél "klein/aquatisch maar gevaarlijk"
+    # (Schorpioen, Buideldas) of "agressieve waterjager" (Orka, Feniks als
+    # vuurthema-uitzondering, geen mammal maar wel vuur qua flavor).
+    "Schorpioen": Element.vuur, "Buideldas": Element.vuur, "Orka": Element.vuur, "Feniks": Element.vuur,
     # Chaos (alle Chaos-soorten)
     "Chaos Kip": Element.chaos, "Chaos Eenhoorn": Element.chaos, "Chaos Rat": Element.chaos,
     "Chaos Bever": Element.chaos, "Chaos Zwijn": Element.chaos, "Chaos Mol": Element.chaos,
@@ -344,6 +360,39 @@ PET_SOORTEN = [
     ("Blobvis", 5, ZEER_LAAG, ZEER_LAAG, "Vijver", "Ziet er allesbehalve indrukwekkend uit, en toch..."),
     ("Mantisgarnaal", 4, ZEER_HOOG, GEMIDDELD, "Vijver", "Verpletterende klauwslag, een van de snelste aanvallen die er zijn"),
     ("Pijlgifkikker", 2, GEMIDDELD, LAAG, "Bos", "Piepklein maar levensgevaarlijk fel gekleurd"),
+    # Negende lichting (2026-08-04): 25 nieuwe soorten, zelf verzonnen op
+    # verzoek van de gebruiker (verzoek: "verzin deze zelf"). Bewust
+    # uiteenlopende dierhoeken gekozen om niet op bestaande families te
+    # stapelen (zie feedback_pet_design_variety): geen extra vossen/honden/
+    # katachtigen/primaten/berenbovine's, wél frisse hoeken als spinachtigen
+    # (Wolfspin, naast de al bestaande Schorpioen), cephalopoden (Zeekat
+    # naast de bestaande Chaos Octopus) en twee niet-Chaos mythische wezens
+    # (Feniks, Griffioen) als tegenhanger van de Chaos Eenhoorn.
+    ("Zwaluw", 1, LAAG, GEMIDDELD, "Moestuin", "Snelle vlieger die insecten wegvangt boven de akkers"),
+    ("IJsvogel", 1, LAAG, GEMIDDELD, "Vijver", "Feilloze duiker met een felgekleurd verenkleed, vangt vis in één beweging"),
+    ("Vuurvlieg", 1, ZEER_LAAG, LAAG, "Nachtwacht", "Verlicht de nacht met een zachte gloed, onmisbaar gezelschap tijdens de overnacht-shift"),
+    ("Schorpioen", 1, GEMIDDELD, LAAG, None, "Giftige angel in de staart, verrassend gevaarlijk voor zo'n klein tier"),
+    ("Watervlo", 1, ZEER_LAAG, ZEER_LAAG, "Vijver", "Piepklein bewonertje van de vijver, bijna microscopisch klein"),
+    ("Zeepaling", 1, LAAG, HOOG, "Vijver", "Glad en glibberig, bijna onmogelijk vast te houden"),
+    ("Grutto", 1, LAAG, GEMIDDELD, "Moestuin", "Trekvogel die moeiteloos lange afstanden aflegt, thuis in het open veld"),
+    ("Kwikstaart", 1, ZEER_LAAG, LAAG, "Vijver", "Wipt onophoudelijk met zijn staart, foerageert langs de waterkant"),
+    ("Wolfspin", 2, GEMIDDELD, LAAG, None, "Jaagt actief zonder web, snel en doeltreffend"),
+    ("Zeekat", 2, LAAG, GEMIDDELD, "Vijver", "Verandert moeiteloos van kleur, een sluwe illusionist onder water"),
+    ("Tapir", 2, GEMIDDELD, HOOG, "Bos", "Verlegen bosbewoner met een opvallende snuit, ook een sterke zwemmer"),
+    ("Zee-egel", 2, GEMIDDELD, ZEER_LAAG, "Vijver", "Bedekt met scherpe stekels, onaangenaam om zomaar op te pakken"),
+    ("Muntjak", 2, LAAG, GEMIDDELD, "Bos", "Piepklein hertje met opvallende slagtandjes, verrassend om tegen te komen in het bos"),
+    ("Komodovaraan", 3, HOOG, LAAG, None, "Reusachtige varaan met een giftige beet, de onbetwiste topjager van zijn eiland"),
+    ("Vleermuisvos", 3, GEMIDDELD, GEMIDDELD, "Nachtwacht", "Vleermuis met een spanwijdte van een meter, foerageert 's nachts op fruit"),
+    ("Buideldas", 3, HOOG, LAAG, None, "Berucht buideldier met een angstaanjagend gebrul en een verrassend felle bijtkracht"),
+    ("Neushoornkever", 3, HOOG, LAAG, None, "Piepklein lichaam, enorme kracht: kan tot 850 keer zijn eigen gewicht dragen"),
+    ("Walvishaai", 3, GEMIDDELD, HOOG, "Vijver", "Grootste vis ter wereld, een vreedzame reus die simpelweg water filtert voor voedsel"),
+    ("Zeeslak", 3, ZEER_LAAG, GEMIDDELD, "Vijver", "Feloranje zeeslak zonder schelp, giftig voor wie het toch waagt te happen"),
+    ("Orka", 4, ZEER_HOOG, LAAG, "Vijver", "Meedogenloze jager van de oceaan, jaagt slim en genadeloos in groepsverband"),
+    ("Feniks", 4, HOOG, GEMIDDELD, None, "Mythische vuurvogel die herrijst uit zijn eigen as, zelden gezien en nooit vergeten"),
+    ("Reuzenschildpad", 4, GEMIDDELD, LAAG, None, "Kan honderden jaren oud worden, een ongelooflijk taaie verdediger ondanks het trage tempo"),
+    ("Reuzenmiereneter", 4, HOOG, GEMIDDELD, "Bos", "Enorme klauwen en een kilometerslange tong, vernietigt mierenhopen moeiteloos"),
+    ("Mammoet", 5, ZEER_HOOG, LAAG, None, "Uitgestorven reus uit een vergeten tijdperk, ongeëvenaarde kracht en een dikke vacht tegen de kou"),
+    ("Griffioen", 5, HOOG, GEMIDDELD, None, "Mythisch wezen, half adelaar half leeuw, heerst onbetwist over de luchten"),
 ]
 
 # (itemnaam, honger_herstel, voerbak_vanaf) — welk item hoeveel honger

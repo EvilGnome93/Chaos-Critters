@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from cogs.critterdex import CritterdexCog, PET_SOORTEN_PER_PAGINA, _stat_label
 from db.engine import async_session
@@ -68,13 +68,16 @@ async def test_critterdex_paginering_en_filters() -> None:
             vos = await session.scalar(select(PetSoort).where(PetSoort.naam == "Vos"))
             pet_ids.append(await _maak_pet(session, SPELER, vos, "TestVos"))
 
+        async with async_session() as session:
+            totaal_soorten = await session.scalar(select(func.count()).select_from(PetSoort))
+
         interactie = fake_interaction(SPELER)
         await cog.critterdex.callback(cog, interactie)
         interactie.response.send_message.assert_awaited()
         view = interactie.response.send_message.call_args.kwargs["view"]
-        print(f"Totaal soorten: {len(view.alle_soorten)} (verwacht 150)")
-        assert len(view.alle_soorten) == 150
-        assert view.max_pagina == (150 - 1) // PET_SOORTEN_PER_PAGINA
+        print(f"Totaal soorten: {len(view.alle_soorten)} (verwacht {totaal_soorten})")
+        assert len(view.alle_soorten) == totaal_soorten
+        assert view.max_pagina == (totaal_soorten - 1) // PET_SOORTEN_PER_PAGINA
 
         embed_pagina1 = view.huidige_embed()
         namen_pagina1 = [f.name for f in embed_pagina1.fields]

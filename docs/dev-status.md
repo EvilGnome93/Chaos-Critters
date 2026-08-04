@@ -381,6 +381,36 @@ Getest via nieuw `scripts/test_voer_en_tactiek.py` (waarden identiek aan vóór 
 
 **Fase 2 is hiermee afgerond**: alle balansconstanten uit de inventaris bovenaan dit document staan nu in de database en zijn via het portal aanpasbaar zonder deploy.
 
+## 25 nieuwe pet-soorten, negende lichting (2026-08-04, verzoek van de gebruiker: "verzin deze zelf")
+
+**Nu 175 pet-soorten** (was 150): 56 Common (+8), 36 Uncommon (+5), 42 Rare (+6), 25 Epic (+4), 16 Legendary (+2) — verdeling geschaald naar de bestaande tier-verhouding (48:31:36:21:14 → afgerond 8:5:6:4:2 op 25 nieuwe).
+
+Volledig zelf verzonnen (naam + stats + werkplek + beschrijving + element), met als expliciete leidraad [[feedback_pet_design_variety]]: geen extra vossen/honden/katachtigen/primaten/beren/runderachtigen (die families zaten al ruim vertegenwoordigd), wel bewust frisse hoeken:
+
+- **Spinachtigen**: Wolfspin (Uncommon) naast de al bestaande Schorpioen (die er in dezelfde lichting bij kwam) — twee totaal verschillende jachtstijlen (web-loze actieve jager vs. gifangel), geen overlap met bestaande soorten.
+- **Cephalopoden**: Zeekat/inktvis (Uncommon) naast de bestaande Chaos Octopus — zeekat is qua uiterlijk (torpedo-lijf, kleurverandering) duidelijk een ander dier dan een octopus.
+- **Twee niet-Chaos mythische wezens**: Feniks (Epic) en Griffioen (Legendary) — bewust *niet* Chaos-geprefixt, als tegenhanger van de bestaande Chaos Eenhoorn (die wél mythisch is zonder Chaos-flavor). Blijft binnen de eerdere afspraak dat mythische wezens naast de vele echte dieren mogen bestaan zolang ze zeldzaam en herkenbaar zijn.
+- **Bewust beperkte overlap waar het toch gebeurde**: Orka (Epic, cetacea) is de derde walvisachtige naast Dolfijn/Walvis, maar orka's zijn zo herkenbaar anders (zwart/wit, apex-jager) dat het geen "stapeling" voelt. Reuzenmiereneter (Epic) en Mierenegel zijn allebei mierenetend als de bestaande Aardvarken, maar drie totaal verschillende dierfamilies (Vermilingua/Tachyglossidae/Tubulidentata) met een compleet ander uiterlijk.
+
+**Volledige lijst per tier:**
+
+| Common (8) | Uncommon (5) | Rare (6) | Epic (4) | Legendary (2) |
+|---|---|---|---|---|
+| Zwaluw | Wolfspin | Komodovaraan | Orka | Mammoet |
+| IJsvogel | Zeekat | Vleermuisvos | Feniks | Griffioen |
+| Vuurvlieg | Tapir | Buideldas | Reuzenschildpad | |
+| Schorpioen | Zee-egel | Neushoornkever | Reuzenmiereneter | |
+| Watervlo | Muntjak | Walvishaai | | |
+| Zeepaling | | Zeeslak | | |
+| Grutto | | | | |
+| Kwikstaart | | | | |
+
+Elementen volgens het bestaande patroon: vliegende dieren (Zwaluw, IJsvogel, Vuurvlieg, Grutto, Kwikstaart, Vleermuisvos, Griffioen) → lucht; waterdieren (Watervlo, Zeepaling, Zeekat, Zee-egel, Walvishaai, Zeeslak) → water; landdieren (Wolfspin, Tapir, Muntjak, Komodovaraan, Neushoornkever, Reuzenschildpad, Reuzenmiereneter, Mammoet) → grond; "klein/aquatisch maar gevaarlijk" of "agressieve jager" (Schorpioen, Buideldas, Orka, Feniks) → vuur, zelfde uitzonderingspatroon als de bestaande Vuurvis/Mantisgarnaal.
+
+Toegevoegd aan `scripts/seed.py` (`PET_SOORTEN` + `ELEMENT_MAP`) en tegen de dev-database geseed. **Nog te doen, net als bij elke eerdere lichting**: afbeeldingen laten genereren, naar GitHub pushen (vóór het spawnen, vanwege Discord's media-proxy cache) en koppelen via `scripts/link_afbeeldingen.py` — tot dan gebruikt `/vang` de placeholder-afbeelding voor deze 25 soorten.
+
+`scripts/test_critterdex.py` had de paginering-check hardcoded op "150 soorten" staan; dat brak meteen zichtbaar bij deze uitbreiding (precies het soort regressie die je wil zien falen). Gefixt door het aantal soorten in de test zelf op te vragen in plaats van hard te coderen — telt voortaan automatisch mee bij toekomstige lichtingen. Volledige suite gecheckt: alleen de twee al langer bekende, hier ongerelateerde issues (`test_vangen.py` kapot door een verwijderde functie, `test_pvp_namen.py`'s harmless "unclosed session"-warning na een geslaagde run) waren nog aanwezig.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.
