@@ -53,6 +53,7 @@ def nep_bot() -> MagicMock:
     kanaal = MagicMock()
     kanaal.id = 424242424242
     kanaal.name = "portal-testkanaal"
+    kanaal.send = AsyncMock()
     kanaal.guild = MagicMock()
     kanaal.guild.id = 111111111111
     kanaal.guild.name = "Testserver"
@@ -98,7 +99,9 @@ async def _opruimen(bot) -> None:
         await session.execute(delete(InventarisItem).where(InventarisItem.speler_id == SPELER))
         await session.execute(delete(Speler).where(Speler.discord_id == SPELER))
         await session.execute(delete(PetSoort).where(PetSoort.naam == TESTSOORT))
-        from db.models import SpawnKanaal
+        from db.models import Event, SpawnKanaal
+
+        await session.execute(delete(Event))
 
         await session.execute(delete(SpawnKanaal).where(SpawnKanaal.channel_id == 424242424242))
         await session.commit()
@@ -377,6 +380,74 @@ async def test_voer_effecten(client, auth) -> None:
     assert balans.voer_effecten()["Basis brokjes"] == origineel["honger_herstel"]
     assert "Basis brokjes" in balans.voerbak_voer("simpel")
     print("Teruggezet naar de oorspronkelijke waarden.")
+
+
+async def test_events(client, auth, bot) -> None:
+    """2026-08-05: chaos-events worden alleen vanuit het portal gestart."""
+    print("\n-- Chaos events: starten, valideren, stoppen --")
+    from utils import events
+
+    resp = await client.get("/api/events", headers=auth)
+    assert resp.status == 200, await resp.text()
+    d = await resp.json()
+    types = {t["sleutel"] for t in d["types"]}
+    print(f"Beschikbare types: {sorted(types)}")
+    assert types == set(events.TYPES)
+
+    onzin = [
+        ({"sleutel": "bestaat-niet", "duur_minuten": 60}, "onbekend type"),
+        ({"sleutel": "incense", "duur_minuten": 0}, "duur 0"),
+        ({"sleutel": "incense", "duur_minuten": 99999}, "duur van 69 dagen"),
+        (
+            {"sleutel": "incense", "duur_minuten": 60, "aankondiging_kanaal_id": 12345},
+            "kanaal dat de bot niet ziet",
+        ),
+    ]
+    for body, beschrijving in onzin:
+        resp = await client.post("/api/events", headers=auth, json=body)
+        assert resp.status == 400, f"{beschrijving} werd geaccepteerd ({resp.status})!"
+        print(f"  geweigerd ({beschrijving}): {(await resp.json())['error']}")
+
+    kanaal_id = bot.guilds[0].text_channels[0].id
+    resp = await client.post(
+        "/api/events",
+        headers=auth,
+        json={"sleutel": "incense", "duur_minuten": 30, "aankondiging_kanaal_id": str(kanaal_id)},
+    )
+    assert resp.status == 200, await resp.text()
+    event_id = (await resp.json())["id"]
+    # Cache moet meteen bij zijn: de endpoint roept events.laad() aan.
+    assert events.is_actief("incense"), "cache is niet bijgewerkt na het starten"
+    print(f"Incense gestart (#{event_id}), factor is nu {events.factor('incense')}")
+
+    # Aangekondigd in het gekozen kanaal.
+    assert bot.guilds[0].text_channels[0].send.await_count >= 1, "geen aankondiging verstuurd"
+    print("Aankondiging verstuurd naar het gekozen kanaal.")
+
+    # Tweede incense mag niet: verwarrend in de aankondigingen, en actief()
+    # zou er toch maar één pakken.
+    resp = await client.post("/api/events", headers=auth, json={"sleutel": "incense", "duur_minuten": 30})
+    assert resp.status == 400
+    print(f"Tweede incense geweigerd: {(await resp.json())['error']}")
+
+    # Een ánder type naast een lopend event mag wél.
+    resp = await client.post(
+        "/api/events", headers=auth, json={"sleutel": "dubbele_coins", "duur_minuten": 30}
+    )
+    assert resp.status == 200, await resp.text()
+    tweede_id = (await resp.json())["id"]
+    assert events.is_actief("incense") and events.is_actief("dubbele_coins")
+    print("Een tweede, ander event mag er wel naast lopen.")
+
+    for stop_id in (event_id, tweede_id):
+        resp = await client.post(f"/api/events/{stop_id}/stop", headers=auth)
+        assert resp.status == 200, await resp.text()
+    assert not events.actieve(), "na stoppen loopt er nog een event"
+    print("Beide events gestopt, cache is leeg.")
+
+    resp = await client.post("/api/events/999999/stop", headers=auth)
+    assert resp.status == 400
+    print(f"Onbekend event-ID geweigerd: {(await resp.json())['error']}")
 
 
 async def test_soorten_crud(client, auth) -> None:
@@ -680,6 +751,7 @@ async def main() -> None:
         await test_werk_cycli(client, auth)
         await test_recepten(client, auth)
         await test_voer_effecten(client, auth)
+        await test_events(client, auth, bot)
         await test_soorten_crud(client, auth)
         await test_spelerbeheer(client, auth)
         await test_kanalen(client, auth, bot)

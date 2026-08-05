@@ -28,6 +28,7 @@ from sqlalchemy import delete, func, select
 from db.engine import async_session
 from db.models import (
     Element,
+    Event,
     Huisdier,
     Instelling,
     Item,
@@ -41,7 +42,7 @@ from db.models import (
     Werkplek,
 )
 from portal import auth
-from utils import balans
+from utils import balans, events
 
 log = logging.getLogger("chaos_critters")
 
@@ -564,6 +565,124 @@ async def soort_verwijderen(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+# ── Chaos events ────────────────────────────────────────────────────────────
+
+async def events_ophalen(request: web.Request) -> web.Response:
+    """De lopende events, de laatste afgeronde, en de beschikbare types met
+    hun huidige sterkte (zodat het panel kan tonen wat een event gaat doen
+    vóór je 'm start)."""
+    bot = request.app["bot"]
+    async with async_session() as session:
+        rijen = (
+            await session.execute(select(Event).order_by(Event.gestart_op.desc()).limit(25))
+        ).scalars().all()
+
+    nu = events._nu()
+    return web.json_response(
+        {
+            "types": [
+                {
+                    "sleutel": t.sleutel,
+                    "naam": t.naam,
+                    "emoji": t.emoji,
+                    "sterkte": t.sterkte(),
+                    "effect": t.effect_tekst(t.sterkte()),
+                }
+                for t in events.TYPES.values()
+            ],
+            "standaard_duur_minuten": events.standaard_duur_minuten(),
+            "events": [
+                {
+                    "id": e.id,
+                    "sleutel": e.sleutel,
+                    "naam": events.TYPES[e.sleutel].naam if e.sleutel in events.TYPES else e.sleutel,
+                    "emoji": events.TYPES[e.sleutel].emoji if e.sleutel in events.TYPES else "❓",
+                    "sterkte": float(e.sterkte),
+                    "actief": e.eindigt_op > nu,
+                    "gestart_op": e.gestart_op.isoformat(),
+                    "eindigt_op": e.eindigt_op.isoformat(),
+                    "kanaal": (
+                        _kanaal_naam(bot, e.aankondiging_kanaal_id)
+                        if e.aankondiging_kanaal_id
+                        else None
+                    ),
+                }
+                for e in rijen
+            ],
+        }
+    )
+
+
+async def event_starten(request: web.Request) -> web.Response:
+    """POST /api/events — start een chaos-event.
+
+    Bewust geen tweede event van hetzelfde type tegelijk: twee incenses
+    zouden elkaar niet versterken (`actief()` pakt er één) maar wel
+    verwarrend zijn in de aankondigingen. Verschillende types naast elkaar
+    mag wél — die raken elk een ander systeem."""
+    data = await request.json()
+    sleutel = (data.get("sleutel") or "").strip()
+    if sleutel not in events.TYPES:
+        raise ValidatieFout(f"onbekend event-type '{sleutel}'")
+    duur = _getal(data, "duur_minuten", minimum=1, maximum=7 * 24 * 60, heel=True)
+
+    if events.is_actief(sleutel):
+        raise ValidatieFout(
+            f"{events.TYPES[sleutel].naam} loopt al — stop 'm eerst als je opnieuw wilt beginnen"
+        )
+
+    bot = request.app["bot"]
+    kanaal_id = data.get("aankondiging_kanaal_id") or None
+    if kanaal_id is not None:
+        try:
+            kanaal_id = int(kanaal_id)
+        except (TypeError, ValueError):
+            raise ValidatieFout("ongeldig kanaal-ID")
+        if bot.get_channel(kanaal_id) is None:
+            raise ValidatieFout("de bot kan dit kanaal niet zien")
+
+    async with async_session() as session:
+        event = await events.start(
+            session,
+            sleutel,
+            duur_minuten=duur,
+            aankondiging_kanaal_id=kanaal_id,
+            gestart_door=request["sessie"].discord_id,
+        )
+        await session.commit()
+        session.expunge_all()
+
+    await events.laad()
+    # Aankondigen ná de commit: de portal draait in hetzelfde proces als de
+    # bot, dus dit is een gewone aanroep. Als Discord hapert loopt het event
+    # gewoon door, alleen de melding ontbreekt dan.
+    from cogs.events import kondig_aan
+
+    await kondig_aan(bot, event, events.start_tekst(event))
+
+    log.info("Portal: event '%s' gestart voor %d minuten", sleutel, duur)
+    return web.json_response({"ok": True, "id": event.id})
+
+
+async def event_stoppen(request: web.Request) -> web.Response:
+    """POST /api/events/{id}/stop — beëindigt een lopend event meteen.
+
+    De rij blijft staan (eindigt_op gaat naar nu) i.p.v. verwijderd te
+    worden: zo blijft de geschiedenis zichtbaar en pikt de achtergrondtaak
+    de "voorbij"-aankondiging alsnog op."""
+    event_id = int(request.match_info["id"])
+    async with async_session() as session:
+        event = await events.stop(session, event_id)
+        if event is None:
+            raise ValidatieFout("event bestaat niet")
+        sleutel = event.sleutel
+        await session.commit()
+
+    await events.laad()
+    log.info("Portal: event '%s' (#%d) handmatig gestopt", sleutel, event_id)
+    return web.json_response({"ok": True})
+
+
 # ── Kanalen (spawn + logs) ──────────────────────────────────────────────────
 
 def _kanaal_naam(bot, channel_id: int) -> str | None:
@@ -739,6 +858,9 @@ def routes_toevoegen(app: web.Application) -> None:
     # Kanalen zijn operationele configuratie (spawn/log-kanalen, incl. namen
     # van alle servers waar de bot in zit), geen spelbalans — volledig
     # admin-only, ook het ophalen.
+    app.router.add_get("/api/events", events_ophalen)
+    app.router.add_post("/api/events", auth.vereist_admin(event_starten))
+    app.router.add_post("/api/events/{id}/stop", auth.vereist_admin(event_stoppen))
     app.router.add_get("/api/kanalen", auth.vereist_admin(kanalen_ophalen))
     app.router.add_post("/api/kanalen/spawn", auth.vereist_admin(spawnkanaal_toevoegen))
     app.router.add_delete("/api/kanalen/spawn/{id}", auth.vereist_admin(spawnkanaal_verwijderen))

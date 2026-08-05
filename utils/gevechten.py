@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 import config
 from db.models import Huisdier, Tier
-from utils import balans
+from utils import balans, events
 
 # De tactiek-variantie staat sinds 2026-07-30 (fase 2, blok 5) in de
 # Instelling-tabel als tactiek_<naam>_variantie_min/_max; zie
@@ -124,7 +124,9 @@ def elo_delta(mmr_eigen: int, mmr_tegenstander: int, gewonnen: bool) -> int:
 
 
 def currency_beloning(tegenstander_mmr: int) -> int:
-    return _currency_basis_winst() + round(tegenstander_mmr / 100) * _currency_bonus_per_100_mmr()
+    basis = _currency_basis_winst() + round(tegenstander_mmr / 100) * _currency_bonus_per_100_mmr()
+    # Een lopende muntregen verdubbelt de winst (2026-08-05, chaos-events).
+    return round(basis * events.factor("dubbele_coins"))
 
 
 @dataclass

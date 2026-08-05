@@ -196,6 +196,23 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
             "`/opdrachten`: je drie opdrachten van vandaag, met voortgangsbalk en beloningen",
         ],
     ),
+    (
+        "🎉 Chaos events",
+        "Af en toe start er een **chaos-event**: een tijdelijk effect dat voor iedereen tegelijk "
+        "geldt. Je hoeft je nergens voor aan te melden, het werkt vanzelf zolang het loopt.\n\n"
+        "🌫️ **Incense** — critters verschijnen veel sneller in de spawn-kanalen.\n"
+        "🌠 **Sterrenregen** — flink meer kans dat een spawn Rare of hoger is.\n"
+        "🌾 **Grondstoffenregen** — voltooide shifts leveren meer grondstoffen op.\n"
+        "💰 **Muntregen** — meer Chaos Coins uit werken en gevechten.\n\n"
+        "Elk event wordt aangekondigd in de spawn-kanalen, met erbij hoe lang het nog duurt. "
+        "Er kunnen er meerdere tegelijk lopen, want ze raken elk een ander deel van het spel. "
+        "Een grondstoffenregen verdubbelt trouwens **alleen** je grondstoffen en niet je Chaos "
+        "Coins, daar is de muntregen voor.",
+        [
+            "Geen commando nodig, events gelden automatisch zolang ze lopen",
+            "Lopende events zijn ook te zien op critters.casualchaos.nl",
+        ],
+    ),
 ]
 
 

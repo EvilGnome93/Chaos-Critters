@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 import config
 from db.engine import async_session
 from db.models import Clan, Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
-from utils import balans, opdrachten
+from utils import balans, events, opdrachten
 from utils.discord_log import fmt_log, send_log
 from utils.leveling import xp_per_effectieve_uur, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats_met_voerbak
@@ -357,10 +357,16 @@ class WerkCog(commands.Cog):
         item = await session.get(Item, werkplek_obj.opbrengst_item_id)
 
         effectieve_uren = cyclus_info.reward_duur_uren * cyclus_info.output_multiplier
-        grondstof_aantal = max(
+        basis_grondstof = max(
             1, round(float(werkplek_obj.output_per_uur) * effectieve_uren * (float(huisdier.werk_genen) / 100))
         )
-        currency_aantal = round(grondstof_aantal * _currency_per_grondstof())
+        # Chaos-events (2026-08-05). Coins hangen bewust aan de bàsis-
+        # opbrengst en niet aan de door een event opgehoogde: anders zou een
+        # grondstoffenregen er stilletjes ook een muntregen bij zijn.
+        currency_aantal = round(
+            basis_grondstof * _currency_per_grondstof() * events.factor("dubbele_coins")
+        )
+        grondstof_aantal = round(basis_grondstof * events.factor("dubbele_grondstoffen"))
 
         speler = await session.get(Speler, interaction.user.id)
         speler.currency += currency_aantal

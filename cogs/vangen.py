@@ -12,8 +12,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 import config
 from db.engine import async_session
-from db.models import ActieveSpawn, Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
-from utils import opdrachten
+from db.models import ActieveSpawn, Huisdier, PetSoort, Speler, SpawnKanaal, Tier
+from utils import balans, events, opdrachten
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log
 
@@ -108,7 +108,15 @@ async def _kies_random_soort(
     if not tiers:
         raise ValueError(f"Onbekend tier: {tier_id}.")
 
-    tier = random.choices(tiers, weights=[float(t.spawnkans) for t in tiers], k=1)[0]
+    # Tijdens een sterrenregen wegen Rare en hoger zwaarder mee. Geen
+    # normalisatie nodig: random.choices deelt zelf door de som, dus de
+    # gewichten hoeven niet bij 1 op te tellen.
+    sterrenregen = events.factor("sterrenregen")
+    gewichten = [
+        float(t.spawnkans) * (sterrenregen if t.id >= events.ZELDZAAM_VANAF_TIER else 1.0)
+        for t in tiers
+    ]
+    tier = random.choices(tiers, weights=gewichten, k=1)[0]
     soorten = (
         (await session.execute(select(PetSoort).where(PetSoort.tier_id == tier.id))).scalars().all()
     )
@@ -120,15 +128,20 @@ async def _kies_random_soort(
     return random.choice(soorten), tier
 
 
-async def _nieuwe_drempel() -> int:
-    async with async_session() as session:
-        minimum = await session.scalar(
-            select(Instelling.waarde).where(Instelling.sleutel == "spawn_interval_min_berichten")
-        )
-        maximum = await session.scalar(
-            select(Instelling.waarde).where(Instelling.sleutel == "spawn_interval_max_berichten")
-        )
-    return random.randint(int(minimum or 25), int(maximum or 40))
+def _nieuwe_drempel() -> int:
+    """Hoeveel berichten er nodig zijn tot de volgende spawn.
+
+    Las tot 2026-08-05 rechtstreeks uit de Instelling-tabel met een eigen
+    DB-query; nu via de balans-cache, net als alle andere balanswaarden sinds
+    fase 2. Daardoor ook synchroon: er valt niets meer te awaiten.
+
+    Een lopend incense-event verlaagt de drempel met zijn factor, dus dan
+    verschijnen er veel sneller critters."""
+    minimum = balans.get_int("spawn_interval_min_berichten", 25)
+    maximum = balans.get_int("spawn_interval_max_berichten", 40)
+    drempel = random.randint(minimum, maximum)
+    # Minstens 1: een factor van 0 zou anders bij elk bericht spawnen.
+    return max(1, round(drempel * events.factor("incense")))
 
 
 async def _laad_spawn_kanaal_ids() -> list[int]:
@@ -337,12 +350,12 @@ class VangenCog(commands.Cog):
         aantal = self.berichten_tellers.get(message.channel.id, 0) + 1
         drempel = self.drempels.get(message.channel.id)
         if drempel is None:
-            drempel = await _nieuwe_drempel()
+            drempel = _nieuwe_drempel()
             self.drempels[message.channel.id] = drempel
 
         if aantal >= drempel:
             self.berichten_tellers[message.channel.id] = 0
-            self.drempels[message.channel.id] = await _nieuwe_drempel()
+            self.drempels[message.channel.id] = _nieuwe_drempel()
             await self._spawn(message.channel)
         else:
             self.berichten_tellers[message.channel.id] = aantal

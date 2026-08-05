@@ -251,6 +251,7 @@
     <nav class="sidebar" id="sidebar">
       <div class="nav-section-label">Algemeen</div>
       <button class="nav-item" data-tab="overzicht">Overzicht</button>
+      <button class="nav-item" data-tab="events">Chaos events</button>
       <button class="nav-item" data-tab="instellingen">Instellingen</button>
       <div class="nav-divider"></div>
       <div class="nav-section-label">Balans &amp; content</div>
@@ -290,6 +291,25 @@
           <div id="rijkste-spelers"></div>
         </div>
       </div>
+    </div>
+
+    <!-- CHAOS EVENTS -->
+    <div class="card" data-tab-panel="events">
+      <div class="card-head">Chaos events
+        <button class="btn btn-add" onclick="laadEvents()">Verversen</button>
+      </div>
+      <p class="card-intro">
+        Tijdelijke, server-brede effecten. Een event wordt aangekondigd in alle spawn-kanalen,
+        plus een kanaal naar keuze. De sterkte per type stel je in bij Instellingen; een lopend
+        event houdt de sterkte die het bij de start had.
+      </p>
+      <div id="events-actief"></div>
+      <div data-admin-only>
+        <div class="rule-block-head" style="margin-top:1.5rem;">Nieuw event starten</div>
+        <div id="events-starter"></div>
+      </div>
+      <div class="rule-block-head" style="margin-top:1.5rem;">Geschiedenis</div>
+      <div id="events-geschiedenis"></div>
     </div>
 
     <!-- INSTELLINGEN -->
@@ -558,9 +578,10 @@
   }
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const TABS = ['overzicht', 'instellingen', 'items', 'werkplekken', 'werk-cycli', 'recepten', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
+  const TABS = ['overzicht', 'events', 'instellingen', 'items', 'werkplekken', 'werk-cycli', 'recepten', 'tiers', 'soorten', 'spelers', 'clans', 'kanalen'];
   const LADERS = {
     overzicht: laadStatistieken,
+    events: laadEvents,
     instellingen: laadInstellingen,
     items: laadItems,
     werkplekken: laadWerkplekken,
@@ -630,6 +651,101 @@
         ? s.rijkste_spelers.map(p => `<div class="lijst-rij statisch"><div class="lijst-body"><div class="lijst-titel">${esc(p.naam)}</div></div><span class="badge groen">${esc(p.coins)}</span></div>`).join('')
         : '<div class="leeg">Nog geen spelers.</div>';
     } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  // ── Chaos events ─────────────────────────────────────────────────────────
+  function _duurTekst(minuten) {
+    if (minuten < 60) return `${minuten} min`;
+    const uren = minuten / 60;
+    return Number.isInteger(uren) ? `${uren} uur` : `${uren.toFixed(1)} uur`;
+  }
+
+  async function laadEvents() {
+    try {
+      const d = await api('/api/events');
+      const lopend = d.events.filter(e => e.actief);
+
+      document.getElementById('events-actief').innerHTML = lopend.length
+        ? lopend.map(e => `
+          <div class="rule-block">
+            <div class="rule-block-head">
+              <span>${esc(e.emoji)} ${esc(e.naam)}</span>
+              <span class="badge">loopt tot ${new Date(e.eindigt_op + 'Z').toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</span>
+            </div>
+            <div class="field-hint">
+              Sterkte ${e.sterkte}x${e.kanaal ? ` &middot; aangekondigd in #${esc(e.kanaal)}` : ''}
+            </div>
+            <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;" data-admin-only>
+              <button class="btn btn-danger" onclick="stopEvent(${e.id}, this)">Nu stoppen</button>
+              <span class="mini-status"></span>
+            </div>
+          </div>`).join('')
+        : '<span class="mini-status">Er loopt op dit moment geen event.</span>';
+
+      // De kanaal-dropdown komt uit /api/kanalen, dat admin-only is — een
+      // gewoon lid ziet het startformulier toch niet (data-admin-only).
+      let kanaalOpties = '';
+      if (isAdmin) {
+        try {
+          const k = await api('/api/kanalen');
+          kanaalOpties = k.beschikbaar.map(c =>
+            `<option value="${esc(c.id)}">${esc(c.server)} / #${esc(c.naam)}</option>`).join('');
+        } catch (e) { /* niet fataal: je kunt ook zonder extra kanaal starten */ }
+      }
+
+      document.getElementById('events-starter').innerHTML = d.types.map(t => `
+        <div class="rule-block" data-sleutel="${esc(t.sleutel)}">
+          <div class="rule-block-head">
+            <span>${esc(t.emoji)} ${esc(t.naam)}</span>
+            <span class="badge grijs">${t.sterkte}x</span>
+          </div>
+          <div class="field-hint" style="margin-bottom:0.75rem;">${esc(t.effect.replace(/\*\*/g, ''))}</div>
+          <div class="rule-row">
+            <div class="field">
+              <label>Duur in minuten</label>
+              <input type="number" min="1" max="10080" data-veld="duur_minuten" value="${d.standaard_duur_minuten}" />
+            </div>
+            <div class="field">
+              <label>Extra aankondigingskanaal</label>
+              <select data-veld="aankondiging_kanaal_id">
+                <option value="">— alleen de spawn-kanalen —</option>
+                ${kanaalOpties}
+              </select>
+            </div>
+          </div>
+          <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
+            <button class="btn btn-add" onclick="startEvent('${esc(t.sleutel)}', this)">Starten</button>
+            <span class="mini-status"></span>
+          </div>
+        </div>`).join('');
+
+      const historie = d.events.filter(e => !e.actief);
+      document.getElementById('events-geschiedenis').innerHTML = historie.length
+        ? historie.map(e => {
+            const van = new Date(e.gestart_op + 'Z');
+            const tot = new Date(e.eindigt_op + 'Z');
+            const minuten = Math.max(1, Math.round((tot - van) / 60000));
+            return `<span class="chip">${esc(e.emoji)} ${esc(e.naam)}<span class="chip-meta">${van.toLocaleDateString('nl-NL')} &middot; ${_duurTekst(minuten)}</span></span>`;
+          }).join('')
+        : '<span class="mini-status">Nog geen afgeronde events.</span>';
+    } catch (e) { toonStatus(e.message, 'fail'); }
+  }
+
+  function startEvent(sleutel, btn) {
+    const blok = btn.closest('.rule-block');
+    const body = { sleutel, ...velden(blok) };
+    metKnop(btn, async () => {
+      await api('/api/events', { method: 'POST', body: JSON.stringify(body) });
+      laadEvents();
+    }, blok.querySelector('.mini-status'));
+  }
+
+  function stopEvent(id, btn) {
+    const blok = btn.closest('.rule-block');
+    metKnop(btn, async () => {
+      await api(`/api/events/${id}/stop`, { method: 'POST' });
+      laadEvents();
+    }, blok.querySelector('.mini-status'));
   }
 
   // ── Instellingen ─────────────────────────────────────────────────────────

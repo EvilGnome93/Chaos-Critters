@@ -42,6 +42,7 @@ TEST_COMMANDOS_PER_CATEGORIE = [
     ]),
     ("ℹ️ Overig", [
         ("/opdrachten", "Bekijk je drie dagelijkse opdrachten en hoe ver je bent. Elke afgeronde opdracht levert Chaos Coins op, alle drie afronden geeft een extra bonus. Nieuwe opdrachten elke nacht."),
+        ("Chaos events", "Geen commando: tijdelijke server-brede effecten (sneller spawnen, meer zeldzame critters, meer grondstoffen of meer Chaos Coins). Worden aangekondigd in de spawn-kanalen zodra ze beginnen. Zie `/wiki` voor uitleg."),
         ("/wiki", "Blader door uitleg van hoe de spelmechanieken werken (vangen, elementen, verzorgen, werken, vechten, ranked, PvP, traden, clans, leveling), gegroepeerd per onderwerp."),
     ]),
     ("🔧 Admin", [

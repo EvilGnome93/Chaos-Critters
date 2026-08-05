@@ -30,6 +30,7 @@ COGS = (
     "cogs.critterdex",
     "cogs.critterstats",
     "cogs.opdrachten",
+    "cogs.events",
     "cogs.changelog",
     "cogs.wiki",
     "cogs.fokken",

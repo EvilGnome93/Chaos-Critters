@@ -443,3 +443,39 @@ class SpelerOpdracht(Base):
     doel: Mapped[int]
     beloning: Mapped[int]
     voltooid_op: Mapped[datetime | None] = mapped_column(nullable=True)
+
+
+class Event(Base):
+    """Een tijdelijk, server-breed chaos-event (2026-08-05, verzoek van de
+    gebruiker; het incense-idee komt van Pokémon Go).
+
+    Alleen handmatig te starten vanuit het admin panel — bewust geen
+    willekeurige automatische events, dan zou er van alles kunnen gebeuren
+    terwijl er niemand online is.
+
+    **Effecten lopen vanzelf af**: of een event actief is, is puur
+    `eindigt_op > nu`. Er is dus geen achtergrondtaak nodig om iets uit te
+    zetten, en een herstart midden in een event verandert niets. De
+    achtergrondtaak die er wél is doet alleen de "event is voorbij"-
+    aankondiging, want dat is het enige dat een tijdstip nodig heeft.
+
+    `sterkte` is een momentopname van de balans-instelling bij het starten,
+    zodat een wijziging via het portal niet halverwege een lopend event de
+    spelregels verandert (zelfde reden als bij de dagopdrachten)."""
+
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Welk type effect; de types liggen vast in utils/events.py, want elk
+    # type heeft eigen code op de juiste plek nodig.
+    sleutel: Mapped[str] = mapped_column(String(32))
+    sterkte: Mapped[float] = mapped_column(Numeric(6, 3))
+    gestart_op: Mapped[datetime] = mapped_column(server_default=func.now())
+    eindigt_op: Mapped[datetime]
+    # Extra kanaal waar dit event aangekondigd is, naast de spawn-kanalen.
+    # Per event te kiezen, dus NULL betekent "alleen de spawn-kanalen".
+    aankondiging_kanaal_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    gestart_door: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Of de "voorbij"-aankondiging al gedaan is. Zonder deze vlag zou de
+    # achtergrondtaak bij elke ronde opnieuw melden dat het event afgelopen is.
+    einde_gemeld: Mapped[bool] = mapped_column(default=False)

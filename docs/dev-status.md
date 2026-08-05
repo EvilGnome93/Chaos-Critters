@@ -438,6 +438,39 @@ Getest via nieuw `scripts/test_opdrachten.py`: drie per dag en stabiel bij herha
 
 **Volgende stap, al afgesproken**: chaos events — tijdelijke server-brede modifiers, te starten vanuit het portal. Inclusief een **incense-event** naar Pokémon-voorbeeld waarbij de spawn-timer flink omlaag gaat; dat past goed omdat spawns op berichten-tellers werken (`spawn_interval_min_berichten` / `spawn_interval_max_berichten`) die sinds fase 2 al als instelling in de database staan — een incense is dus letterlijk die twee tijdelijk verlagen. Daarna eventueel een **zeldzaam item** waarmee een speler zelf een incense kan activeren; dat item moet expliciet heel moeilijk te krijgen zijn.
 
+## Chaos events (2026-08-05, verzoek van de gebruiker)
+
+Tijdelijke, server-brede modifiers. Het incense-idee kwam van de gebruiker ("een soort hoe het bij Pokémon heet Insence event, waarbij de spawn timer drastisch wordt verlaagd"), de rest is in overleg gekozen. Vier types in de eerste lichting:
+
+| Event | Effect | Standaardsterkte |
+|---|---|---|
+| 🌫️ Incense | Spawn-drempel × factor, dus sneller spawnen | 0.25 (4x sneller) |
+| 🌠 Sterrenregen | Spawnkans van Rare en hoger × factor | 3.0 |
+| 🌾 Grondstoffenregen | Grondstoffen per shift × factor | 2.0 |
+| 💰 Muntregen | Chaos Coins uit werk én gevechten × factor | 2.0 |
+
+**Alleen handmatig te starten vanuit het portal** (keuze van de gebruiker). Bewust geen willekeurige automatische events: een incense die loopt terwijl er niemand online is, is puur verspild.
+
+**Effecten lopen vanzelf af.** "Is dit event actief" is puur `eindigt_op > nu`, dus er is geen achtergrondtaak nodig om iets uit te zetten en een herstart midden in een event verandert niets. De achtergrondtaak die er wél is (`cogs/events.py`) doet alleen de "voorbij"-aankondiging — als die zou sneuvelen blijft het spel gewoon kloppen.
+
+**`factor()` geeft 1.0 als er niets loopt**, zodat elke aanroeper onvoorwaardelijk kan vermenigvuldigen zonder een `if`. Cache-patroon gelijk aan `utils/balans.py`: alles in het geheugen, herladen bij opstarten en zodra de portal iets start of stopt.
+
+**De sterkte is een momentopname** bij de start, net als bij de dagopdrachten: een balanswijziging halverwege verandert niet de spelregels van een lopend event.
+
+**Grondstoffenregen mag de coins niet meeverdubbelen.** In `cogs/werk.py` werden de coins afgeleid uit `grondstof_aantal`, dus een grondstoffenregen zou er stilletjes ook een muntregen bij zijn geweest. Nu worden de coins uit de **basis**-opbrengst berekend en wordt de grondstof-factor daarna apart toegepast. Er staat een expliciete test op.
+
+**Meegenomen opruiming**: `_nieuwe_drempel()` in `cogs/vangen.py` las de spawn-interval-instellingen nog met een eigen DB-query rechtstreeks uit de `Instelling`-tabel — een overblijfsel van vóór fase 2. Nu via de balans-cache, en daardoor ook synchroon (de twee aanroepers hoefden er niets meer voor te awaiten).
+
+**Aankondigingen** gaan naar alle spawn-kanalen plus een kanaal dat je per event kiest in het portal (verzoek van de gebruiker: "spawn kanaal en kanaal naar keuze, dus tijdelijk kanaal"). Fouten per kanaal worden gelogd maar stoppen de rest niet — één kanaal zonder schrijfrechten mag de aankondiging niet voor iedereen blokkeren. De einde-melding zet z'n `einde_gemeld`-vlag en commit vóór het versturen, anders zou een trage Discord-call hetzelfde event tweemaal laten afmelden.
+
+**Portal**: nieuwe tab "Chaos events" met de lopende events, een startformulier per type (duur + optioneel aankondigingskanaal) en de laatste 25 uit de geschiedenis. Lezen mag elk ingelogd lid (events zijn toch publiek aangekondigd), starten en stoppen is admin-only. Een tweede event van hetzelfde type tegelijk wordt geweigerd — `actief()` zou er toch maar één pakken en twee incenses zijn vooral verwarrend in de aankondigingen. Verschillende types naast elkaar mag wél. Stoppen zet `eindigt_op` op nu i.p.v. de rij te verwijderen, zodat de geschiedenis blijft staan en de einde-aankondiging nog gedaan wordt.
+
+Getest via nieuw `scripts/test_events.py` (neutraal zonder event, incense verlaagt de drempel echt van ~32 naar ~8 berichten, sterrenregen tilt het aandeel Rare+ van 24% naar 58%, grondstoffen en coins raken elkaar niet, een verlopen event is vanzelf niet meer actief zónder herladen, en de sterkte-momentopname) plus `test_events()` in `scripts/test_portal.py` voor de endpoints. Volledige suite (21 scripts) groen.
+
+`scripts/test_spawn_persistentie.py` viel om op de nieuwe `followup.send` in `/vang` (de nep-interactie mockte `followup` niet) — fixture aangevuld. Precies waar zo'n test voor is.
+
+**Nog open uit dit gesprek**: het zeldzame item waarmee een speler zélf een incense kan activeren. Bewust nog niet gebouwd; de gebruiker wil dat dat item heel moeilijk te krijgen is, en dat is een aparte balansvraag.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

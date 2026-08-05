@@ -66,6 +66,9 @@ def fake_interaction(user_id: int, channel_id: int) -> MagicMock:
     interaction.guild_id = GUILD
     interaction.response = AsyncMock()
     interaction.delete_original_response = AsyncMock()
+    # /vang wist z'n eigen antwoord en stuurt een follow-up zodra de vangst
+    # een dagopdracht afrondde (2026-08-05).
+    interaction.followup = AsyncMock()
     return interaction
 
 
