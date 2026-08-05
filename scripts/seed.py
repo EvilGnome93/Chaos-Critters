@@ -606,6 +606,17 @@ INSTELLINGEN = [
     ("opdracht_craften_beloning", "70", "Dagopdracht 'craft items': Chaos Coins bij voltooiing"),
     ("opdracht_zeldzaam_vangen_doel", "1", "Dagopdracht 'vang iets zeldzaams': aantal critters van Rare of hoger"),
     ("opdracht_zeldzaam_vangen_beloning", "90", "Dagopdracht 'vang iets zeldzaams': Chaos Coins bij voltooiing"),
+
+    # utils/events.py — chaos events (2026-08-05). Dit zijn de
+    # standaardwaarden: het portal vult ze voor bij het starten, maar een
+    # admin kan er per event van afwijken. Een lopend event houdt de waarde
+    # waarmee het gestart is.
+    ("event_standaard_duur_minuten", "60", "Standaardduur van een chaos-event, als het portal niets anders meegeeft"),
+    ("event_incense_sterkte", "0.25", "Incense: factor op de spawn-drempel (0.25 = viermaal zo snel een spawn)"),
+    ("event_tijd_incense_sterkte", "5", "Tijd-incense: standaard aantal minuten tussen twee spawns (geen vermenigvuldiger)"),
+    ("event_sterrenregen_sterkte", "3.0", "Sterrenregen: factor op de spawnkans van Rare en hoger"),
+    ("event_dubbele_grondstoffen_sterkte", "2.0", "Grondstoffenregen: factor op de grondstof-opbrengst per shift"),
+    ("event_dubbele_coins_sterkte", "2.0", "Muntregen: factor op Chaos Coins uit werk en gevechten"),
 ]
 
 

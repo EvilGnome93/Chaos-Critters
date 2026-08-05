@@ -27,7 +27,7 @@ from sqlalchemy import delete, select, update
 
 from cogs.vangen import _kies_random_soort, _nieuwe_drempel
 from db.engine import async_session
-from db.models import Event, Instelling, Tier
+from db.models import ActieveSpawn, Event, Instelling, Tier
 from utils import balans, events
 from utils.gevechten import currency_beloning
 
@@ -269,6 +269,95 @@ async def test_instelbare_sterkte() -> None:
     await _opruimen()
 
 
+async def test_tijd_incense() -> None:
+    """2026-08-05, verzoek van de gebruiker: spawnen op tijd i.p.v. op
+    berichten, zodat een event-kanaal niet afhankelijk is van of er net
+    iemand chat."""
+    print("\n-- Tijd-incense: spawnt op tijd, zonder chat --")
+    KANAAL = 555000000000000003
+    type_ = events.TYPES["tijd_incense"]
+
+    # De admin vult minuten in, geen vermenigvuldiger.
+    assert type_.eenheid == "minuten"
+    assert type_.naar_factor(3) == 3, "minuten horen ongewijzigd door te gaan"
+    assert type_.sterkte_tekst(3) == "3 min"
+    assert type_.sterkte_tekst(60) == "1 uur"
+    print(f"  labels: {type_.sterkte_tekst(3)}, {type_.sterkte_tekst(60)}")
+
+    async with async_session() as session:
+        await events.start(session, "tijd_incense", sterkte=3, kanaal_id=KANAAL)
+        await session.commit()
+    await events.laad()
+
+    gepland = events.tijd_spawns()
+    print(f"  geplande tijd-spawns: {gepland}")
+    assert gepland == [(KANAAL, 3.0)]
+    # Ook dit kanaal moet tijdelijk kunnen spawnen, ook al is het geen
+    # geregistreerd spawn-kanaal.
+    assert KANAAL in events.spawn_event_kanalen()
+
+    # Een tijd-incense is géén vermenigvuldiger: de berichten-drempel hoort
+    # onaangeroerd te blijven, anders zou hij dubbel werken.
+    normaal = sum(_nieuwe_drempel(999) for _ in range(TREKKINGEN)) / TREKKINGEN
+    in_kanaal = sum(_nieuwe_drempel(KANAAL) for _ in range(TREKKINGEN)) / TREKKINGEN
+    print(f"  berichten-drempel: {in_kanaal:.1f} in het event-kanaal vs. {normaal:.1f} elders")
+    assert abs(in_kanaal - normaal) < normaal * 0.25, (
+        "de tijd-incense verlaagde ook de berichten-drempel"
+    )
+
+    await _opruimen()
+    assert events.tijd_spawns() == []
+    print("Na afloop staan er geen tijd-spawns meer gepland.")
+
+
+async def test_tijd_incense_loop_spawnt(bot_stub=None) -> None:
+    """De loop zelf: spawnt de eerste keer meteen, daarna pas na het
+    interval."""
+    print("\n-- De tijd-incense-loop houdt het interval aan --")
+    from unittest.mock import AsyncMock, MagicMock
+
+    from cogs.vangen import VangenCog
+
+    KANAAL = 555000000000000004
+    kanaal = MagicMock()
+    kanaal.id = KANAAL
+    kanaal.guild = MagicMock()
+    kanaal.guild.id = 1
+    verstuurd = MagicMock()
+    verstuurd.id = 777000000000000001
+    kanaal.send = AsyncMock(return_value=verstuurd)
+    kanaal.get_partial_message = MagicMock(return_value=MagicMock(edit=AsyncMock()))
+
+    bot = MagicMock()
+    bot.get_channel = lambda cid: kanaal if cid == KANAAL else None
+    cog = VangenCog(bot=bot)
+
+    async with async_session() as session:
+        await events.start(session, "tijd_incense", sterkte=10, kanaal_id=KANAAL)
+        await session.commit()
+    await events.laad()
+    try:
+        await cog._verwerk_tijd_incenses()
+        print(f"  eerste ronde: {kanaal.send.await_count} spawn(s)")
+        assert kanaal.send.await_count == 1, "de eerste spawn hoort meteen te komen"
+
+        # Meteen nog een ronde: het interval van 10 minuten is nog niet om.
+        await cog._verwerk_tijd_incenses()
+        print(f"  meteen daarna: {kanaal.send.await_count} spawn(s) (interval nog niet om)")
+        assert kanaal.send.await_count == 1, "spawnde opnieuw binnen het interval"
+
+        # Doen alsof de laatste spawn 11 minuten geleden was.
+        cog.laatste_event_spawn[KANAAL] -= timedelta(minutes=11)
+        await cog._verwerk_tijd_incenses()
+        print(f"  na 11 minuten: {kanaal.send.await_count} spawn(s)")
+        assert kanaal.send.await_count == 2
+    finally:
+        async with async_session() as session:
+            await session.execute(delete(ActieveSpawn).where(ActieveSpawn.channel_id == KANAAL))
+            await session.commit()
+        await _opruimen()
+
+
 async def test_onbekend_type_wordt_geweigerd() -> None:
     print("\n-- Een onbekend event-type is een harde fout --")
     async with async_session() as session:
@@ -294,6 +383,8 @@ async def main() -> None:
         await test_server_breed_geldt_ook_per_kanaal()
         await test_niet_spawn_gebonden_negeert_kanaal()
         await test_instelbare_sterkte()
+        await test_tijd_incense()
+        await test_tijd_incense_loop_spawnt()
         await test_onbekend_type_wordt_geweigerd()
         print("\nAlle checks geslaagd.")
     finally:

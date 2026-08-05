@@ -706,11 +706,17 @@
               <label>Duur in minuten</label>
               <input type="number" min="1" max="10080" data-veld="duur_minuten" value="${d.standaard_duur_minuten}" />
             </div>
+            ${t.eenheid === 'minuten' ? `
+            <div class="field">
+              <label>Minuten per spawn</label>
+              <input type="number" step="1" min="1" max="1440" data-veld="sterkte" value="${t.sterkte_zichtbaar}" />
+              <div class="field-hint">Lager = vaker een critter.</div>
+            </div>` : `
             <div class="field">
               <label>Vermenigvuldiger</label>
-              <input type="number" step="0.5" min="1" max="50" data-veld="sterkte" value="${t.sterkte_zichtbaar}" />
-              <div class="field-hint">${t.omgekeerd ? 'Hoger = sneller spawnen.' : 'Hoger = groter effect.'}</div>
-            </div>
+              <input type="number" step="0.5" min="1" max="30" data-veld="sterkte" value="${t.sterkte_zichtbaar}" />
+              <div class="field-hint">${t.omgekeerd ? 'Hoger = sneller spawnen. Boven ~27x staat de drempel al op 1 bericht.' : 'Hoger = groter effect.'}</div>
+            </div>`}
             ${t.spawn_gebonden ? `
             <div class="field">
               <label>Geldt in</label>

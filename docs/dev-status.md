@@ -491,6 +491,20 @@ Verdere gevolgen van per-kanaal:
 
 Vier nieuwe tests in `scripts/test_events.py` (kanaal-gebonden event lekt niet naar andere kanalen, server-breed geldt overal, muntregen negeert een kanaalkeuze, sterkte-omrekening heen en terug) plus uitbreiding van `test_events()` in `test_portal.py`. Suite (21 scripts) groen.
 
+### Tijd-incense: spawnen op de klok (2026-08-05, verzoek van de gebruiker)
+
+Aanleiding was een rekenvraag van de gebruiker ("om hoeveel min zou er een spawn zijn met x50?"). Antwoord: bij x50 is de drempel al geplakt op het minimum van 1 bericht, dus dan spawnt er een critter bij élk bericht — en boven ~27x verandert er niets meer, want `max(1, round(...))` bijt daar. Erger nog: bij 1 bericht per spawn vervangt elke nieuwe spawn de vorige vóórdat iemand `/vang` kan typen, dus je vángt er dan júist minder.
+
+Daaruit volgde het verzoek: een incense-variant die **op tijd** spawnt in plaats van op berichten, met **minuten per spawn** als invoer ("is makkelijker voor ze"). Nieuw type `tijd_incense` (⏱️), sterkte 5 minuten standaard.
+
+Dat maakte een tweede eenheid nodig: `EventType.eenheid` is nu `"factor"` of `"minuten"`. `sterkte_tekst()` toont respectievelijk "8x" of "5 min" (en "1 uur" bij ronde uren), en de portal-validatie kiest het bijpassende bereik (1–1440 minuten vs. 1–30x). Het portal-maximum voor factoren is meteen van 50 naar **30** gezet: alles daarboven is schijnprecisie.
+
+De uitvoering is één loop in `VangenCog` (`_event_spawn_loop`, elke 20 seconden) i.p.v. een taak per event: events komen en gaan via het portal, en taken bijhouden die gestart en gestopt moeten worden is nodeloos broos. De loop kijkt gewoon elke ronde welke kanalen aan de beurt zijn. `laatste_event_spawn` staat alleen in het geheugen — na een herstart is een kanaal meteen weer aan de beurt, wat hooguit één extra spawn oplevert. De stille periode (23:00–07:00) geldt hier bewust **niet**: een admin heeft dit event expliciet gestart.
+
+Een tijd-incense laat de berichten-drempel met rust; hij is geen vermenigvuldiger. Er staat een test op dat die twee niet stiekem samen gaan werken.
+
+Ook rechtgezet: de event-instellingen stonden alleen in de migratie en niet in `scripts/seed.py`, waardoor een verse database ze wél kreeg via de migratie maar de seed ze niet kende. Alle vijf toegevoegd.
+
 **Nog open uit dit gesprek**: het zeldzame item waarmee een speler zélf een incense kan activeren. Bewust nog niet gebouwd; de gebruiker wil dat dat item heel moeilijk te krijgen is, en dat is een aparte balansvraag.
 
 ## Bekende balans-issues

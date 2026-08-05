@@ -597,6 +597,7 @@ async def events_ophalen(request: web.Request) -> web.Response:
                     "sterkte_zichtbaar": round(t.naar_zichtbaar(t.sterkte()), 2),
                     "omgekeerd": t.omgekeerd,
                     "spawn_gebonden": t.spawn_gebonden,
+                    "eenheid": t.eenheid,
                     "effect": t.effect_tekst(t.sterkte()),
                 }
                 for t in events.TYPES.values()
@@ -686,14 +687,21 @@ async def event_starten(request: web.Request) -> web.Response:
             f"{type_.naam} loopt al server-breed, dus ook in dit kanaal"
         )
 
-    # De sterkte wordt ingevoerd in de zichtbare eenheid ("4x sneller"), niet
-    # als rauwe factor — die is voor een incense 0.25 en dat leest verkeerd
+    # De sterkte wordt ingevoerd in de zichtbare eenheid, niet als rauwe
+    # factor — die is voor een incense 0.25 en dat leest verkeerd
     # (2026-08-05, feedback van de gebruiker: "0.25 klinkt niet als 4x").
+    # Bij een tijd-incense is de eenheid minuten per spawn, wat voor een
+    # admin sowieso makkelijker in te schatten is dan een vermenigvuldiger.
     ruw_sterkte = data.get("sterkte")
     if ruw_sterkte in (None, ""):
         sterkte = None
+    elif type_.eenheid == "minuten":
+        sterkte = _getal(data, "sterkte", minimum=1, maximum=24 * 60)
     else:
-        zichtbaar = _getal(data, "sterkte", minimum=1, maximum=50)
+        # Boven ~27x staat de spawn-drempel al op het minimum van 1 bericht,
+        # dus hoger invullen doet niets meer. 30 als plafond houdt dat
+        # zichtbaar zonder een bruikbare waarde af te snijden.
+        zichtbaar = _getal(data, "sterkte", minimum=1, maximum=30)
         sterkte = type_.naar_factor(zichtbaar)
 
     async with async_session() as session:

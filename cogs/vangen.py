@@ -38,6 +38,12 @@ STILLE_PERIODE_START_UUR = 23
 STILLE_PERIODE_EIND_UUR = 7
 AMSTERDAM_TZ = ZoneInfo("Europe/Amsterdam")
 
+# Hoe vaak gekeken wordt of een tijd-incense aan de beurt is. Het kortste
+# interval dat een admin kan instellen is 1 minuut, dus 20 seconden geeft
+# hooguit een derde minuut speling — ruim genoeg, en het scheelt een taak
+# per lopend event.
+EVENT_SPAWN_CHECK_SECONDEN = 20
+
 
 def _in_stille_periode() -> bool:
     if config.ENVIRONMENT == "dev":
@@ -223,6 +229,11 @@ class VangenCog(commands.Cog):
         self.spawn_kanaal_ids: set[int] = set()
         self.tijd_taken: dict[int, asyncio.Task] = {}
         self.spawn_locks: dict[int, asyncio.Lock] = {}
+        # Wanneer een tijd-incense voor het laatst in dit kanaal spawnde.
+        # Alleen in het geheugen: na een herstart is een kanaal meteen weer
+        # "aan de beurt", wat hooguit één extra spawn oplevert.
+        self.laatste_event_spawn: dict[int, datetime] = {}
+        self.event_spawn_taak: asyncio.Task | None = None
 
     async def cog_load(self) -> None:
         for channel_id in await _laad_spawn_kanaal_ids():
@@ -235,9 +246,51 @@ class VangenCog(commands.Cog):
         if self.actieve_spawns:
             log.info("%d actieve spawn(s) hersteld na herstart", len(self.actieve_spawns))
 
+        self.event_spawn_taak = asyncio.create_task(self._event_spawn_loop())
+
     async def cog_unload(self) -> None:
         for taak in self.tijd_taken.values():
             taak.cancel()
+        if self.event_spawn_taak:
+            self.event_spawn_taak.cancel()
+
+    async def _event_spawn_loop(self) -> None:
+        """Spawnt op tijd tijdens een tijd-incense, los van de chat.
+
+        Eén loop voor alle lopende tijd-incenses i.p.v. een taak per event:
+        events komen en gaan via het portal, en taken bijhouden die
+        gestart/gestopt moeten worden is nodeloos broos. Deze loop kijkt
+        gewoon elke ronde welke kanalen aan de beurt zijn."""
+        try:
+            while True:
+                await asyncio.sleep(EVENT_SPAWN_CHECK_SECONDEN)
+                try:
+                    await self._verwerk_tijd_incenses()
+                except Exception:
+                    # Breed vangen: zonder dit legt één fout de tijd-spawns
+                    # permanent stil voor alle events (zelfde valkuil als bij
+                    # de werk-notificaties).
+                    log.exception("Fout bij het verwerken van tijd-incenses")
+        except asyncio.CancelledError:
+            pass
+
+    async def _verwerk_tijd_incenses(self) -> None:
+        nu = datetime.now(AMSTERDAM_TZ)
+        for kanaal_id, interval_minuten in events.tijd_spawns():
+            # None = alle spawn-kanalen; anders precies dat ene kanaal.
+            doelen = [kanaal_id] if kanaal_id is not None else list(self.spawn_kanaal_ids)
+            for doel in doelen:
+                laatste = self.laatste_event_spawn.get(doel)
+                if laatste is not None and (nu - laatste).total_seconds() < interval_minuten * 60:
+                    continue
+                channel = self.bot.get_channel(doel)
+                if channel is None:
+                    log.warning("Kan kanaal %s niet vinden voor een tijd-incense", doel)
+                    continue
+                # De stille periode geldt hier bewust níét: een admin heeft
+                # dit event expliciet gestart, dus die weet wat 'ie doet.
+                self.laatste_event_spawn[doel] = nu
+                await self._spawn(channel)
 
     def _start_tijd_trigger(self, channel_id: int) -> None:
         if channel_id in self.tijd_taken:

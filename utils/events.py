@@ -57,6 +57,11 @@ class EventType:
     # aankondiging in een willekeurig kanaal las alsof het event daar gold).
     # Werk- en gevecht-events gelden overal en hebben die uitleg niet nodig.
     spawn_gebonden: bool = False
+    # "factor" = een vermenigvuldiger (2x, 4x); "minuten" = een interval.
+    # De tijd-incense spawnt elke zoveel minuten en heeft dus geen factor
+    # (2026-08-05, verzoek van de gebruiker: "dan wil ik ook een incense
+    # optie voor tijd, dus zonder typen").
+    eenheid: str = "factor"
 
     def sterkte(self) -> float:
         return balans.get_float(f"event_{self.sleutel}_sterkte", self.standaard_sterkte)
@@ -78,7 +83,13 @@ class EventType:
     def sterkte_tekst(self, sterkte: float) -> str:
         getoond = self.naar_zichtbaar(sterkte)
         heel = round(getoond)
-        return f"{heel}x" if abs(getoond - heel) < 0.05 else f"{getoond:.1f}x"
+        rond = abs(getoond - heel) < 0.05
+        if self.eenheid == "minuten":
+            if rond and heel % 60 == 0 and heel >= 60:
+                uren = heel // 60
+                return f"{uren} uur"
+            return f"{heel} min" if rond else f"{getoond:.1f} min"
+        return f"{heel}x" if rond else f"{getoond:.1f}x"
 
     def effect_tekst(self, sterkte: float) -> str:
         return self.effect.format(sterkte=self.sterkte_tekst(sterkte))
@@ -95,6 +106,15 @@ TYPES: dict[str, EventType] = {
             0.25,
             omgekeerd=True,
             spawn_gebonden=True,
+        ),
+        EventType(
+            "tijd_incense",
+            "Tijd-incense",
+            "⏱️",
+            "Er verschijnt **elke {sterkte}** een critter, ook als er niemand chat.",
+            5,
+            spawn_gebonden=True,
+            eenheid="minuten",
         ),
         EventType(
             "sterrenregen",
@@ -194,6 +214,20 @@ def factor(sleutel: str, kanaal_id: int | None = None, standaard: float = 1.0) -
     geen effect). Elke aanroeper kan dus onvoorwaardelijk vermenigvuldigen."""
     event = actief(sleutel, kanaal_id)
     return float(event.sterkte) if event is not None else standaard
+
+
+def tijd_spawns() -> list[tuple[int | None, float]]:
+    """Lopende tijd-incenses als [(kanaal_id, interval in minuten)].
+
+    `kanaal_id` None betekent "alle spawn-kanalen"; de aanroeper
+    (VangenCog) vertaalt dat naar de kanalen die hij kent. Bewust hier
+    alleen de gegevens en geen planning: welk kanaal wanneer aan de beurt
+    is, weet de cog beter."""
+    return [
+        (e.kanaal_id, float(e.sterkte))
+        for e in actieve()
+        if e.sleutel == "tijd_incense" and float(e.sterkte) > 0
+    ]
 
 
 def spawn_event_kanalen() -> set[int]:
