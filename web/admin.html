@@ -670,10 +670,11 @@
           <div class="rule-block">
             <div class="rule-block-head">
               <span>${esc(e.emoji)} ${esc(e.naam)}</span>
-              <span class="badge">loopt tot ${new Date(e.eindigt_op + 'Z').toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</span>
+              <span class="badge">${esc(e.sterkte_label)} &middot; tot ${new Date(e.eindigt_op + 'Z').toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</span>
             </div>
             <div class="field-hint">
-              Sterkte ${e.sterkte}x${e.kanaal ? ` &middot; aangekondigd in #${esc(e.kanaal)}` : ''}
+              ${esc((e.effect || '').replace(/\*\*/g, ''))}
+              <br>Geldt in: <strong>${e.kanaal ? '#' + esc(e.kanaal) : 'overal'}</strong>${e.aankondiging_kanaal ? ` &middot; ook aangekondigd in #${esc(e.aankondiging_kanaal)}` : ''}
             </div>
             <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;" data-admin-only>
               <button class="btn btn-danger" onclick="stopEvent(${e.id}, this)">Nu stoppen</button>
@@ -697,21 +698,39 @@
         <div class="rule-block" data-sleutel="${esc(t.sleutel)}">
           <div class="rule-block-head">
             <span>${esc(t.emoji)} ${esc(t.naam)}</span>
-            <span class="badge grijs">${t.sterkte}x</span>
+            <span class="badge grijs">standaard ${esc(t.sterkte_label)}</span>
           </div>
           <div class="field-hint" style="margin-bottom:0.75rem;">${esc(t.effect.replace(/\*\*/g, ''))}</div>
-          <div class="rule-row">
+          <div class="rule-row-3">
             <div class="field">
               <label>Duur in minuten</label>
               <input type="number" min="1" max="10080" data-veld="duur_minuten" value="${d.standaard_duur_minuten}" />
             </div>
             <div class="field">
-              <label>Extra aankondigingskanaal</label>
-              <select data-veld="aankondiging_kanaal_id">
-                <option value="">— alleen de spawn-kanalen —</option>
+              <label>Vermenigvuldiger</label>
+              <input type="number" step="0.5" min="1" max="50" data-veld="sterkte" value="${t.sterkte_zichtbaar}" />
+              <div class="field-hint">${t.omgekeerd ? 'Hoger = sneller spawnen.' : 'Hoger = groter effect.'}</div>
+            </div>
+            ${t.spawn_gebonden ? `
+            <div class="field">
+              <label>Geldt in</label>
+              <select data-veld="kanaal_id">
+                <option value="">Alle spawn-kanalen</option>
                 ${kanaalOpties}
               </select>
-            </div>
+              <div class="field-hint">Kies een los kanaal om daar tijdelijk te laten spawnen, ook als het geen spawn-kanaal is.</div>
+            </div>` : `
+            <div class="field">
+              <label>Geldt in</label>
+              <input type="text" value="Overal (werk en gevechten)" disabled />
+            </div>`}
+          </div>
+          <div class="field">
+            <label>Extra aankondigingskanaal (optioneel)</label>
+            <select data-veld="aankondiging_kanaal_id">
+              <option value="">— geen extra kanaal —</option>
+              ${kanaalOpties}
+            </select>
           </div>
           <div class="save-row" style="margin-top:0.5rem;padding-top:0.75rem;">
             <button class="btn btn-add" onclick="startEvent('${esc(t.sleutel)}', this)">Starten</button>

@@ -472,6 +472,16 @@ class Event(Base):
     sterkte: Mapped[float] = mapped_column(Numeric(6, 3))
     gestart_op: Mapped[datetime] = mapped_column(server_default=func.now())
     eindigt_op: Mapped[datetime]
+    # In wélk kanaal dit event geldt; NULL = overal. Alleen zinvol voor
+    # spawn-gebonden types (incense, sterrenregen): werk en gevechten zijn
+    # niet aan een kanaal gebonden, dus die zijn altijd server-breed.
+    #
+    # Een spawn-gebonden event op een kanaal dat géén spawn-kanaal is, laat
+    # daar tijdens het event tóch critters verschijnen (2026-08-05, verzoek
+    # van de gebruiker: "om bijvoorbeeld een event kanaal te kunnen
+    # gebruiken LOS van de spawn kanalen"). Zonder dat zou een event op zo'n
+    # kanaal helemaal niets doen.
+    kanaal_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # Extra kanaal waar dit event aangekondigd is, naast de spawn-kanalen.
     # Per event te kiezen, dus NULL betekent "alleen de spawn-kanalen".
     aankondiging_kanaal_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

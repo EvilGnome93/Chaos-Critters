@@ -402,6 +402,12 @@ async def test_events(client, auth, bot) -> None:
             {"sleutel": "incense", "duur_minuten": 60, "aankondiging_kanaal_id": 12345},
             "kanaal dat de bot niet ziet",
         ),
+        (
+            {"sleutel": "incense", "duur_minuten": 60, "kanaal_id": 12345},
+            "event-kanaal dat de bot niet ziet",
+        ),
+        ({"sleutel": "incense", "duur_minuten": 60, "sterkte": 0.5}, "vermenigvuldiger onder 1"),
+        ({"sleutel": "incense", "duur_minuten": 60, "sterkte": 500}, "vermenigvuldiger 500"),
     ]
     for body, beschrijving in onzin:
         resp = await client.post("/api/events", headers=auth, json=body)
@@ -424,11 +430,18 @@ async def test_events(client, auth, bot) -> None:
     assert bot.guilds[0].text_channels[0].send.await_count >= 1, "geen aankondiging verstuurd"
     print("Aankondiging verstuurd naar het gekozen kanaal.")
 
-    # Tweede incense mag niet: verwarrend in de aankondigingen, en actief()
-    # zou er toch maar één pakken.
+    # Dit event is server-breed gestart (geen kanaal_id), dus een tweede
+    # incense botst er sowieso mee — ook eentje voor één kanaal.
     resp = await client.post("/api/events", headers=auth, json={"sleutel": "incense", "duur_minuten": 30})
     assert resp.status == 400
     print(f"Tweede incense geweigerd: {(await resp.json())['error']}")
+    resp = await client.post(
+        "/api/events",
+        headers=auth,
+        json={"sleutel": "incense", "duur_minuten": 30, "kanaal_id": str(kanaal_id)},
+    )
+    assert resp.status == 400
+    print(f"Incense in één kanaal naast een server-brede: {(await resp.json())['error']}")
 
     # Een ánder type naast een lopend event mag wél.
     resp = await client.post(
@@ -448,6 +461,35 @@ async def test_events(client, auth, bot) -> None:
     resp = await client.post("/api/events/999999/stop", headers=auth)
     assert resp.status == 400
     print(f"Onbekend event-ID geweigerd: {(await resp.json())['error']}")
+
+    # Per kanaal + eigen vermenigvuldiger (2026-08-05, verzoek van de
+    # gebruiker): de admin voert de zíchtbare waarde in ("8x sneller"), niet
+    # de rauwe factor 0.125.
+    resp = await client.post(
+        "/api/events",
+        headers=auth,
+        json={
+            "sleutel": "incense",
+            "duur_minuten": 30,
+            "sterkte": 8,
+            "kanaal_id": str(kanaal_id),
+        },
+    )
+    assert resp.status == 200, await resp.text()
+    kanaal_event_id = (await resp.json())["id"]
+    print(f"Incense in één kanaal, factor {events.factor('incense', kanaal_id)}")
+    assert abs(events.factor("incense", kanaal_id) - 0.125) < 1e-9
+    assert events.factor("incense", kanaal_id + 1) == 1.0, "het event lekt naar andere kanalen"
+    assert events.spawn_event_kanalen() == {kanaal_id}
+
+    resp = await client.get("/api/events", headers=auth)
+    lopend = next(e for e in (await resp.json())["events"] if e["id"] == kanaal_event_id)
+    print(f"Portal toont: {lopend['sterkte_label']} in #{lopend['kanaal']}")
+    assert lopend["sterkte_label"] == "8x", "het panel toont de rauwe factor i.p.v. 8x"
+    assert lopend["kanaal"] is not None
+
+    await client.post(f"/api/events/{kanaal_event_id}/stop", headers=auth)
+    assert not events.actieve()
 
 
 async def test_soorten_crud(client, auth) -> None:

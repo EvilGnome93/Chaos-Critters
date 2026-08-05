@@ -87,7 +87,7 @@ def _matcht(naam: str, soort: PetSoort) -> bool:
 
 
 async def _kies_random_soort(
-    session, *, tier_id: int | None = None, naam: str | None = None
+    session, *, tier_id: int | None = None, naam: str | None = None, kanaal_id: int | None = None
 ) -> tuple[PetSoort, Tier]:
     if naam:
         soort = await session.scalar(select(PetSoort).where(PetSoort.naam.ilike(naam.strip())))
@@ -111,7 +111,7 @@ async def _kies_random_soort(
     # Tijdens een sterrenregen wegen Rare en hoger zwaarder mee. Geen
     # normalisatie nodig: random.choices deelt zelf door de som, dus de
     # gewichten hoeven niet bij 1 op te tellen.
-    sterrenregen = events.factor("sterrenregen")
+    sterrenregen = events.factor("sterrenregen", kanaal_id)
     gewichten = [
         float(t.spawnkans) * (sterrenregen if t.id >= events.ZELDZAAM_VANAF_TIER else 1.0)
         for t in tiers
@@ -128,20 +128,21 @@ async def _kies_random_soort(
     return random.choice(soorten), tier
 
 
-def _nieuwe_drempel() -> int:
-    """Hoeveel berichten er nodig zijn tot de volgende spawn.
+def _nieuwe_drempel(kanaal_id: int | None = None) -> int:
+    """Hoeveel berichten er nodig zijn tot de volgende spawn in dit kanaal.
 
     Las tot 2026-08-05 rechtstreeks uit de Instelling-tabel met een eigen
     DB-query; nu via de balans-cache, net als alle andere balanswaarden sinds
     fase 2. Daardoor ook synchroon: er valt niets meer te awaiten.
 
-    Een lopend incense-event verlaagt de drempel met zijn factor, dus dan
-    verschijnen er veel sneller critters."""
+    Een incense verlaagt de drempel met zijn factor. Per kanaal, want een
+    incense kan aan één kanaal hangen — dan mogen de andere spawn-kanalen
+    hun normale tempo houden."""
     minimum = balans.get_int("spawn_interval_min_berichten", 25)
     maximum = balans.get_int("spawn_interval_max_berichten", 40)
     drempel = random.randint(minimum, maximum)
     # Minstens 1: een factor van 0 zou anders bij elk bericht spawnen.
-    return max(1, round(drempel * events.factor("incense")))
+    return max(1, round(drempel * events.factor("incense", kanaal_id)))
 
 
 async def _laad_spawn_kanaal_ids() -> list[int]:
@@ -269,7 +270,11 @@ class VangenCog(commands.Cog):
         self, channel: discord.abc.Messageable, *, tier_id: int | None = None, naam: str | None = None
     ) -> None:
         async with async_session() as session:
-            soort, tier = await _kies_random_soort(session, tier_id=tier_id, naam=naam)
+            # kanaal_id mee: een sterrenregen kan aan één kanaal hangen, dus
+            # de tier-weging verschilt per kanaal.
+            soort, tier = await _kies_random_soort(
+                session, tier_id=tier_id, naam=naam, kanaal_id=channel.id
+            )
         await self._stuur_spawn_embed(channel, soort, tier)
 
     def _lock_voor(self, channel_id: int) -> asyncio.Lock:
@@ -342,23 +347,34 @@ class VangenCog(commands.Cog):
             "gevangen",
         )
 
+    def _mag_spawnen(self, channel_id: int) -> bool:
+        """Een vast spawn-kanaal, óf een kanaal waar nu een spawn-gebonden
+        event loopt.
+
+        Dat tweede maakt een tijdelijk event-kanaal mogelijk los van de vaste
+        spawn-kanalen (2026-08-05, verzoek van de gebruiker): tijdens het
+        event verschijnen er critters, en zodra het afloopt houdt dat vanzelf
+        weer op — er hoeft niets opgeruimd te worden."""
+        return channel_id in self.spawn_kanaal_ids or channel_id in events.spawn_event_kanalen()
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        if message.author.bot or message.channel.id not in self.spawn_kanaal_ids:
+        if message.author.bot or not self._mag_spawnen(message.channel.id):
             return
 
-        aantal = self.berichten_tellers.get(message.channel.id, 0) + 1
-        drempel = self.drempels.get(message.channel.id)
+        kanaal_id = message.channel.id
+        aantal = self.berichten_tellers.get(kanaal_id, 0) + 1
+        drempel = self.drempels.get(kanaal_id)
         if drempel is None:
-            drempel = _nieuwe_drempel()
-            self.drempels[message.channel.id] = drempel
+            drempel = _nieuwe_drempel(kanaal_id)
+            self.drempels[kanaal_id] = drempel
 
         if aantal >= drempel:
-            self.berichten_tellers[message.channel.id] = 0
-            self.drempels[message.channel.id] = _nieuwe_drempel()
+            self.berichten_tellers[kanaal_id] = 0
+            self.drempels[kanaal_id] = _nieuwe_drempel(kanaal_id)
             await self._spawn(message.channel)
         else:
-            self.berichten_tellers[message.channel.id] = aantal
+            self.berichten_tellers[kanaal_id] = aantal
 
     @app_commands.command(name="vang", description="Vang de pet die nu gespawnd is in dit kanaal")
     @app_commands.describe(naam="De naam van de gespawnde pet-soort")

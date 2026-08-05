@@ -204,10 +204,16 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
         "🌠 **Sterrenregen** — flink meer kans dat een spawn Rare of hoger is.\n"
         "🌾 **Grondstoffenregen** — voltooide shifts leveren meer grondstoffen op.\n"
         "💰 **Muntregen** — meer Chaos Coins uit werken en gevechten.\n\n"
-        "Elk event wordt aangekondigd in de spawn-kanalen, met erbij hoe lang het nog duurt. "
-        "Er kunnen er meerdere tegelijk lopen, want ze raken elk een ander deel van het spel. "
-        "Een grondstoffenregen verdubbelt trouwens **alleen** je grondstoffen en niet je Chaos "
-        "Coins, daar is de muntregen voor.",
+        "**Let op waar een event geldt.** Een Incense of Sterrenregen kan voor alle spawn-kanalen "
+        "tegelijk lopen, maar ook voor **één specifiek kanaal** — bijvoorbeeld een tijdelijk "
+        "event-kanaal waar normaal helemaal niet gespawnd wordt. In dat geval staat er expliciet "
+        "bij in welk kanaal het geldt, en verschijnen de critters ook alleen daar. "
+        "Grondstoffenregen en Muntregen gelden altijd overal, want werken en vechten hangen niet "
+        "aan een kanaal.\n\n"
+        "In de aankondiging staat hoe lang het event nog duurt en hoe sterk het is. Er kunnen er "
+        "meerdere tegelijk lopen, want ze raken elk een ander deel van het spel. Een "
+        "grondstoffenregen verdubbelt trouwens **alleen** je grondstoffen en niet je Chaos Coins, "
+        "daar is de muntregen voor.",
         [
             "Geen commando nodig, events gelden automatisch zolang ze lopen",
             "Lopende events zijn ook te zien op critters.casualchaos.nl",

@@ -585,7 +585,18 @@ async def events_ophalen(request: web.Request) -> web.Response:
                     "sleutel": t.sleutel,
                     "naam": t.naam,
                     "emoji": t.emoji,
+                    # `sterkte` is de rauwe factor (voor een incense 0.25);
+                    # `sterkte_label` is wat een mens ervan moet begrijpen
+                    # ("4x", want de drempel gaat juist omláág). Het panel
+                    # toont het label, niet het rauwe getal.
                     "sterkte": t.sterkte(),
+                    "sterkte_label": t.sterkte_tekst(t.sterkte()),
+                    # Voorvulling voor het invoerveld: hetzelfde getal als in
+                    # het label, maar zonder de "x" zodat het in een
+                    # number-input past.
+                    "sterkte_zichtbaar": round(t.naar_zichtbaar(t.sterkte()), 2),
+                    "omgekeerd": t.omgekeerd,
+                    "spawn_gebonden": t.spawn_gebonden,
                     "effect": t.effect_tekst(t.sterkte()),
                 }
                 for t in events.TYPES.values()
@@ -598,10 +609,25 @@ async def events_ophalen(request: web.Request) -> web.Response:
                     "naam": events.TYPES[e.sleutel].naam if e.sleutel in events.TYPES else e.sleutel,
                     "emoji": events.TYPES[e.sleutel].emoji if e.sleutel in events.TYPES else "❓",
                     "sterkte": float(e.sterkte),
+                    "sterkte_label": (
+                        events.TYPES[e.sleutel].sterkte_tekst(float(e.sterkte))
+                        if e.sleutel in events.TYPES
+                        else f"{float(e.sterkte)}x"
+                    ),
+                    # Zin die uitlegt wat dit event dóét, met de sterkte
+                    # waarmee het gestart is (niet de huidige instelling).
+                    "effect": (
+                        events.TYPES[e.sleutel].effect_tekst(float(e.sterkte))
+                        if e.sleutel in events.TYPES
+                        else ""
+                    ),
                     "actief": e.eindigt_op > nu,
                     "gestart_op": e.gestart_op.isoformat(),
                     "eindigt_op": e.eindigt_op.isoformat(),
-                    "kanaal": (
+                    # Waar het event geldt (None = overal) en waar het extra
+                    # is aangekondigd; twee verschillende dingen.
+                    "kanaal": _kanaal_naam(bot, e.kanaal_id) if e.kanaal_id else None,
+                    "aankondiging_kanaal": (
                         _kanaal_naam(bot, e.aankondiging_kanaal_id)
                         if e.aankondiging_kanaal_id
                         else None
@@ -624,29 +650,60 @@ async def event_starten(request: web.Request) -> web.Response:
     sleutel = (data.get("sleutel") or "").strip()
     if sleutel not in events.TYPES:
         raise ValidatieFout(f"onbekend event-type '{sleutel}'")
+    type_ = events.TYPES[sleutel]
     duur = _getal(data, "duur_minuten", minimum=1, maximum=7 * 24 * 60, heel=True)
 
-    if events.is_actief(sleutel):
-        raise ValidatieFout(
-            f"{events.TYPES[sleutel].naam} loopt al — stop 'm eerst als je opnieuw wilt beginnen"
-        )
-
     bot = request.app["bot"]
-    kanaal_id = data.get("aankondiging_kanaal_id") or None
-    if kanaal_id is not None:
+
+    def _kanaal(veld: str) -> int | None:
+        ruw = data.get(veld) or None
+        if ruw is None:
+            return None
         try:
-            kanaal_id = int(kanaal_id)
+            kanaal_id = int(ruw)
         except (TypeError, ValueError):
-            raise ValidatieFout("ongeldig kanaal-ID")
+            raise ValidatieFout(f"ongeldig kanaal-ID bij '{veld}'")
         if bot.get_channel(kanaal_id) is None:
             raise ValidatieFout("de bot kan dit kanaal niet zien")
+        return kanaal_id
+
+    # Waar het event geldt. Alleen spawn-gebonden types kennen dit: een
+    # muntregen "in dit kanaal" bestaat niet, want gevechten en shifts hangen
+    # niet aan een kanaal.
+    kanaal_id = _kanaal("kanaal_id") if type_.spawn_gebonden else None
+
+    # Een tweede event van hetzelfde type mag niet in hetzelfde kanaal, maar
+    # wél in een ánder kanaal — dat is precies het nut van per-kanaal events
+    # (bijv. een incense in het event-kanaal terwijl er al eentje elders
+    # loopt). Een server-breed event (kanaal_id None) botst met alles van
+    # dat type, want dat overlapt per definitie.
+    if events.is_actief(sleutel, kanaal_id):
+        raise ValidatieFout(
+            f"{type_.naam} loopt hier al — stop 'm eerst als je opnieuw wilt beginnen"
+        )
+    if kanaal_id is not None and events.is_actief(sleutel):
+        raise ValidatieFout(
+            f"{type_.naam} loopt al server-breed, dus ook in dit kanaal"
+        )
+
+    # De sterkte wordt ingevoerd in de zichtbare eenheid ("4x sneller"), niet
+    # als rauwe factor — die is voor een incense 0.25 en dat leest verkeerd
+    # (2026-08-05, feedback van de gebruiker: "0.25 klinkt niet als 4x").
+    ruw_sterkte = data.get("sterkte")
+    if ruw_sterkte in (None, ""):
+        sterkte = None
+    else:
+        zichtbaar = _getal(data, "sterkte", minimum=1, maximum=50)
+        sterkte = type_.naar_factor(zichtbaar)
 
     async with async_session() as session:
         event = await events.start(
             session,
             sleutel,
             duur_minuten=duur,
-            aankondiging_kanaal_id=kanaal_id,
+            sterkte=sterkte,
+            kanaal_id=kanaal_id,
+            aankondiging_kanaal_id=_kanaal("aankondiging_kanaal_id"),
             gestart_door=request["sessie"].discord_id,
         )
         await session.commit()
@@ -656,11 +713,14 @@ async def event_starten(request: web.Request) -> web.Response:
     # Aankondigen ná de commit: de portal draait in hetzelfde proces als de
     # bot, dus dit is een gewone aanroep. Als Discord hapert loopt het event
     # gewoon door, alleen de melding ontbreekt dan.
-    from cogs.events import kondig_aan
+    from cogs.events import kondig_start_aan
 
-    await kondig_aan(bot, event, events.start_tekst(event))
+    await kondig_start_aan(bot, event)
 
-    log.info("Portal: event '%s' gestart voor %d minuten", sleutel, duur)
+    log.info(
+        "Portal: event '%s' gestart voor %d minuten (kanaal %s, sterkte %s)",
+        sleutel, duur, kanaal_id or "overal", event.sterkte,
+    )
     return web.json_response({"ok": True, "id": event.id})
 
 

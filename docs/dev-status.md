@@ -469,6 +469,28 @@ Getest via nieuw `scripts/test_events.py` (neutraal zonder event, incense verlaa
 
 `scripts/test_spawn_persistentie.py` viel om op de nieuwe `followup.send` in `/vang` (de nep-interactie mockte `followup` niet) — fixture aangevuld. Precies waar zo'n test voor is.
 
+### Herzien nog dezelfde dag: per kanaal + instelbare sterkte
+
+Drie stukken feedback direct na de eerste versie, allemaal verwerkt:
+
+**1. "0.25 klinkt niet als 4x".** Het portal toonde de rauwe factor. Die is voor een incense 0.25 (de drempel gaat maal 0.25) terwijl je "4x sneller" bedoelt. Overal waar een mens het getal ziet of intypt wordt nu de **zichtbare** vorm gebruikt (`naar_zichtbaar()` / `naar_factor()` op `EventType`); alleen de database en de berekeningen werken met de rauwe factor.
+
+**2. Aankondiging maakte niet duidelijk waar het gold.** De tekst zei "in de spawn-kanalen" zonder te noemen welke, dus in een willekeurig kanaal las het alsof het event daar gold. Spawn-gebonden events noemen nu expliciet de kanalen met aanklikbare mentions; niet-spawn-gebonden events zeggen "geldt overal, voor iedereen".
+
+**3. Spawn-events moesten per kanaal** ("ik wil per kanaal kunnen kiezen, om bijvoorbeeld een event kanaal te kunnen gebruiken LOS van de spawn kanalen"). Dat is de grootste wijziging: `Event.kanaal_id` (migratie `30e55efa5f53`, NULL = overal), en `factor()`/`actief()`/`is_actief()` nemen nu een `kanaal_id`.
+
+Bij die derde zat één keuze die niet expliciet gesteld was en die ik zelf gemaakt heb: **een spawn-gebonden event op een kanaal dat géén spawn-kanaal is, laat daar tijdens het event tóch critters verschijnen** (`VangenCog._mag_spawnen()` kijkt naar `events.spawn_event_kanalen()`). Zonder dat zou een event op zo'n kanaal helemaal niets doen, en dan is "los van de spawn-kanalen" betekenisloos. Het houdt vanzelf weer op als het event afloopt — er valt niets op te ruimen.
+
+Verdere gevolgen van per-kanaal:
+
+- `factor()` **zonder** `kanaal_id` matcht alleen server-brede events. Bewust: de coins-berekening bij een gevecht kent geen kanaal en hoort niet ineens onder een event te vallen dat aan één spawn-kanaal hangt.
+- `start()` negeert `kanaal_id` voor niet-spawn-gebonden types — een muntregen "in dit kanaal" bestaat niet.
+- De aankondiging gaat bij een kanaal-gebonden event naar dát kanaal (plus het optionele extra kanaal), niet naar alle spawn-kanalen: daar gebeurt immers niets.
+- Alleen de **activiteit-trigger** (`on_message`) kijkt naar event-kanalen, niet de tijd-trigger. Die draait als taak per geregistreerd spawn-kanaal en zou aan/af moeten worden gezet per event. Bewust niet gedaan: in een event-kanaal wordt juist gechat, en een incense hoort activiteit te belonen.
+- Botsingsregel: hetzelfde type twee keer in hetzelfde kanaal mag niet, en een kanaal-event naast een server-breed event van dat type ook niet (dat overlapt per definitie). Verschillende types naast elkaar wél.
+
+Vier nieuwe tests in `scripts/test_events.py` (kanaal-gebonden event lekt niet naar andere kanalen, server-breed geldt overal, muntregen negeert een kanaalkeuze, sterkte-omrekening heen en terug) plus uitbreiding van `test_events()` in `test_portal.py`. Suite (21 scripts) groen.
+
 **Nog open uit dit gesprek**: het zeldzame item waarmee een speler zélf een incense kan activeren. Bewust nog niet gebouwd; de gebruiker wil dat dat item heel moeilijk te krijgen is, en dat is een aparte balansvraag.
 
 ## Bekende balans-issues

@@ -35,13 +35,23 @@ log = logging.getLogger("chaos_critters")
 EINDE_CHECK_INTERVAL_SECONDEN = 15 if config.ENVIRONMENT == "dev" else 120
 
 
-async def _doelkanalen(bot: commands.Bot, extra_kanaal_id: int | None) -> list[discord.abc.Messageable]:
-    """Alle spawn-kanalen plus het bij dit event gekozen kanaal, zonder
-    dubbelen (het gekozen kanaal kan zelf ook een spawn-kanaal zijn)."""
+async def _spawn_kanaal_ids() -> list[int]:
     async with async_session() as session:
-        ids = list((await session.execute(select(SpawnKanaal.channel_id))).scalars().all())
-    if extra_kanaal_id is not None and extra_kanaal_id not in ids:
-        ids.append(extra_kanaal_id)
+        return list((await session.execute(select(SpawnKanaal.channel_id))).scalars().all())
+
+
+async def _doelkanalen(bot: commands.Bot, event: Event) -> list[discord.abc.Messageable]:
+    """Waar dit event aangekondigd wordt.
+
+    Een event dat aan één kanaal hangt wordt daar aangekondigd — níét in alle
+    spawn-kanalen, want daar gebeurt niets. Een server-breed event gaat wél
+    naar alle spawn-kanalen. In beide gevallen komt het optionele extra
+    aankondigingskanaal erbij (2026-08-05, verzoek van de gebruiker: "spawn
+    kanaal en kanaal naar keuze"). Zonder dubbelen: het gekozen kanaal kan
+    zelf ook een spawn-kanaal zijn."""
+    ids = [event.kanaal_id] if event.kanaal_id is not None else await _spawn_kanaal_ids()
+    if event.aankondiging_kanaal_id is not None and event.aankondiging_kanaal_id not in ids:
+        ids.append(event.aankondiging_kanaal_id)
 
     kanalen = []
     for kanaal_id in ids:
@@ -53,7 +63,23 @@ async def _doelkanalen(bot: commands.Bot, extra_kanaal_id: int | None) -> list[d
     return kanalen
 
 
-async def kondig_aan(bot: commands.Bot, event: Event, tekst: str) -> None:
+async def kondig_start_aan(bot: commands.Bot, event: Event) -> None:
+    """Startbericht. De tekst noemt bij spawn-gebonden events expliciet wáár
+    het geldt, zodat een lezer in een ander kanaal niet denkt dat er hier
+    critters gaan verschijnen (2026-08-05, feedback van de gebruiker)."""
+    spawn_ids = await _spawn_kanaal_ids()
+    await _verstuur(
+        bot, event, events.start_tekst(event, spawn_ids), await _doelkanalen(bot, event)
+    )
+
+
+async def kondig_einde_aan(bot: commands.Bot, event: Event) -> None:
+    await _verstuur(bot, event, events.einde_tekst(event), await _doelkanalen(bot, event))
+
+
+async def _verstuur(
+    bot: commands.Bot, event: Event, tekst: str, kanalen: list[discord.abc.Messageable]
+) -> None:
     """Stuurt één bericht naar elk doelkanaal. Fouten per kanaal worden
     gelogd maar stoppen de rest niet: één kanaal zonder schrijfrechten mag
     de aankondiging niet voor iedereen blokkeren."""
@@ -63,7 +89,7 @@ async def kondig_aan(bot: commands.Bot, event: Event, tekst: str) -> None:
         description=tekst,
         color=discord.Color.purple(),
     )
-    for kanaal in await _doelkanalen(bot, event.aankondiging_kanaal_id):
+    for kanaal in kanalen:
         try:
             await kanaal.send(embed=embed)
         except discord.HTTPException as e:
@@ -119,7 +145,7 @@ class EventsCog(commands.Cog):
             session.expunge_all()
 
         for event in afgelopen:
-            await kondig_aan(self.bot, event, events.einde_tekst(event))
+            await kondig_einde_aan(self.bot, event)
             log.info("Event '%s' afgelopen en afgemeld", event.sleutel)
         # De cache kan nu opgeruimd worden; actieve() filtert al op tijd, maar
         # zo blijft er niets onnodig in het geheugen hangen.
