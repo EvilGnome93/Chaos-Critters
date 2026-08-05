@@ -41,6 +41,7 @@ TEST_COMMANDOS_PER_CATEGORIE = [
         ("/clan-leaderboard", "Top 10 clans op cumulatieve werk-opbrengst."),
     ]),
     ("ℹ️ Overig", [
+        ("/opdrachten", "Bekijk je drie dagelijkse opdrachten en hoe ver je bent. Elke afgeronde opdracht levert Chaos Coins op, alle drie afronden geeft een extra bonus. Nieuwe opdrachten elke nacht."),
         ("/wiki", "Blader door uitleg van hoe de spelmechanieken werken (vangen, elementen, verzorgen, werken, vechten, ranked, PvP, traden, clans, leveling), gegroepeerd per onderwerp."),
     ]),
     ("🔧 Admin", [

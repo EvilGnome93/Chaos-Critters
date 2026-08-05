@@ -181,6 +181,21 @@ WIKI_ONDERWERPEN: list[tuple[str, str, list[str]]] = [
             "`/critterdex`, `/info <soort>`: basisstats per soort (vóór levels/motivatie)",
         ],
     ),
+    (
+        "📋 Dagelijkse opdrachten",
+        "Elke dag krijg je **drie willekeurige opdrachten** uit een grotere pool: dingen als critters "
+        "vangen, shifts voltooien, gevechten winnen, je pets voeren of items craften. Iedereen krijgt "
+        "z'n eigen set, dus je buurman heeft waarschijnlijk andere opdrachten dan jij.\n\n"
+        "Voortgang telt **automatisch** mee zodra je iets doet, je hoeft niets te starten of op te "
+        "halen. Zodra een opdracht vol is worden de Chaos Coins meteen bijgeschreven, en heb je alle "
+        "drie af dan komt daar nog een **bonus** bovenop.\n\n"
+        "De opdrachten resetten elke nacht op een vast moment voor iedereen tegelijk. Bewust niet om "
+        "middernacht, maar een paar uur later, zodat je bij een late sessie niet halverwege je "
+        "voortgang kwijtraakt. In `/opdrachten` zie je precies wanneer de volgende set komt.",
+        [
+            "`/opdrachten`: je drie opdrachten van vandaag, met voortgangsbalk en beloningen",
+        ],
+    ),
 ]
 
 

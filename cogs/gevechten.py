@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from cogs.werk import _format_duur, _neem_uit_inventaris, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, Instelling, InventarisItem, Item, PetSoort, PetStatus, Speler, Tier
+from utils import opdrachten
 from utils.afbeeldingen import soort_afbeeldingen
 from utils.discord_log import fmt_log, send_log
 from utils.elementen import elementen_modifier, emoji as element_emoji, soort_element_emojis, soort_elementen
@@ -774,6 +775,7 @@ class VechtView(discord.ui.View):
         delta = 0
         tegen_delta = None
         beloning = 0
+        opdrachten_voltooid: list = []
         # Vriendschappelijk: geen MMR/beloning/XP, dus ook helemaal geen
         # DB-writes hier — puur voor de lol, geen invloed op ranked-stats.
         if not self.is_friendly:
@@ -848,6 +850,17 @@ class VechtView(discord.ui.View):
                         ):
                             await _voeg_toe_aan_inventaris(session, winnaar_id, item_obj.id, aantal)
 
+                # Dagopdracht "win gevechten" (2026-08-05). Alleen de winnaar,
+                # en alleen hier: dit blok zit al achter `not self.is_friendly`,
+                # dus vriendschappelijke potjes tellen net zomin mee als voor
+                # MMR/beloning/XP. Bij een PvE-verlies is er geen winnaar om
+                # bij te schrijven (tegenstander_id is dan None).
+                opdracht_winnaar_id = self.eigen_id if gewonnen else self.tegenstander_id
+                if opdracht_winnaar_id is not None:
+                    opdrachten_voltooid = await opdrachten.verhoog(
+                        session, opdracht_winnaar_id, "winnen"
+                    )
+
                 await session.commit()
 
         # Bij PvP kijken beide spelers naar hetzelfde bericht — "jij" is dan
@@ -887,6 +900,12 @@ class VechtView(discord.ui.View):
             beschrijving += ", ".join(delen) + "\n"
         if nieuwe_levels_eigen:
             beschrijving += "\n✨ " + ", ".join(f"{naam} bereikte level {level}!" for naam, level in nieuwe_levels_eigen)
+        if opdrachten_voltooid:
+            winnaar_ref = eigen_ref if gewonnen else tegen_ref
+            beschrijving += "".join(
+                opdrachten.voltooiing_tekst_derde_persoon(o, bedrag, winnaar_ref)
+                for o, bedrag in opdrachten_voltooid
+            )
 
         await self.message.edit(
             embed=discord.Embed(

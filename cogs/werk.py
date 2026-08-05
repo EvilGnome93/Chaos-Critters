@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 import config
 from db.engine import async_session
 from db.models import Clan, Huisdier, Instelling, InventarisItem, Item, PetStatus, Speler, Werkplek
-from utils import balans
+from utils import balans, opdrachten
 from utils.discord_log import fmt_log, send_log
 from utils.leveling import xp_per_effectieve_uur, voeg_xp_toe
 from utils.stats import inzetbaarheid_probleem, sync_stats_met_voerbak
@@ -385,17 +385,21 @@ class WerkCog(commands.Cog):
         huisdier.werk_cyclus = None
         huisdier.werk_gestart_op = None
         huisdier.werk_kanaal_id = None
+        # In dezelfde transactie als de opbrengst: "de shift is afgerond" en
+        # "de dagopdracht telde mee" horen bij elkaar (2026-08-05).
+        voltooid = await opdrachten.verhoog(session, interaction.user.id, "werken")
         await session.commit()
 
         level_up_tekst = ""
         if nieuwe_levels:
             level_up_tekst = f"\n✨ **{huisdier.naam}** bereikte level {nieuwe_levels[-1]}!"
         bonus_tekst = f"\n🍀 Bonus: {_bonus_grondstof_aantal()}x {bonus_item.naam}!" if bonus_item else ""
+        opdracht_tekst = "".join(opdrachten.voltooiing_tekst(o, bedrag) for o, bedrag in voltooid)
 
         await interaction.response.send_message(
             f"🧺 **{huisdier.naam}** is klaar met werken in {werkplek_obj.type}! "
             f"Opbrengst: {grondstof_aantal}x {item.naam}, {currency_aantal} Chaos Coins, {xp_gewonnen} XP."
-            f"{bonus_tekst}{level_up_tekst}",
+            f"{bonus_tekst}{level_up_tekst}{opdracht_tekst}",
             ephemeral=True,
         )
         await send_log(

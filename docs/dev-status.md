@@ -412,6 +412,32 @@ Toegevoegd aan `scripts/seed.py` (`PET_SOORTEN` + `ELEMENT_MAP`) en tegen de dev
 
 `scripts/test_critterdex.py` had de paginering-check hardcoded op "150 soorten" staan; dat brak meteen zichtbaar bij deze uitbreiding (precies het soort regressie die je wil zien falen). Gefixt door het aantal soorten in de test zelf op te vragen in plaats van hard te coderen — telt voortaan automatisch mee bij toekomstige lichtingen. Volledige suite gecheckt: alleen de twee al langer bekende, hier ongerelateerde issues (`test_vangen.py` kapot door een verwijderde functie, `test_pvp_namen.py`'s harmless "unclosed session"-warning na een geslaagde run) waren nog aanwezig.
 
+## Dagelijkse opdrachten (2026-08-05, verzoek van de gebruiker)
+
+Aanleiding: het spel had veel systemen maar geen dagelijkse *richting* — een speler logt in en moet zelf bedenken wat te doen. Ook stond "dagelijkse activiteit/login bonus" al sinds het begin in de brief (sectie 13) als currency-bron zonder ooit gebouwd te zijn.
+
+Elke speler krijgt **drie willekeurige opdrachten** uit een pool van zes, die op een vast tijdstip voor iedereen tegelijk resetten. Elke afgeronde opdracht geeft Chaos Coins, alle drie geeft een bonus. Nieuw commando `/opdrachten` (ephemeral, met voortgangsbalk), nieuwe cog `cogs/opdrachten.py`, logica in `utils/opdrachten.py`.
+
+**De belangrijkste ontwerpkeuze: voortgang ophogen, niet afleiden.** De verleiding was om de bestaande tellers te gebruiken (`Speler.shiften_voltooid`, `pvp_gewonnen`, het aantal `Huisdier`-rijen). Dat gaat mis voor "vang 3 critters": `/critter-stats` telt je *huidige* pets, dus een `/release` zou de voortgang weer omlaag brengen. Nu houdt elke opdracht z'n eigen voortgang bij, opgehoogd op het moment van de gebeurtenis — niet te omzeilen en onafhankelijk van wat je daarna met de pet doet.
+
+**Vaste dag, maar niet om middernacht.** De dag draait om `opdracht_reset_uur` (standaard 04:00 Amsterdam): wie 's avonds laat speelt raakt zo niet midden in een sessie z'n voortgang kwijt. Bewust een vast moment voor iedereen i.p.v. het rollende 24-uursvenster dat de ranked-pogingen gebruiken — bij opdrachten wil je dat spelers dezelfde "dag" delen.
+
+**Toewijzing is lui**: de drie opdrachten worden aangemaakt bij de eerste actie of `/opdrachten` van die dag. Geen achtergrondtaak die voor álle spelers rijen zit te maken, ook voor wie die dag niet speelt.
+
+**De "alle drie af"-bonus heeft geen eigen kolom of tabel.** Die wordt uitbetaald op het moment dat de laatste opdracht van `voltooid_op = NULL` naar een tijdstip gaat. Die overgang gebeurt per definitie precies één keer, dus dubbel uitbetalen kan niet — een `bonus_uitbetaald`-vlag zou alleen maar een tweede bron van waarheid zijn.
+
+**`doel` en `beloning` zijn een momentopname** bij het toewijzen, geen live lookup: een balanswijziging via het portal verplaatst zo niet halverwege de dag de doelpaal van een opdracht die al loopt.
+
+Increment-hooks zitten in `/vang` (+ `zeldzaam_vangen` bij tier ≥ 3), het afronden van een shift in `cogs/werk.py`, het einde van een gevecht in `cogs/gevechten.py` (alleen de winnaar, en al achter de bestaande `not is_friendly`), `/verzorg` met voeding, en de bevestigknop van `/craft`. Alle vijf in dezelfde transactie als de actie zelf, behalve craft: `_koop_item` commit daar al zelf, dus dat is een losse tweede commit — de aankoop mag niet meer afhangen van de opdracht-bijwerking. Craft telt bewust alleen via `/craft` en niet via `/shop`, ook al gebruiken beide `_koop_item`.
+
+**Opdracht-types staan hardcoded**, alleen doelen/beloningen zijn instelbaar (14 nieuwe `Instelling`-sleutels, migratie `ff40d530dd7f`). Zelfde afweging als bij de tactiek-variantie in fase 2 blok 5: elk type heeft een `verhoog()`-aanroep op de juiste plek in de code nodig, dus een rij toevoegen via het portal zou niets doen. De sleutels verschijnen vanzelf in de instellingen-tab, die alle `Instelling`-rijen toont.
+
+Elk type heeft een enkelvouds- én meervoudsvorm, want de doelen zijn aanpasbaar en Nederlandse meervouden zijn niet uniform (gevecht → gevechten, shift → shifts, keer → keer). Eén template met een losse "s" gaf "Win 1 gevechten".
+
+Getest via nieuw `scripts/test_opdrachten.py`: drie per dag en stabiel bij herhaald ophalen (anders kon je door `/opdrachten` te spammen herrollen tot je een makkelijke set had), voortgang/uitbetaling precies één keer, de bonus exact bij de laatste, een nieuwe dag met de oude nog intact, de dag-grens op het resetuur i.p.v. middernacht, een onbekende sleutel als harde fout, en de cog zelf via een nagebootste interactie. Volledige suite (19 scripts) groen.
+
+**Volgende stap, al afgesproken**: chaos events — tijdelijke server-brede modifiers, te starten vanuit het portal. Inclusief een **incense-event** naar Pokémon-voorbeeld waarbij de spawn-timer flink omlaag gaat; dat past goed omdat spawns op berichten-tellers werken (`spawn_interval_min_berichten` / `spawn_interval_max_berichten`) die sinds fase 2 al als instelling in de database staan — een incense is dus letterlijk die twee tijdelijk verlagen. Daarna eventueel een **zeldzaam item** waarmee een speler zelf een incense kan activeren; dat item moet expliciet heel moeilijk te krijgen zijn.
+
 ## Bekende balans-issues
 
 - ~~**Dagelijkse ranked-limiet blijft makkelijk te omzeilen met currency uit winst**~~ **Deels aangepakt (2026-07-27)**: "Extra match token" ging van 50 naar 150 Chaos Coins, plus kost nu 30x Maanschijnkristal + 2x Edelsteen (verder verhoogd tijdens de balans-audit, 2026-07-28) — een token kost dus niet meer alleen wat losse winst-currency, maar ook stevige, gerichte werk-tijd op Nachtwacht. Basisoorzaak (winnen levert currency op, currency koopt tokens) blijft bestaan — dit is frictie verhogen, geen structurele fix.

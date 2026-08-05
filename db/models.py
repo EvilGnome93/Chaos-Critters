@@ -1,7 +1,7 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, Numeric, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Date, Enum, ForeignKey, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -402,3 +402,44 @@ class PortalSessie(Base):
     is_admin: Mapped[bool] = mapped_column(default=False)
     verloopt_op: Mapped[datetime]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SpelerOpdracht(Base):
+    """Eén dagelijkse opdracht van één speler op één opdracht-dag
+    (2026-08-05, verzoek van de gebruiker: dagelijkse opdrachten als
+    dagelijkse richting voor spelers).
+
+    **Voortgang wordt opgehoogd op het moment zelf** (in /vang, bij het
+    afronden van een shift, bij het einde van een gevecht, ...) en niet
+    afgeleid uit de bestaande tellers. Dat moest wel: `/critter-stats` telt
+    je *huidige* pets, dus een `/release` zou een opdracht "vang 3 critters"
+    weer laten dalen. Ophogen-bij-de-gebeurtenis is bovendien niet te
+    omzeilen en werkt onafhankelijk van wat je daarna met de pet doet.
+
+    `doel` en `beloning` zijn een **momentopname** bij het toewijzen: een
+    balanswijziging via het admin panel verplaatst zo niet halverwege de dag
+    de doelpaal van een opdracht die al loopt.
+
+    De bonus voor "alle drie af" heeft bewust geen eigen kolom of tabel: die
+    wordt uitbetaald op het moment dat de laatste opdracht van de dag van
+    `voltooid_op = NULL` naar een tijdstip gaat. Die overgang gebeurt per
+    definitie precies één keer, dus dubbel uitbetalen kan niet."""
+
+    __tablename__ = "speler_opdrachten"
+    __table_args__ = (
+        UniqueConstraint("speler_id", "dag", "sleutel", name="uq_speler_opdracht_dag_sleutel"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    speler_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("spelers.discord_id", ondelete="CASCADE")
+    )
+    # De "opdracht-dag", niet de kalenderdag: de dag draait om het ingestelde
+    # resetuur (balans-sleutel `opdracht_reset_uur`), zodat wie 's avonds laat
+    # speelt niet om middernacht zijn voortgang kwijtraakt.
+    dag: Mapped[date] = mapped_column(Date)
+    sleutel: Mapped[str] = mapped_column(String(32))
+    voortgang: Mapped[int] = mapped_column(default=0)
+    doel: Mapped[int]
+    beloning: Mapped[int]
+    voltooid_op: Mapped[datetime | None] = mapped_column(nullable=True)

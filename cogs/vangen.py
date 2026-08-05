@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 import config
 from db.engine import async_session
 from db.models import ActieveSpawn, Huisdier, Instelling, PetSoort, Speler, SpawnKanaal, Tier
+from utils import opdrachten
 from utils.checks import is_admin
 from utils.discord_log import fmt_log, send_log
 
@@ -383,6 +384,14 @@ class VangenCog(commands.Cog):
                 werk_genen=_met_variantie(soort.werk_basis),
             )
             session.add(huisdier)
+            # Dagopdrachten in dezelfde transactie als de vangst (2026-08-05).
+            # Bewust ophogen bij de gebeurtenis i.p.v. Huisdier-rijen tellen:
+            # een latere /release zou die telling weer omlaag brengen.
+            voltooid = await opdrachten.verhoog(session, interaction.user.id, "vangen")
+            if soort.tier_id >= opdrachten.ZELDZAAM_VANAF_TIER:
+                voltooid += await opdrachten.verhoog(
+                    session, interaction.user.id, "zeldzaam_vangen"
+                )
             await session.commit()
             await session.refresh(huisdier)
 
@@ -392,6 +401,14 @@ class VangenCog(commands.Cog):
         )
         await interaction.response.defer(ephemeral=True)
         await interaction.delete_original_response()
+        # /vang wist bewust z'n eigen antwoord (de vangst is al zichtbaar in
+        # de kanaal-embed), dus een voltooide opdracht krijgt een losse
+        # ephemeral follow-up — alleen als er echt iets af is, geen ruis.
+        if voltooid:
+            await interaction.followup.send(
+                "".join(opdrachten.voltooiing_tekst(o, bedrag) for o, bedrag in voltooid).strip(),
+                ephemeral=True,
+            )
         await send_log(
             self.bot,
             interaction.guild_id,

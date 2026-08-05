@@ -10,7 +10,7 @@ from cogs.vangen import TIER_EMOJI, TIER_KLEUREN
 from cogs.werk import _format_duur, _neem_uit_inventaris, _nu, _voeg_toe_aan_inventaris
 from db.engine import async_session
 from db.models import Huisdier, InventarisItem, Item, ItemType, PetSoort, PetStatus, Speler
-from utils import balans
+from utils import balans, opdrachten
 from utils.elementen import emoji as element_emoji, soort_element_emojis
 from utils.leveling import max_level, xp_voor_volgend_level
 from utils.stats import (
@@ -396,7 +396,20 @@ class CraftBevestigView(discord.ui.View):
 
         async with async_session() as session:
             item_obj = await session.get(Item, self.item_obj.id)
-            _, bericht = await _koop_item(session, self.speler_id, item_obj, self.aantal)
+            gelukt, bericht = await _koop_item(session, self.speler_id, item_obj, self.aantal)
+            # Dagopdracht "craft items" (2026-08-05). Losse commit, want
+            # _koop_item commit zelf al: de aankoop is dan onherroepelijk
+            # rond en mag niet meer afhangen van deze bijwerking. Bewust
+            # alleen hier en niet in _koop_item zelf — dan zou een gewone
+            # /shop-aankoop van een item mét recept ook meetellen als craften.
+            if gelukt:
+                voltooid = await opdrachten.verhoog(
+                    session, self.speler_id, "craften", self.aantal
+                )
+                bericht += "".join(
+                    opdrachten.voltooiing_tekst(o, bedrag) for o, bedrag in voltooid
+                )
+                await session.commit()
         for child in self.children:
             child.disabled = True
         await interaction.response.edit_message(content=bericht, embed=None, view=self)
@@ -490,6 +503,10 @@ class VerzorgingCog(commands.Cog):
                 )
                 return
             gebruikte_items = [_toepassen_voeding(huisdier, item) for _ in range(aantal)]
+            # Elk gegeven stuk voer telt als één keer voeren (2026-08-05):
+            # 3x in één keer geven is evenveel werk als 3x los, dus dat mag
+            # ook evenveel opleveren.
+            voltooid = await opdrachten.verhoog(session, interaction.user.id, "voeren", aantal)
             await session.commit()
 
             if item == _MYSTERIE_VOEDSEL:
@@ -497,8 +514,10 @@ class VerzorgingCog(commands.Cog):
             else:
                 extra = ""
             aantal_tekst = f"{aantal}x " if aantal > 1 else ""
+            opdracht_tekst = "".join(opdrachten.voltooiing_tekst(o, bedrag) for o, bedrag in voltooid)
             await interaction.response.send_message(
-                f"🍽️ **{huisdier.naam}** kreeg {aantal_tekst}**{item}**{extra}. Honger is nu {huisdier.honger}/100.",
+                f"🍽️ **{huisdier.naam}** kreeg {aantal_tekst}**{item}**{extra}. "
+                f"Honger is nu {huisdier.honger}/100.{opdracht_tekst}",
                 ephemeral=True,
             )
 

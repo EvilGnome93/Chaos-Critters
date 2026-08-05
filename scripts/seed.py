@@ -587,6 +587,25 @@ INSTELLINGEN = [
     # cogs/release.py
     ("release_basis_coins", "15", "Basis Chaos Coins bij /release, vóór de tier-/level-vermenigvuldiging"),
     ("bonus_item_kans", "0.15", "Kans op een bonus-grondstof bij /release"),
+
+    # utils/opdrachten.py — dagelijkse opdrachten (2026-08-05). De
+    # opdracht-types zelf liggen vast in code (elk type heeft een eigen
+    # verhoog()-aanroep op de juiste plek nodig), dus alleen deze doelen en
+    # beloningen zijn zinvol aanpasbaar.
+    ("opdracht_reset_uur", "4", "Uur (Europe/Amsterdam) waarop de dagelijkse opdrachten voor iedereen resetten"),
+    ("opdracht_bonus_alle_drie", "150", "Extra Chaos Coins wanneer alle drie de dagopdrachten af zijn"),
+    ("opdracht_vangen_doel", "3", "Dagopdracht 'vang critters': aantal te vangen critters"),
+    ("opdracht_vangen_beloning", "60", "Dagopdracht 'vang critters': Chaos Coins bij voltooiing"),
+    ("opdracht_werken_doel", "2", "Dagopdracht 'voltooi shifts': aantal af te ronden werk-cycli"),
+    ("opdracht_werken_beloning", "70", "Dagopdracht 'voltooi shifts': Chaos Coins bij voltooiing"),
+    ("opdracht_winnen_doel", "1", "Dagopdracht 'win gevechten': aantal te winnen gevechten"),
+    ("opdracht_winnen_beloning", "80", "Dagopdracht 'win gevechten': Chaos Coins bij voltooiing"),
+    ("opdracht_voeren_doel", "3", "Dagopdracht 'voer je pets': aantal keer voeren via /verzorg"),
+    ("opdracht_voeren_beloning", "40", "Dagopdracht 'voer je pets': Chaos Coins bij voltooiing"),
+    ("opdracht_craften_doel", "1", "Dagopdracht 'craft items': aantal te craften items"),
+    ("opdracht_craften_beloning", "70", "Dagopdracht 'craft items': Chaos Coins bij voltooiing"),
+    ("opdracht_zeldzaam_vangen_doel", "1", "Dagopdracht 'vang iets zeldzaams': aantal critters van Rare of hoger"),
+    ("opdracht_zeldzaam_vangen_beloning", "90", "Dagopdracht 'vang iets zeldzaams': Chaos Coins bij voltooiing"),
 ]
 
 
